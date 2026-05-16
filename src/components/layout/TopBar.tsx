@@ -24,9 +24,9 @@ export function TopBar() {
   }, [searchQuery]);
 
   return (
-    <header className="h-14 bg-surface border-b border-border flex items-center justify-between px-4">
+    <header className="h-14 bg-surface border-b border-border flex items-center gap-4 px-4">
       {/* 左侧：目录信息 */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 shrink-0">
         <div className="flex items-center gap-2 text-muted">
           <span className="material-symbols-outlined text-lg">folder</span>
           <span className="text-sm truncate max-w-[200px]">
@@ -42,8 +42,8 @@ export function TopBar() {
         )}
       </div>
 
-      {/* 中间：搜索框 */}
-      <div className="flex-1 max-w-md mx-4">
+      {/* 搜索框 */}
+      <div className="w-[min(420px,40vw)] max-w-md">
         <div className="relative">
           <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-muted text-lg">
             search
@@ -73,8 +73,15 @@ export function TopBar() {
         </div>
       </div>
 
-      {/* 右侧：操作按钮 */}
-      <div className="flex items-center gap-2">
+      {/* 操作按钮 */}
+      <div className="ml-auto flex items-center gap-2 shrink-0">
+        <IconButton
+          icon="download"
+          label="导出 Prompts"
+          onClick={() => openModal('export')}
+          variant="ghost"
+          size="sm"
+        />
         <IconButton
           icon="add"
           label="新建 Prompt (Cmd+N)"

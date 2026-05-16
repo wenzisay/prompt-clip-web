@@ -1,15 +1,16 @@
 /**
- * Prompt 创建/编辑模态框组件
+ * Prompt 创建/编辑抽屉组件
  */
 
 import { useState, useEffect } from 'react';
 import { useUIStore } from '@/stores/uiStore';
 import { usePromptStore } from '@/stores/promptStore';
 import { useFileStore } from '@/stores/fileStore';
-import { Modal } from '@/components/common';
+import { SideDrawer } from '@/components/common';
 import { TagSelect } from '@/components/tag';
 import { PromptService } from '@/services/promptService';
 import { countChars } from '@/utils/markdown';
+import { validatePromptTitleForFilename } from '@/utils/id';
 
 interface CreateModalProps {
   /** 编辑模式下的 Prompt ID */
@@ -17,8 +18,8 @@ interface CreateModalProps {
 }
 
 export function CreateModal({ editingPromptId }: CreateModalProps) {
-  const { modalType, closeModal } = useUIStore();
-  const { addPrompt, updatePrompt, prompts } = usePromptStore();
+  const { modalType, closeModal, setSelectedPrompt } = useUIStore();
+  const { addPrompt, updatePrompt, deletePrompt, prompts } = usePromptStore();
   const { directoryHandle } = useFileStore();
 
   const isOpen = modalType === 'create' || modalType === 'edit';
@@ -65,6 +66,12 @@ export function CreateModal({ editingPromptId }: CreateModalProps) {
       return;
     }
 
+    const titleError = validatePromptTitleForFilename(title);
+    if (titleError) {
+      setError(titleError);
+      return;
+    }
+
     if (!content.trim()) {
       setError('请输入内容');
       return;
@@ -93,7 +100,13 @@ export function CreateModal({ editingPromptId }: CreateModalProps) {
             }
           );
 
-          updatePrompt(updated);
+          if (updated.id !== existing.id) {
+            deletePrompt(existing.id);
+            addPrompt(updated);
+            setSelectedPrompt(updated.id);
+          } else {
+            updatePrompt(updated);
+          }
         }
       } else {
         // 新建模式
@@ -116,66 +129,13 @@ export function CreateModal({ editingPromptId }: CreateModalProps) {
   };
 
   return (
-    <Modal
+    <SideDrawer
       isOpen={isOpen}
       onClose={handleClose}
       title={editingPromptId ? '编辑 Prompt' : '新建 Prompt'}
-      maxWidth="lg"
-    >
-      <div className="space-y-4">
-        {/* 错误提示 */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 text-sm">
-            {error}
-          </div>
-        )}
-
-        {/* 标题 */}
-        <div>
-          <label htmlFor="prompt-title" className="block text-sm font-medium text-fg mb-1">
-            标题 <span className="text-red-500">*</span>
-          </label>
-          <input
-            id="prompt-title"
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="输入 Prompt 标题..."
-            className="w-full px-3 py-2 bg-surface-dim rounded-lg text-sm text-fg placeholder:text-muted border border-transparent focus:border-accent focus:bg-surface transition-colors focus:outline-none"
-            autoFocus
-            disabled={isSaving}
-          />
-        </div>
-
-        {/* 标签 */}
-        <div>
-          <label className="block text-sm font-medium text-fg mb-1">
-            标签
-          </label>
-          <TagSelect selectedTags={tags} onChange={setTags} />
-        </div>
-
-        {/* 内容 */}
-        <div>
-          <label htmlFor="prompt-content" className="block text-sm font-medium text-fg mb-1">
-            内容 <span className="text-red-500">*</span>
-          </label>
-          <textarea
-            id="prompt-content"
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            placeholder="输入 Prompt 内容..."
-            rows={12}
-            className="w-full px-3 py-2 bg-surface-dim rounded-lg text-sm text-fg placeholder:text-muted border border-transparent focus:border-accent focus:bg-surface transition-colors focus:outline-none resize-none font-mono"
-            disabled={isSaving}
-          />
-          <div className="flex justify-end mt-1">
-            <span className="text-xs text-muted">{countChars(content)} 字符</span>
-          </div>
-        </div>
-
-        {/* 操作按钮 */}
-        <div className="flex justify-end gap-3 pt-2">
+      closeOnOverlayClick={!isSaving}
+      footer={
+        <>
           <button
             onClick={handleClose}
             disabled={isSaving}
@@ -199,8 +159,68 @@ export function CreateModal({ editingPromptId }: CreateModalProps) {
               editingPromptId ? '保存' : '创建'
             )}
           </button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        {/* 错误提示 */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 text-sm">
+            {error}
+          </div>
+        )}
+
+        {/* 标题 */}
+        <div>
+          <label htmlFor="prompt-title" className="block text-sm font-medium text-fg mb-1">
+            标题 <span className="text-red-500">*</span>
+          </label>
+          <input
+            id="prompt-title"
+            type="text"
+            value={title}
+            onChange={(e) => {
+              setTitle(e.target.value);
+              if (error) setError(null);
+            }}
+            placeholder="输入 Prompt 标题..."
+            maxLength={120}
+            className="w-full px-3 py-2 bg-surface-dim rounded-lg text-sm text-fg placeholder:text-muted border border-transparent focus:border-accent focus:bg-surface transition-colors focus:outline-none"
+            autoFocus
+            disabled={isSaving}
+          />
+          <div className="mt-1 flex justify-between text-xs text-muted">
+            <span>文件名将保存为：{title.trim() || '未命名'}.md</span>
+            <span>{title.trim().length}/120</span>
+          </div>
+        </div>
+
+        {/* 标签 */}
+        <div>
+          <label className="block text-sm font-medium text-fg mb-1">
+            标签
+          </label>
+          <TagSelect selectedTags={tags} onChange={setTags} />
+        </div>
+
+        {/* 内容 */}
+        <div className="flex min-h-[360px] flex-col">
+          <label htmlFor="prompt-content" className="block text-sm font-medium text-fg mb-1">
+            内容 <span className="text-red-500">*</span>
+          </label>
+          <textarea
+            id="prompt-content"
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            placeholder="输入 Prompt 内容..."
+            className="min-h-[320px] flex-1 w-full px-3 py-2 bg-surface-dim rounded-lg text-sm text-fg placeholder:text-muted border border-transparent focus:border-accent focus:bg-surface transition-colors focus:outline-none resize-none font-mono"
+            disabled={isSaving}
+          />
+          <div className="flex justify-end mt-1">
+            <span className="text-xs text-muted">{countChars(content)} 字符</span>
+          </div>
         </div>
       </div>
-    </Modal>
+    </SideDrawer>
   );
 }

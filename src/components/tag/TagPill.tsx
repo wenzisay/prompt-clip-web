@@ -9,6 +9,8 @@ interface TagPillProps {
   label: string;
   /** 标签颜色 */
   color?: TagColor;
+  /** 标签尺寸 */
+  size?: 'sm' | 'md';
   /** 是否显示删除按钮 */
   showRemove?: boolean;
   /** 删除回调 */
@@ -36,6 +38,7 @@ const sizeClasses = {
 export function TagPill({
   label,
   color = 'gray',
+  size = 'md',
   showRemove = false,
   onRemove,
   onClick,
@@ -46,13 +49,13 @@ export function TagPill({
     <span
       className={`
         inline-flex items-center gap-1 rounded-full border
-        ${colorClasses[color]} ${sizeClasses.md}
+        ${colorClasses[color]} ${sizeClasses[size]}
         ${clickable || onClick ? 'cursor-pointer hover:opacity-80' : ''}
         ${className}
       `}
       onClick={onClick}
     >
-      {label}
+      {formatTagLabel(label)}
       {showRemove && (
         <button
           type="button"
@@ -67,4 +70,8 @@ export function TagPill({
       )}
     </span>
   );
+}
+
+function formatTagLabel(label: string): string {
+  return label.startsWith('#') ? label : `#${label}`;
 }

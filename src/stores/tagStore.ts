@@ -20,6 +20,10 @@ interface TagState {
   toggleExpand: (tagName: string) => void;
   /** 切换标签置顶 */
   togglePin: (tagName: string) => void;
+  /** 标签重命名后同步置顶列表 */
+  renamePinnedTag: (oldTagName: string, newTagName: string) => void;
+  /** 标签删除后同步置顶列表 */
+  removePinnedTag: (tagName: string) => void;
   /** 获取标签颜色 */
   getTagColor: (tagName: string) => TagColor;
   /** 清空标签 */
@@ -32,10 +36,10 @@ export const useTagStore = create<TagState>((set) => ({
   pinnedTags: [],
 
   setTags: (tags) => {
-    set({ tags });
+    const uniqueTags = Array.from(new Set(tags)).sort();
     // 构建标签树
     const tree = TagService.buildTagTree(tags);
-    set({ tagTree: tree });
+    set({ tags: uniqueTags, tagTree: tree });
   },
 
   toggleExpand: (tagName) => {
@@ -58,6 +62,20 @@ export const useTagStore = create<TagState>((set) => ({
         tagTree: newTree,
       };
     });
+  },
+
+  renamePinnedTag: (oldTagName, newTagName) => {
+    set((state) => ({
+      pinnedTags: state.pinnedTags.map((tag) =>
+        tag === oldTagName ? newTagName : tag
+      ),
+    }));
+  },
+
+  removePinnedTag: (tagName) => {
+    set((state) => ({
+      pinnedTags: state.pinnedTags.filter((tag) => tag !== tagName),
+    }));
   },
 
   getTagColor: (tagName) => {

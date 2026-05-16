@@ -1,11 +1,9 @@
 /**
  * Markdown 解析和渲染工具
  *
- * 使用 gray-matter 解析 frontmatter
  * 使用 marked 渲染 markdown
  */
 
-import matter from 'gray-matter';
 import { marked } from 'marked';
 import type { PromptMetadata } from '@/types/prompt';
 
@@ -18,19 +16,19 @@ export function parseMarkdown(content: string): {
   content: string;
   raw: string;
 } {
-  const { data, content: markdownContent, orig } = matter(content);
+  const { data, content: markdownContent } = parseFrontmatter(content);
 
   return {
     metadata: {
       title: data.title as string | undefined,
-      tags: data.tags as string[] | undefined,
+      tags: normalizeTags(data.tags),
       created: data.created as string | undefined,
       modified: data.modified as string | undefined,
-      copyCount: data.copyCount as number | undefined,
+      copyCount: normalizeNumber(data.copy_count ?? data.copyCount),
       pinned: data.pinned as boolean | undefined,
     },
     content: markdownContent,
-    raw: orig,
+    raw: content,
   };
 }
 
@@ -48,7 +46,7 @@ export function serializeMarkdown(
   if (metadata.tags && metadata.tags.length > 0) frontmatter.tags = metadata.tags;
   if (metadata.created) frontmatter.created = metadata.created;
   if (metadata.modified) frontmatter.modified = metadata.modified;
-  if (metadata.copyCount !== undefined) frontmatter.copyCount = metadata.copyCount;
+  if (metadata.copyCount !== undefined) frontmatter.copy_count = metadata.copyCount;
   if (metadata.pinned !== undefined) frontmatter.pinned = metadata.pinned;
 
   // 如果没有 frontmatter 数据，直接返回内容
@@ -56,7 +54,143 @@ export function serializeMarkdown(
     return content;
   }
 
-  return matter.stringify(content, frontmatter);
+  return `---\n${stringifyFrontmatter(frontmatter)}---\n\n${content}`;
+}
+
+function parseFrontmatter(content: string): {
+  data: Record<string, unknown>;
+  content: string;
+} {
+  const normalized = content.replace(/^\uFEFF/, '');
+
+  if (!normalized.startsWith('---\n') && !normalized.startsWith('---\r\n')) {
+    return { data: {}, content };
+  }
+
+  const match = normalized.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (!match) {
+    return { data: {}, content };
+  }
+
+  return {
+    data: parseSimpleYaml(match[1]),
+    content: normalized.slice(match[0].length),
+  };
+}
+
+function parseSimpleYaml(yaml: string): Record<string, unknown> {
+  const data: Record<string, unknown> = {};
+
+  for (const rawLine of yaml.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('#')) continue;
+
+    const separatorIndex = line.indexOf(':');
+    if (separatorIndex === -1) continue;
+
+    const key = line.slice(0, separatorIndex).trim();
+    const value = line.slice(separatorIndex + 1).trim();
+    data[key] = parseYamlValue(value);
+  }
+
+  return data;
+}
+
+function parseYamlValue(value: string): unknown {
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  if (value === 'null') return null;
+  if (/^-?\d+(\.\d+)?$/.test(value)) return Number(value);
+
+  if (value.startsWith('[') && value.endsWith(']')) {
+    const inner = value.slice(1, -1).trim();
+    if (!inner) return [];
+    return splitInlineArray(inner).map((item) => unquoteYamlString(item.trim()));
+  }
+
+  return unquoteYamlString(value);
+}
+
+function splitInlineArray(value: string): string[] {
+  const items: string[] = [];
+  let current = '';
+  let quote: '"' | "'" | null = null;
+
+  for (const char of value) {
+    if ((char === '"' || char === "'") && quote === null) {
+      quote = char;
+    } else if (char === quote) {
+      quote = null;
+    }
+
+    if (char === ',' && quote === null) {
+      items.push(current);
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+
+  if (current) items.push(current);
+  return items;
+}
+
+function unquoteYamlString(value: string): string {
+  if (
+    (value.startsWith('"') && value.endsWith('"')) ||
+    (value.startsWith("'") && value.endsWith("'"))
+  ) {
+    return value.slice(1, -1);
+  }
+
+  return value;
+}
+
+function stringifyFrontmatter(frontmatter: Record<string, unknown>): string {
+  return Object.entries(frontmatter)
+    .map(([key, value]) => `${key}: ${stringifyYamlValue(value)}`)
+    .join('\n')
+    .concat('\n');
+}
+
+function stringifyYamlValue(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => quoteYamlString(String(item))).join(', ')}]`;
+  }
+
+  if (typeof value === 'string') {
+    return quoteYamlString(value);
+  }
+
+  return String(value);
+}
+
+function quoteYamlString(value: string): string {
+  return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+}
+
+function normalizeTags(tags: unknown): string[] | undefined {
+  if (Array.isArray(tags)) {
+    return tags.map(String).filter(Boolean);
+  }
+
+  if (typeof tags === 'string') {
+    return tags
+      .split(/[,\s]+/)
+      .map((tag) => tag.replace(/^#/, '').trim())
+      .filter(Boolean);
+  }
+
+  return undefined;
+}
+
+function normalizeNumber(value: unknown): number | undefined {
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+  return undefined;
 }
 
 /**

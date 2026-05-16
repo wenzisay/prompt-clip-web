@@ -30,14 +30,8 @@ export function usePromptLoader() {
         const prompts = await PromptService.loadPrompts(directoryHandle);
         await setPrompts(prompts);
 
-        // 提取所有标签
-        const allTags = new Set<string>();
-        prompts.forEach((prompt) => {
-          prompt.tags.forEach((tag) => allTags.add(tag));
-        });
-
-        // 更新标签存储
-        setTags(Array.from(allTags));
+        // 更新标签存储，保留重复项用于统计每个标签的 Prompt 数量
+        setTags(prompts.flatMap((prompt) => prompt.tags));
       } catch (error) {
         const message = error instanceof Error ? error.message : '加载 Prompts 失败';
         setError(message);
@@ -48,5 +42,5 @@ export function usePromptLoader() {
     };
 
     load();
-  }, [directoryHandle, isAuthorized]);
+  }, [directoryHandle, isAuthorized, setError, setPromptLoading, setPrompts, setTags]);
 }

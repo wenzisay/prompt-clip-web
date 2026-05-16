@@ -40,9 +40,7 @@ export async function openDirectory(): Promise<FileSystemDirectoryHandle | null>
  * 验证目录权限
  */
 export async function verifyPermission(
-  directoryHandle: FileSystemDirectoryHandle,
-  // readWrite 参数保留用于未来扩展
-  _readWrite = false
+  directoryHandle: FileSystemDirectoryHandle
 ): Promise<boolean> {
   const options: FileSystemHandlePermissionDescriptor = { mode: 'readwrite' };
 
@@ -105,7 +103,8 @@ export async function writeFile(
   filename: string,
   content: string
 ): Promise<FileSystemFileHandle> {
-  const fileHandle = await directoryHandle.getFileHandle(filename, {
+  const { directory, name } = await resolveFilePath(directoryHandle, filename, true);
+  const fileHandle = await directory.getFileHandle(name, {
     create: true,
   });
   const writable = await fileHandle.createWritable();
@@ -121,7 +120,8 @@ export async function deleteFile(
   directoryHandle: FileSystemDirectoryHandle,
   filename: string
 ): Promise<void> {
-  await directoryHandle.removeEntry(filename);
+  const { directory, name } = await resolveFilePath(directoryHandle, filename, false);
+  await directory.removeEntry(name);
 }
 
 /**
@@ -134,7 +134,8 @@ export async function moveFile(
 ): Promise<void> {
   // File System Access API 在某些版本可能不支持直接重命名
   // 使用复制+删除的方式实现
-  const oldFileHandle = await directoryHandle.getFileHandle(oldName);
+  const { directory: oldDirectory, name: oldFilename } = await resolveFilePath(directoryHandle, oldName, false);
+  const oldFileHandle = await oldDirectory.getFileHandle(oldFilename);
   const content = await readFile(oldFileHandle);
   await writeFile(directoryHandle, newName, content);
   await deleteFile(directoryHandle, oldName);
@@ -158,11 +159,32 @@ export async function fileExists(
   filename: string
 ): Promise<boolean> {
   try {
-    await directoryHandle.getFileHandle(filename);
+    const { directory, name } = await resolveFilePath(directoryHandle, filename, false);
+    await directory.getFileHandle(name);
     return true;
   } catch {
     return false;
   }
+}
+
+async function resolveFilePath(
+  directoryHandle: FileSystemDirectoryHandle,
+  path: string,
+  createDirectories: boolean
+): Promise<{ directory: FileSystemDirectoryHandle; name: string }> {
+  const parts = path.split('/').filter(Boolean);
+  const name = parts.pop();
+
+  if (!name) {
+    throw new Error('文件名不能为空');
+  }
+
+  let directory = directoryHandle;
+  for (const part of parts) {
+    directory = await directory.getDirectoryHandle(part, { create: createDirectories });
+  }
+
+  return { directory, name };
 }
 
 /**

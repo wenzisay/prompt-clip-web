@@ -4,16 +4,21 @@
  * 使用 FlexSearch 实现高性能全文搜索
  */
 
-// @ts-ignore - FlexSearch 类型不完整
 import FlexSearch from 'flexsearch';
 import type { Prompt } from '@/types/prompt';
+
+interface SearchIndex {
+  addAsync(id: string, content: string): Promise<unknown>;
+  searchAsync(query: string, options: { limit: number }): Promise<Array<string | number>>;
+  remove(id: string): void;
+}
 
 /**
  * FlexSearch 索引实例
  */
-let titleIndex: any = null;
-let contentIndex: any = null;
-let tagsIndex: any = null;
+let titleIndex: SearchIndex | null = null;
+let contentIndex: SearchIndex | null = null;
+let tagsIndex: SearchIndex | null = null;
 let indexedPrompts: Map<string, Prompt> = new Map();
 
 /**
@@ -27,12 +32,9 @@ export function initSearchIndex(): void {
     cache: true,
   };
 
-  // @ts-ignore - FlexSearch 类型定义不完整
-  titleIndex = new FlexSearch.Index(indexOptions);
-  // @ts-ignore
-  contentIndex = new FlexSearch.Index(indexOptions);
-  // @ts-ignore
-  tagsIndex = new FlexSearch.Index(indexOptions);
+  titleIndex = new FlexSearch.Index(indexOptions) as SearchIndex;
+  contentIndex = new FlexSearch.Index(indexOptions) as SearchIndex;
+  tagsIndex = new FlexSearch.Index(indexOptions) as SearchIndex;
   indexedPrompts = new Map();
 }
 
@@ -58,6 +60,7 @@ export async function addToIndex(prompt: Prompt): Promise<void> {
   if (!titleIndex) {
     initSearchIndex();
   }
+  if (!titleIndex || !contentIndex || !tagsIndex) return;
 
   indexedPrompts.set(prompt.id, prompt);
 
@@ -70,7 +73,7 @@ export async function addToIndex(prompt: Prompt): Promise<void> {
  * 从索引中移除 Prompt
  */
 export function removeFromIndex(promptId: string): void {
-  if (!titleIndex) return;
+  if (!titleIndex || !contentIndex || !tagsIndex) return;
 
   indexedPrompts.delete(promptId);
   try {
@@ -100,6 +103,7 @@ export async function search(
   if (!titleIndex || !query.trim()) {
     return [];
   }
+  if (!contentIndex || !tagsIndex) return [];
 
   // 从所有索引中搜索并合并结果
   const titleResults = await titleIndex.searchAsync(query, { limit });

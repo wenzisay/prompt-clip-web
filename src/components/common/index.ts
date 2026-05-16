@@ -16,3 +16,6 @@ export type { OverlayProps } from './Overlay';
 
 export { Spinner } from './Spinner';
 export type { SpinnerProps, SpinnerSize } from './Spinner';
+
+export { SideDrawer } from './SideDrawer';
+export type { SideDrawerProps } from './SideDrawer';

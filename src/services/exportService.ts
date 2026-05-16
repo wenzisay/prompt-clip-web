@@ -1,0 +1,121 @@
+/**
+ * Prompt 导出服务
+ */
+
+import JSZip from 'jszip';
+import type { Prompt } from '@/types/prompt';
+import { serializeMarkdown } from '@/utils/markdown';
+import { filenameFromId } from '@/utils/id';
+
+export type ExportFormat = 'json' | 'csv' | 'markdown';
+
+export function exportJSON(prompts: Prompt[]): void {
+  const data = prompts.map(toSerializablePrompt);
+  downloadBlob(
+    new Blob([JSON.stringify(data, null, 2)], { type: 'application/json;charset=utf-8' }),
+    `promptclip-export-${formatExportDate()}.json`
+  );
+}
+
+export function exportCSV(prompts: Prompt[]): void {
+  const rows = [
+    ['id', 'title', 'content', 'tags', 'created_at', 'updated_at', 'copy_count', 'pinned'],
+    ...prompts.map((prompt) => [
+      prompt.id,
+      prompt.title,
+      prompt.content,
+      prompt.tags.join('/'),
+      prompt.createdAt.toISOString(),
+      prompt.updatedAt.toISOString(),
+      String(prompt.copyCount),
+      String(prompt.pinned),
+    ]),
+  ];
+
+  const csv = rows.map((row) => row.map(escapeCSVCell).join(',')).join('\n');
+  downloadBlob(
+    new Blob([csv], { type: 'text/csv;charset=utf-8' }),
+    `promptclip-export-${formatExportDate()}.csv`
+  );
+}
+
+export async function exportMDArchive(prompts: Prompt[]): Promise<void> {
+  const zip = new JSZip();
+
+  for (const prompt of prompts) {
+    const markdown = serializeMarkdown(prompt.content, {
+      title: prompt.title,
+      tags: prompt.tags,
+      created: prompt.createdAt.toISOString(),
+      modified: prompt.updatedAt.toISOString(),
+      copyCount: prompt.copyCount,
+      pinned: prompt.pinned,
+    });
+    zip.file(filenameFromId(prompt.id), markdown);
+  }
+
+  const blob = await zip.generateAsync({ type: 'blob' });
+  downloadBlob(blob, `promptclip-export-${formatExportDate()}.zip`);
+}
+
+export async function exportPrompts(prompts: Prompt[], format: ExportFormat): Promise<void> {
+  if (format === 'json') {
+    exportJSON(prompts);
+    return;
+  }
+
+  if (format === 'csv') {
+    exportCSV(prompts);
+    return;
+  }
+
+  await exportMDArchive(prompts);
+}
+
+function toSerializablePrompt(prompt: Prompt) {
+  return {
+    id: prompt.id,
+    title: prompt.title,
+    content: prompt.content,
+    tags: prompt.tags,
+    createdAt: prompt.createdAt.toISOString(),
+    updatedAt: prompt.updatedAt.toISOString(),
+    copyCount: prompt.copyCount,
+    pinned: prompt.pinned,
+  };
+}
+
+function escapeCSVCell(value: string): string {
+  return `"${value.replace(/"/g, '""')}"`;
+}
+
+function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function formatExportDate(): string {
+  const date = new Date();
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return [
+    date.getFullYear(),
+    pad(date.getMonth() + 1),
+    pad(date.getDate()),
+    pad(date.getHours()),
+    pad(date.getMinutes()),
+    pad(date.getSeconds()),
+  ].join('');
+}
+
+export const ExportService = {
+  exportJSON,
+  exportCSV,
+  exportMDArchive,
+  exportPrompts,
+} as const;

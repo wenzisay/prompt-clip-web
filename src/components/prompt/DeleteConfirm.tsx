@@ -4,7 +4,9 @@
 
 import { usePromptStore } from '@/stores/promptStore';
 import { useUIStore } from '@/stores/uiStore';
+import { useFileStore } from '@/stores/fileStore';
 import { Modal } from '@/components/common';
+import { PromptService } from '@/services/promptService';
 
 interface DeleteConfirmProps {
   /** 要删除的 Prompt ID */
@@ -15,13 +17,18 @@ interface DeleteConfirmProps {
 
 export function DeleteConfirm({ promptId, promptTitle }: DeleteConfirmProps) {
   const { modalType, closeModal } = useUIStore();
-  const { deletePrompt } = usePromptStore();
+  const { deletePrompt, prompts } = usePromptStore();
+  const { directoryHandle } = useFileStore();
 
   const isOpen = modalType === 'delete';
 
   const handleDelete = async () => {
     try {
-      await deletePrompt(promptId);
+      const prompt = prompts.find((p) => p.id === promptId);
+      if (!prompt || !directoryHandle) return;
+
+      await PromptService.deletePrompt(directoryHandle, prompt);
+      deletePrompt(promptId);
       closeModal();
     } catch (error) {
       console.error('删除失败:', error);
@@ -37,10 +44,10 @@ export function DeleteConfirm({ promptId, promptTitle }: DeleteConfirmProps) {
     >
       <div className="space-y-4">
         <p className="text-fg">
-          确定要删除 Prompt <strong>"{promptTitle}"</strong> 吗？
+          确定要删除 Prompt <strong>{promptTitle}</strong> 吗？
         </p>
         <p className="text-sm text-muted">
-          此操作将永久删除该 Prompt，无法恢复。
+          此操作会将文件移动到 .trash 目录，并从当前列表中移除。
         </p>
 
         <div className="flex justify-end gap-3 pt-2">

@@ -1,16 +1,34 @@
 /**
- * ID 生成工具
+ * 文件名和 ID 工具
  */
 
-/**
- * 生成唯一 ID
- * 使用时间戳 + 随机数组合
- */
-export function generateId(): string {
-  const timestamp = Date.now().toString(36);
-  const randomStr = Math.random().toString(36).substring(2, 9);
-  return `${timestamp}-${randomStr}`;
-}
+const RESERVED_WINDOWS_NAMES = new Set([
+  'CON',
+  'PRN',
+  'AUX',
+  'NUL',
+  'COM1',
+  'COM2',
+  'COM3',
+  'COM4',
+  'COM5',
+  'COM6',
+  'COM7',
+  'COM8',
+  'COM9',
+  'LPT1',
+  'LPT2',
+  'LPT3',
+  'LPT4',
+  'LPT5',
+  'LPT6',
+  'LPT7',
+  'LPT8',
+  'LPT9',
+]);
+
+const INVALID_FILENAME_CHARS = /[<>:"/\\|?*]/;
+const MAX_FILENAME_BASENAME_LENGTH = 120;
 
 /**
  * 生成短 ID（用于 URL 或显示）
@@ -31,6 +49,46 @@ export function idFromFilename(filename: string): string {
  */
 export function filenameFromId(id: string): string {
   return `${id}.md`;
+}
+
+/**
+ * 从 Prompt 标题生成 md 文件名
+ */
+export function filenameFromTitle(title: string): string {
+  return `${title.trim()}.md`;
+}
+
+/**
+ * 校验可用作文件名的 Prompt 标题
+ */
+export function validatePromptTitleForFilename(title: string): string | null {
+  const trimmed = title.trim();
+
+  if (!trimmed) {
+    return '请输入标题';
+  }
+
+  if (trimmed.length > MAX_FILENAME_BASENAME_LENGTH) {
+    return `标题不能超过 ${MAX_FILENAME_BASENAME_LENGTH} 个字符`;
+  }
+
+  if (INVALID_FILENAME_CHARS.test(trimmed) || hasControlCharacter(trimmed)) {
+    return '标题不能包含文件名非法字符：< > : " / \\ | ? *';
+  }
+
+  if (trimmed.endsWith('.') || trimmed.endsWith(' ')) {
+    return '标题不能以空格或句点结尾';
+  }
+
+  if (RESERVED_WINDOWS_NAMES.has(trimmed.toUpperCase())) {
+    return '标题不能使用系统保留文件名';
+  }
+
+  return null;
+}
+
+function hasControlCharacter(value: string): boolean {
+  return Array.from(value).some((char) => char.charCodeAt(0) < 32);
 }
 
 /**

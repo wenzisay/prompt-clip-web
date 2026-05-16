@@ -24,62 +24,62 @@ export function CommandPalette() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   // 基础命令
-  const baseCommands: Command[] = [
-    {
-      id: 'new-prompt',
-      label: '新建 Prompt',
-      icon: 'add',
-      action: () => {
-        closeCommandPalette();
-        openModal('create');
+  const baseCommands: Command[] = useMemo(
+    () => [
+      {
+        id: 'new-prompt',
+        label: '新建 Prompt',
+        icon: 'add',
+        action: () => {
+          closeCommandPalette();
+          openModal('create');
+        },
+        shortcut: 'Cmd+N',
+        category: 'action',
       },
-      shortcut: 'Cmd+N',
-      category: 'action',
-    },
-    {
-      id: 'search',
-      label: '搜索 Prompts',
-      icon: 'search',
-      action: () => {
-        // 聚焦到搜索框
-        closeCommandPalette();
+      {
+        id: 'search',
+        label: '搜索 Prompts',
+        icon: 'search',
+        action: () => {
+          closeCommandPalette();
+        },
+        shortcut: 'Cmd+K',
+        category: 'action',
       },
-      shortcut: 'Cmd+K',
-      category: 'action',
-    },
-    {
-      id: 'export',
-      label: '导出 Prompts',
-      icon: 'download',
-      action: () => {
-        closeCommandPalette();
-        openModal('export');
+      {
+        id: 'export',
+        label: '导出 Prompts',
+        icon: 'download',
+        action: () => {
+          closeCommandPalette();
+          openModal('export');
+        },
+        category: 'action',
       },
-      category: 'action',
-    },
-    {
-      id: 'import',
-      label: '导入 Prompts',
-      icon: 'upload',
-      action: () => {
-        closeCommandPalette();
-        // TODO: 实现导入功能
-        console.log('导入功能待实现');
+      {
+        id: 'import',
+        label: '导入 Prompts',
+        icon: 'upload',
+        action: () => {
+          closeCommandPalette();
+          window.alert('导入功能将在后续版本提供');
+        },
+        category: 'action',
       },
-      category: 'action',
-    },
-    {
-      id: 'settings',
-      label: '设置',
-      icon: 'settings',
-      action: () => {
-        closeCommandPalette();
-        // TODO: 实现设置功能
-        console.log('设置功能待实现');
+      {
+        id: 'settings',
+        label: '设置',
+        icon: 'settings',
+        action: () => {
+          closeCommandPalette();
+          window.alert('设置功能将在后续版本提供');
+        },
+        category: 'action',
       },
-      category: 'action',
-    },
-  ];
+    ],
+    [closeCommandPalette, openModal]
+  );
 
   // 最近使用的 Prompts（取前 5 个）
   const recentPrompts = useMemo(() => {
@@ -96,7 +96,7 @@ export function CommandPalette() {
         },
         category: 'prompt' as const,
       }));
-  }, [prompts]);
+  }, [closeCommandPalette, prompts]);
 
   // 所有命令
   const allCommands = useMemo(() => {

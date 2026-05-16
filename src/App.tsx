@@ -6,16 +6,28 @@ import { WelcomeScreen } from '@/components/WelcomeScreen';
 import { Sidebar, TopBar, DetailPanel } from '@/components/layout';
 import { PromptGrid, CreateModal, DeleteConfirm } from '@/components/prompt';
 import { CommandPalette } from '@/components/command';
+import { ExportModal } from '@/components/export/ExportModal';
 import { useFileStore } from '@/stores/fileStore';
 import { useUIStore } from '@/stores/uiStore';
 import { usePromptStore } from '@/stores/promptStore';
+import { useTagStore } from '@/stores/tagStore';
 import { usePromptLoader } from '@/hooks/usePromptLoader';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+import { useEffect } from 'react';
 
 function AppContent() {
-  const { isAuthorized } = useFileStore();
+  const { isAuthorized, directoryHandle, initialize } = useFileStore();
   const { modalType, selectedPromptId } = useUIStore();
   const { prompts } = usePromptStore();
+  const { setTags } = useTagStore();
+
+  useEffect(() => {
+    initialize();
+  }, [initialize]);
+
+  useEffect(() => {
+    setTags(prompts.flatMap((prompt) => prompt.tags));
+  }, [prompts, setTags]);
 
   // 自动加载 Prompts
   usePromptLoader();
@@ -24,7 +36,7 @@ function AppContent() {
   useKeyboardShortcuts();
 
   // 未授权时显示欢迎界面
-  if (!isAuthorized) {
+  if (!isAuthorized || !directoryHandle) {
     return <WelcomeScreen />;
   }
 
@@ -36,7 +48,7 @@ function AppContent() {
 
   // 已授权时显示主界面
   return (
-    <div className="h-screen flex flex-col">
+    <div className="h-screen w-screen flex flex-col">
       {/* 侧边栏 + 主内容区 */}
       <div className="flex-1 flex overflow-hidden">
         <Sidebar />
@@ -71,6 +83,9 @@ function AppContent() {
 
       {/* 命令面板 */}
       <CommandPalette />
+
+      {/* 导出对话框 */}
+      <ExportModal />
     </div>
   );
 }

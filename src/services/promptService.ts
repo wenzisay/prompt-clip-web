@@ -5,7 +5,13 @@
  */
 
 import type { Prompt, CreatePromptInput, UpdatePromptInput, PromptMetadata } from '@/types/prompt';
-import { generateId, filenameFromId, idFromFilename, formatDateForFile } from '@/utils/id';
+import {
+  filenameFromId,
+  filenameFromTitle,
+  formatDateForFile,
+  idFromFilename,
+  validatePromptTitleForFilename,
+} from '@/utils/id';
 import { FileService } from './fileService';
 import { parseMarkdown, serializeMarkdown, extractTitle } from '@/utils/markdown';
 import { CONFIG } from '@/constants/config';
@@ -16,10 +22,11 @@ import { CONFIG } from '@/constants/config';
 export async function loadPrompt(fileHandle: FileSystemFileHandle): Promise<Prompt> {
   const content = await FileService.readFile(fileHandle);
   const { metadata, content: markdownContent } = parseMarkdown(content);
+  const fileTitle = idFromFilename(fileHandle.name);
 
   return {
-    id: idFromFilename(fileHandle.name),
-    title: metadata.title || extractTitle(markdownContent) || fileHandle.name,
+    id: fileTitle,
+    title: metadata.title || extractTitle(markdownContent) || fileTitle,
     content: markdownContent,
     tags: metadata.tags || [],
     createdAt: metadata.created ? new Date(metadata.created) : await FileService.getFileModTime(fileHandle),
@@ -59,10 +66,13 @@ export async function createPrompt(
   directoryHandle: FileSystemDirectoryHandle,
   input: CreatePromptInput
 ): Promise<Prompt> {
-  const id = generateId();
+  await validatePromptTitle(directoryHandle, input.title);
+
+  const title = input.title.trim();
+  const id = title;
   const now = new Date();
   const metadata: PromptMetadata = {
-    title: input.title,
+    title,
     tags: input.tags,
     created: now.toISOString(),
     modified: now.toISOString(),
@@ -71,7 +81,7 @@ export async function createPrompt(
   };
 
   const content = serializeMarkdown(input.content, metadata);
-  const filename = filenameFromId(id);
+  const filename = filenameFromTitle(title);
 
   await FileService.writeFile(directoryHandle, filename, content);
 
@@ -80,7 +90,7 @@ export async function createPrompt(
 
   return {
     id,
-    title: input.title,
+    title,
     content: input.content,
     tags: input.tags,
     createdAt: now,
@@ -97,17 +107,26 @@ export async function createPrompt(
 export async function updatePrompt(
   directoryHandle: FileSystemDirectoryHandle,
   prompt: Prompt,
-  updates: UpdatePromptInput
+  updates: UpdatePromptInput,
+  options: { createHistory?: boolean } = {}
 ): Promise<Prompt> {
-  // 创建历史版本
-  await createHistoryVersion(directoryHandle, prompt);
+  if (updates.title !== undefined) {
+    await validatePromptTitle(directoryHandle, updates.title, prompt.id);
+  }
+
+  if (options.createHistory !== false) {
+    await createHistoryVersion(directoryHandle, prompt);
+  }
 
   const now = new Date();
+  const updatedTitle = updates.title?.trim();
   const updatedPrompt: Prompt = {
     ...prompt,
-    ...(updates.title !== undefined && { title: updates.title }),
+    ...(updatedTitle !== undefined && { title: updatedTitle }),
     ...(updates.content !== undefined && { content: updates.content }),
     ...(updates.tags !== undefined && { tags: updates.tags }),
+    ...(updates.copyCount !== undefined && { copyCount: updates.copyCount }),
+    ...(updates.pinned !== undefined && { pinned: updates.pinned }),
     updatedAt: now,
   };
 
@@ -121,11 +140,20 @@ export async function updatePrompt(
   };
 
   const content = serializeMarkdown(updatedPrompt.content, metadata);
-  const filename = filenameFromId(updatedPrompt.id);
+  const oldFilename = prompt.fileHandle?.name || filenameFromId(prompt.id);
+  const nextFilename = filenameFromTitle(updatedPrompt.title);
 
-  await FileService.writeFile(directoryHandle, filename, content);
+  const fileHandle = await FileService.writeFile(directoryHandle, nextFilename, content);
 
-  return updatedPrompt;
+  if (oldFilename !== nextFilename && await FileService.fileExists(directoryHandle, oldFilename)) {
+    await FileService.deleteFile(directoryHandle, oldFilename);
+  }
+
+  return {
+    ...updatedPrompt,
+    id: idFromFilename(nextFilename),
+    fileHandle,
+  };
 }
 
 /**
@@ -135,7 +163,9 @@ export async function deletePrompt(
   directoryHandle: FileSystemDirectoryHandle,
   prompt: Prompt
 ): Promise<void> {
-  const filename = filenameFromId(prompt.id);
+  const filename = prompt.fileHandle?.name || filenameFromId(prompt.id);
+  const timestamp = formatDateForFile(new Date());
+  const trashFilename = `${idFromFilename(filename)}.${timestamp}.md`;
 
   // 先移到回收站
   try {
@@ -144,11 +174,11 @@ export async function deletePrompt(
     // 目录可能已存在
   }
 
-  const trashDir = await directoryHandle.getDirectoryHandle(CONFIG.FILE_SYSTEM.TRASH_DIR);
-  await FileService.moveFile(directoryHandle, filename, `${CONFIG.FILE_SYSTEM.TRASH_DIR}/${filename}`);
-
-  // 从回收站中删除（彻底删除）
-  await trashDir.removeEntry(filename);
+  await FileService.moveFile(
+    directoryHandle,
+    filename,
+    `${CONFIG.FILE_SYSTEM.TRASH_DIR}/${trashFilename}`
+  );
 }
 
 /**
@@ -161,7 +191,7 @@ export async function incrementCopyCount(
   return updatePrompt(directoryHandle, prompt, {
     id: prompt.id,
     copyCount: prompt.copyCount + 1,
-  });
+  }, { createHistory: false });
 }
 
 /**
@@ -174,7 +204,7 @@ export async function togglePinned(
   return updatePrompt(directoryHandle, prompt, {
     id: prompt.id,
     pinned: !prompt.pinned,
-  });
+  }, { createHistory: false });
 }
 
 /**
@@ -205,6 +235,24 @@ export async function createHistoryVersion(
     await cleanupOldHistoryVersions(historyDir, prompt.id);
   } catch (error) {
     console.error('Failed to create history version:', error);
+  }
+}
+
+export async function validatePromptTitle(
+  directoryHandle: FileSystemDirectoryHandle,
+  title: string,
+  currentPromptId?: string
+): Promise<void> {
+  const message = validatePromptTitleForFilename(title);
+  if (message) {
+    throw new Error(message);
+  }
+
+  const filename = filenameFromTitle(title);
+  const currentFilename = currentPromptId ? filenameFromId(currentPromptId) : null;
+
+  if (filename !== currentFilename && await FileService.fileExists(directoryHandle, filename)) {
+    throw new Error('标题已存在，请使用不同的标题');
   }
 }
 
@@ -278,6 +326,7 @@ export const PromptService = {
   deletePrompt,
   incrementCopyCount,
   togglePinned,
+  validatePromptTitle,
   createHistoryVersion,
   getHistoryVersions,
 } as const;

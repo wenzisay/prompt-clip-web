@@ -5,10 +5,12 @@
 import type { Prompt } from '@/types/prompt';
 import { useUIStore } from '@/stores/uiStore';
 import { usePromptStore } from '@/stores/promptStore';
+import { useFileStore } from '@/stores/fileStore';
 import { TagPill } from '@/components/tag';
 import { IconButton } from '@/components/common';
 import { formatDate } from '@/utils/date';
 import { useState, useRef, useEffect } from 'react';
+import { PromptService } from '@/services/promptService';
 
 interface PromptCardProps {
   /** Prompt 数据 */
@@ -16,10 +18,14 @@ interface PromptCardProps {
 }
 
 export function PromptCard({ prompt }: PromptCardProps) {
-  const { setSelectedPrompt, openModal } = useUIStore();
-  const { togglePinned } = usePromptStore();
+  const { setSelectedPrompt, openModal, selectedPromptIds, toggleSelectPrompt } = useUIStore();
+  const { updatePrompt } = usePromptStore();
+  const { directoryHandle } = useFileStore();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const isSelected = selectedPromptIds.includes(prompt.id);
+  const isSelectionMode = selectedPromptIds.length > 0;
 
   // 获取预览文本（前两行）
   const previewText = prompt.content
@@ -31,18 +37,48 @@ export function PromptCard({ prompt }: PromptCardProps) {
   // 格式化日期
   const relativeDate = formatDate(prompt.updatedAt);
 
-  // 字符计数
-  const charCount = prompt.content.length;
-
   // 点击卡片打开详情
   const handleClick = () => {
     setSelectedPrompt(prompt.id);
   };
 
-  // 切换收藏
-  const handleTogglePin = (e: React.MouseEvent) => {
+  const handleCopy = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    togglePinned(prompt.id);
+
+    try {
+      await navigator.clipboard.writeText(prompt.content);
+      if (directoryHandle) {
+        const updated = await PromptService.incrementCopyCount(directoryHandle, prompt);
+        updatePrompt(updated);
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch (error) {
+      console.error('复制失败:', error);
+    }
+  };
+
+  // 切换收藏
+  const handleTogglePin = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!directoryHandle) return;
+    const updated = await PromptService.togglePinned(directoryHandle, prompt);
+    updatePrompt(updated);
+  };
+
+  const handleSelect = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    toggleSelectPrompt(prompt.id);
+  };
+
+  const handleMenuSelect = (e: React.MouseEvent) => {
+    handleSelect(e);
+    setIsMenuOpen(false);
+  };
+
+  const handleMenuTogglePin = async (e: React.MouseEvent) => {
+    await handleTogglePin(e);
+    setIsMenuOpen(false);
   };
 
   // 打开菜单
@@ -85,10 +121,11 @@ export function PromptCard({ prompt }: PromptCardProps) {
     <div
       onClick={handleClick}
       className={`
-        bg-surface rounded-card p-4 border border-transparent
+        bg-surface rounded-card p-4 border
         hover:border-border hover:shadow-card-hover
         cursor-pointer transition-all duration-200
         group
+        ${isSelected ? 'border-accent shadow-card-hover' : 'border-transparent'}
       `}
     >
       {/* 头部：标题和操作按钮 */}
@@ -97,15 +134,33 @@ export function PromptCard({ prompt }: PromptCardProps) {
           {prompt.title}
         </h3>
         <div className="flex items-center gap-1">
-          <IconButton
-            icon={prompt.pinned ? 'star' : 'star_border'}
-            label={prompt.pinned ? '取消收藏' : '收藏'}
-            onClick={handleTogglePin}
-            size="sm"
-            variant="ghost"
-            filled={prompt.pinned}
-            className={prompt.pinned ? 'text-yellow-500' : 'text-muted'}
-          />
+          {isSelectionMode && (
+            <button
+              type="button"
+              onClick={handleSelect}
+              className={`
+                w-8 h-8 inline-flex items-center justify-center rounded-lg transition-colors
+                ${isSelected ? 'text-accent bg-accent-soft' : 'text-muted hover:bg-surface-dim'}
+              `}
+              aria-label={isSelected ? '取消选择' : '选择'}
+              title={isSelected ? '取消选择' : '选择'}
+            >
+              <span className="material-symbols-outlined text-lg">
+                {isSelected ? 'check_box' : 'check_box_outline_blank'}
+              </span>
+            </button>
+          )}
+          {prompt.pinned && (
+            <IconButton
+              icon="star"
+              label="取消收藏"
+              onClick={handleTogglePin}
+              size="sm"
+              variant="ghost"
+              filled
+              className="text-yellow-500"
+            />
+          )}
           <div className="relative" ref={menuRef}>
             <IconButton
               icon="more_vert"
@@ -117,6 +172,24 @@ export function PromptCard({ prompt }: PromptCardProps) {
             {/* 下拉菜单 */}
             {isMenuOpen && (
               <div className="absolute right-0 top-full mt-1 w-36 bg-surface border border-border rounded-lg shadow-card py-1 z-10">
+                <button
+                  onClick={handleMenuSelect}
+                  className="w-full px-3 py-2 text-left text-sm text-fg hover:bg-surface-dim transition-colors flex items-center gap-2"
+                >
+                  <span className="material-symbols-outlined text-lg">
+                    {isSelected ? 'check_box' : 'check_box_outline_blank'}
+                  </span>
+                  {isSelected ? '取消选择' : '选择'}
+                </button>
+                <button
+                  onClick={handleMenuTogglePin}
+                  className="w-full px-3 py-2 text-left text-sm text-fg hover:bg-surface-dim transition-colors flex items-center gap-2"
+                >
+                  <span className="material-symbols-outlined text-lg">
+                    {prompt.pinned ? 'star' : 'star_border'}
+                  </span>
+                  {prompt.pinned ? '取消收藏' : '收藏'}
+                </button>
                 <button
                   onClick={handleEdit}
                   className="w-full px-3 py-2 text-left text-sm text-fg hover:bg-surface-dim transition-colors flex items-center gap-2"
@@ -147,7 +220,7 @@ export function PromptCard({ prompt }: PromptCardProps) {
       {prompt.tags.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mb-3">
           {prompt.tags.slice(0, 4).map((tag) => (
-            <TagPill key={tag} label={tag.split('/').pop() || tag} />
+            <TagPill key={tag} label={tag} color="blue" size="sm" />
           ))}
           {prompt.tags.length > 4 && (
             <span className="text-xs text-muted">
@@ -160,7 +233,20 @@ export function PromptCard({ prompt }: PromptCardProps) {
       {/* 底部：元数据 */}
       <div className="flex items-center justify-between text-xs text-muted">
         <span>{relativeDate}</span>
-        <span>{charCount} 字符</span>
+        <button
+          type="button"
+          onClick={handleCopy}
+          className={`
+            w-7 h-7 inline-flex items-center justify-center rounded-md transition-colors
+            ${copied ? 'text-accent bg-accent-soft' : 'text-muted hover:bg-surface-dim hover:text-fg'}
+          `}
+          aria-label="复制 Prompt 内容"
+          title={copied ? '已复制' : '复制'}
+        >
+          <span className="material-symbols-outlined text-base">
+            {copied ? 'check' : 'content_copy'}
+          </span>
+        </button>
       </div>
     </div>
   );

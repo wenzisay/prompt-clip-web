@@ -51,6 +51,55 @@ export function getTagDepth(tag: string): number {
 }
 
 /**
+ * 规范化标签路径
+ */
+export function normalizeTagPath(tag: string): string {
+  return tag
+    .trim()
+    .replace(/^#/, '')
+    .split(TAG_SEPARATOR)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join(TAG_SEPARATOR);
+}
+
+/**
+ * 判断 candidate 是否命中 target 标签或其子标签
+ */
+export function isTagMatch(candidate: string, target: string): boolean {
+  return candidate === target || candidate.startsWith(`${target}${TAG_SEPARATOR}`);
+}
+
+/**
+ * 重命名单个 tags 数组中的标签路径
+ */
+export function renameTagsInList(tags: string[], oldTag: string, newTag: string): string[] {
+  const normalizedOldTag = normalizeTagPath(oldTag);
+  const normalizedNewTag = normalizeTagPath(newTag);
+
+  if (!normalizedOldTag || !normalizedNewTag || normalizedOldTag === normalizedNewTag) {
+    return tags;
+  }
+
+  const renamed = tags.map((tag) => {
+    if (!isTagMatch(tag, normalizedOldTag)) return tag;
+    return `${normalizedNewTag}${tag.slice(normalizedOldTag.length)}`;
+  });
+
+  return Array.from(new Set(renamed));
+}
+
+/**
+ * 从 tags 数组中删除标签及其子标签
+ */
+export function removeTagFromList(tags: string[], tagToRemove: string): string[] {
+  const normalizedTag = normalizeTagPath(tagToRemove);
+  if (!normalizedTag) return tags;
+
+  return tags.filter((tag) => !isTagMatch(tag, normalizedTag));
+}
+
+/**
  * 构建标签树
  * 将扁平的标签列表转换为层级树结构
  */
@@ -62,18 +111,13 @@ export function buildTagTree(tags: string[]): TagTreeNode[] {
   for (const tag of tags) {
     const parts = tag.split(TAG_SEPARATOR).filter(Boolean);
 
-    // 统计完整标签
-    tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
-
-    // 确保所有父级标签都存在
+    // 统计完整路径和所有父级路径，父标签显示其子树总数
     let currentPath = '';
-    for (let i = 0; i < parts.length - 1; i++) {
+    for (let i = 0; i < parts.length; i++) {
       currentPath = currentPath ? `${currentPath}/${parts[i]}` : parts[i];
+      tagCounts.set(currentPath, (tagCounts.get(currentPath) || 0) + 1);
       rootNodes.set(currentPath, createTagNode(currentPath, tagCounts));
     }
-
-    // 添加完整标签
-    rootNodes.set(tag, createTagNode(tag, tagCounts));
   }
 
   // 构建树结构
@@ -321,4 +365,8 @@ export const TagService = {
   flattenTagTree,
   toggleTagExpansion,
   toggleTagPin,
+  normalizeTagPath,
+  isTagMatch,
+  renameTagsInList,
+  removeTagFromList,
 } as const;
