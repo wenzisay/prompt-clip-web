@@ -1,0 +1,206 @@
+/**
+ * Prompt 创建/编辑模态框组件
+ */
+
+import { useState, useEffect } from 'react';
+import { useUIStore } from '@/stores/uiStore';
+import { usePromptStore } from '@/stores/promptStore';
+import { useFileStore } from '@/stores/fileStore';
+import { Modal } from '@/components/common';
+import { TagSelect } from '@/components/tag';
+import { PromptService } from '@/services/promptService';
+import { countChars } from '@/utils/markdown';
+
+interface CreateModalProps {
+  /** 编辑模式下的 Prompt ID */
+  editingPromptId?: string | null;
+}
+
+export function CreateModal({ editingPromptId }: CreateModalProps) {
+  const { modalType, closeModal } = useUIStore();
+  const { addPrompt, updatePrompt, prompts } = usePromptStore();
+  const { directoryHandle } = useFileStore();
+
+  const isOpen = modalType === 'create' || modalType === 'edit';
+
+  // 表单状态
+  const [title, setTitle] = useState('');
+  const [content, setContent] = useState('');
+  const [tags, setTags] = useState<string[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // 编辑模式：加载现有数据
+  useEffect(() => {
+    if (editingPromptId && modalType === 'edit') {
+      const prompt = prompts.find((p) => p.id === editingPromptId);
+      if (prompt) {
+        setTitle(prompt.title);
+        setContent(prompt.content);
+        setTags(prompt.tags);
+      }
+    } else {
+      // 新建模式：重置表单
+      setTitle('');
+      setContent('');
+      setTags([]);
+    }
+    setError(null);
+  }, [editingPromptId, modalType, isOpen, prompts]);
+
+  // 关闭模态框
+  const handleClose = () => {
+    if (!isSaving) {
+      closeModal();
+    }
+  };
+
+  // 保存
+  const handleSave = async () => {
+    setError(null);
+
+    // 验证
+    if (!title.trim()) {
+      setError('请输入标题');
+      return;
+    }
+
+    if (!content.trim()) {
+      setError('请输入内容');
+      return;
+    }
+
+    if (!directoryHandle) {
+      setError('未选择目录');
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      if (editingPromptId && modalType === 'edit') {
+        // 编辑模式
+        const existing = prompts.find((p) => p.id === editingPromptId);
+        if (existing && directoryHandle) {
+          const updated = await PromptService.updatePrompt(
+            directoryHandle,
+            existing,
+            {
+              id: existing.id,
+              title: title.trim(),
+              content: content.trim(),
+              tags,
+            }
+          );
+
+          updatePrompt(updated);
+        }
+      } else {
+        // 新建模式
+        const newPrompt = await PromptService.createPrompt(directoryHandle, {
+          title: title.trim(),
+          content: content.trim(),
+          tags,
+        });
+
+        addPrompt(newPrompt);
+      }
+
+      closeModal();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '保存失败';
+      setError(message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={handleClose}
+      title={editingPromptId ? '编辑 Prompt' : '新建 Prompt'}
+      maxWidth="lg"
+    >
+      <div className="space-y-4">
+        {/* 错误提示 */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 text-sm">
+            {error}
+          </div>
+        )}
+
+        {/* 标题 */}
+        <div>
+          <label htmlFor="prompt-title" className="block text-sm font-medium text-fg mb-1">
+            标题 <span className="text-red-500">*</span>
+          </label>
+          <input
+            id="prompt-title"
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="输入 Prompt 标题..."
+            className="w-full px-3 py-2 bg-surface-dim rounded-lg text-sm text-fg placeholder:text-muted border border-transparent focus:border-accent focus:bg-surface transition-colors focus:outline-none"
+            autoFocus
+            disabled={isSaving}
+          />
+        </div>
+
+        {/* 标签 */}
+        <div>
+          <label className="block text-sm font-medium text-fg mb-1">
+            标签
+          </label>
+          <TagSelect selectedTags={tags} onChange={setTags} />
+        </div>
+
+        {/* 内容 */}
+        <div>
+          <label htmlFor="prompt-content" className="block text-sm font-medium text-fg mb-1">
+            内容 <span className="text-red-500">*</span>
+          </label>
+          <textarea
+            id="prompt-content"
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            placeholder="输入 Prompt 内容..."
+            rows={12}
+            className="w-full px-3 py-2 bg-surface-dim rounded-lg text-sm text-fg placeholder:text-muted border border-transparent focus:border-accent focus:bg-surface transition-colors focus:outline-none resize-none font-mono"
+            disabled={isSaving}
+          />
+          <div className="flex justify-end mt-1">
+            <span className="text-xs text-muted">{countChars(content)} 字符</span>
+          </div>
+        </div>
+
+        {/* 操作按钮 */}
+        <div className="flex justify-end gap-3 pt-2">
+          <button
+            onClick={handleClose}
+            disabled={isSaving}
+            className="px-4 py-2 text-sm font-medium text-fg rounded-lg hover:bg-surface-dim transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            取消
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={isSaving}
+            className="px-4 py-2 text-sm font-medium text-white bg-accent rounded-lg hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          >
+            {isSaving ? (
+              <>
+                <span className="material-symbols-outlined text-lg animate-spin">
+                  refresh
+                </span>
+                保存中...
+              </>
+            ) : (
+              editingPromptId ? '保存' : '创建'
+            )}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}

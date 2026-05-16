@@ -1,23 +1,76 @@
+/**
+ * 应用主组件
+ */
+
 import { WelcomeScreen } from '@/components/WelcomeScreen';
+import { Sidebar, TopBar, DetailPanel } from '@/components/layout';
+import { PromptGrid, CreateModal, DeleteConfirm } from '@/components/prompt';
+import { CommandPalette } from '@/components/command';
 import { useFileStore } from '@/stores/fileStore';
+import { useUIStore } from '@/stores/uiStore';
+import { usePromptStore } from '@/stores/promptStore';
+import { usePromptLoader } from '@/hooks/usePromptLoader';
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 
 function AppContent() {
   const { isAuthorized } = useFileStore();
+  const { modalType, selectedPromptId } = useUIStore();
+  const { prompts } = usePromptStore();
+
+  // 自动加载 Prompts
+  usePromptLoader();
+
+  // 键盘快捷键
+  useKeyboardShortcuts();
 
   // 未授权时显示欢迎界面
   if (!isAuthorized) {
     return <WelcomeScreen />;
   }
 
-  // 已授权时显示主界面（待实现）
+  // 编辑模式下使用选中的 Prompt ID
+  const editingPromptId = modalType === 'edit' ? selectedPromptId : null;
+
+  // 获取要删除的 Prompt 信息
+  const deletingPrompt = prompts.find((p) => p.id === selectedPromptId);
+
+  // 已授权时显示主界面
   return (
-    <div className="h-screen flex">
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-fg mb-2">PromptClip</h1>
-          <p className="text-muted">主界面加载中...</p>
-        </div>
+    <div className="h-screen flex flex-col">
+      {/* 侧边栏 + 主内容区 */}
+      <div className="flex-1 flex overflow-hidden">
+        <Sidebar />
+
+        {/* 主内容区 */}
+        <main className="flex-1 flex flex-col overflow-hidden">
+          <TopBar />
+
+          {/* Prompt 网格区域 */}
+          <div className="flex-1 overflow-y-auto p-6 bg-bg">
+            <PromptGrid />
+          </div>
+        </main>
       </div>
+
+      {/* 详情面板 */}
+      <DetailPanel />
+
+      {/* 创建/编辑模态框 */}
+      <CreateModal
+        editingPromptId={editingPromptId}
+        key={`modal-${modalType}-${editingPromptId}`}
+      />
+
+      {/* 删除确认对话框 */}
+      {deletingPrompt && (
+        <DeleteConfirm
+          promptId={deletingPrompt.id}
+          promptTitle={deletingPrompt.title}
+        />
+      )}
+
+      {/* 命令面板 */}
+      <CommandPalette />
     </div>
   );
 }

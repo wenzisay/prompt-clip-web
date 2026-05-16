@@ -53,7 +53,7 @@ export function useDirectoryPicker(): UseDirectoryPickerReturn {
         // 请求权限
         const hasPermission = await FileService.verifyPermission(handle);
         if (hasPermission) {
-          setAuthorized(true, handle.name);
+          setAuthorized(true, handle.name, handle);
           return handle;
         } else {
           setError('未授予目录访问权限');

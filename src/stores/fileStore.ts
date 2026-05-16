@@ -12,6 +12,8 @@ interface FileState {
   isSupported: boolean;
   /** 是否已授权访问目录 */
   isAuthorized: boolean;
+  /** 当前目录句柄（不持久化） */
+  directoryHandle: FileSystemDirectoryHandle | null;
   /** 当前目录名称（用于显示） */
   directoryName: string | null;
   /** 目录最后访问时间 */
@@ -22,7 +24,7 @@ interface FileState {
   error: string | null;
 
   /** 设置目录授权状态 */
-  setAuthorized: (authorized: boolean, directoryName?: string) => void;
+  setAuthorized: (authorized: boolean, directoryName?: string, directoryHandle?: FileSystemDirectoryHandle | null) => void;
   /** 清除目录信息 */
   clearDirectory: () => void;
   /** 设置加载状态 */
@@ -38,15 +40,17 @@ export const useFileStore = create<FileState>()(
     (set) => ({
       isSupported: false,
       isAuthorized: false,
+      directoryHandle: null,
       directoryName: null,
       lastAccessTime: null,
       isLoading: false,
       error: null,
 
-      setAuthorized: (authorized, directoryName) =>
+      setAuthorized: (authorized, directoryName, directoryHandle) =>
         set({
           isAuthorized: authorized,
           directoryName: directoryName || null,
+          directoryHandle: directoryHandle || null,
           lastAccessTime: new Date(),
           error: null,
         }),
@@ -54,6 +58,7 @@ export const useFileStore = create<FileState>()(
       clearDirectory: () =>
         set({
           isAuthorized: false,
+          directoryHandle: null,
           directoryName: null,
           lastAccessTime: null,
           error: null,
@@ -71,7 +76,7 @@ export const useFileStore = create<FileState>()(
     {
       name: 'promptclip-file-storage',
       storage: createJSONStorage(() => localStorage),
-      // 只持久化部分字段
+      // 只持久化部分字段（不持久化 directoryHandle）
       partialize: (state) => ({
         isAuthorized: state.isAuthorized,
         directoryName: state.directoryName,
