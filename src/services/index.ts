@@ -3,3 +3,4 @@
  */
 
 export * from './fileService';
+export * from './promptService';

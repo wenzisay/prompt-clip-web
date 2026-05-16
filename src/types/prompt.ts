@@ -37,6 +37,8 @@ export interface CreatePromptInput {
  */
 export interface UpdatePromptInput extends Partial<CreatePromptInput> {
   id: string;
+  copyCount?: number;
+  pinned?: boolean;
 }
 
 /**
