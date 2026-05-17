@@ -14,14 +14,20 @@ export function TopBar() {
   const { filteredPrompts, filter } = usePromptStore();
   const [searchQuery, setSearchQuery] = useState(filter.searchQuery || '');
 
+  useEffect(() => {
+    setSearchQuery(filter.searchQuery || '');
+  }, [filter.searchQuery]);
+
   // 防抖搜索
   useEffect(() => {
+    if (searchQuery === (filter.searchQuery || '')) return;
+
     const timer = setTimeout(() => {
       usePromptStore.getState().setFilter({ searchQuery });
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [searchQuery]);
+  }, [filter.searchQuery, searchQuery]);
 
   return (
     <header className="h-14 bg-surface border-b border-border flex items-center gap-4 px-4">

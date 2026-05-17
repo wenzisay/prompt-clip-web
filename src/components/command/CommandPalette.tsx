@@ -13,7 +13,7 @@ interface Command {
   icon: string;
   action: () => void;
   shortcut?: string;
-  category?: 'action' | 'prompt';
+  category?: 'action' | 'prompt' | 'search';
 }
 
 export function CommandPalette() {
@@ -81,27 +81,27 @@ export function CommandPalette() {
     [closeCommandPalette, openModal]
   );
 
-  // 最近使用的 Prompts（取前 5 个）
-  const recentPrompts = useMemo(() => {
-    return prompts
-      .filter((p) => p.copyCount > 0 || p.pinned)
-      .slice(0, 5)
-      .map((prompt) => ({
-        id: prompt.id,
-        label: prompt.title,
-        icon: 'description',
-        action: () => {
-          closeCommandPalette();
-          useUIStore.getState().setSelectedPrompt(prompt.id);
-        },
-        category: 'prompt' as const,
-      }));
-  }, [closeCommandPalette, prompts]);
+  const promptCommands = useMemo(() => {
+    const source = query.trim()
+      ? prompts
+      : prompts.filter((p) => p.copyCount > 0 || p.pinned).slice(0, 5);
+
+    return source.map((prompt) => ({
+      id: prompt.id,
+      label: prompt.title,
+      icon: 'description',
+      action: () => {
+        closeCommandPalette();
+        useUIStore.getState().setSelectedPrompt(prompt.id);
+      },
+      category: 'prompt' as const,
+    }));
+  }, [closeCommandPalette, prompts, query]);
 
   // 所有命令
   const allCommands = useMemo(() => {
-    return [...baseCommands, ...recentPrompts] as Command[];
-  }, [baseCommands, recentPrompts]);
+    return [...baseCommands, ...promptCommands] as Command[];
+  }, [baseCommands, promptCommands]);
 
   // 过滤命令
   const filteredCommands = useMemo(() => {
@@ -113,9 +113,31 @@ export function CommandPalette() {
     );
   }, [allCommands, query]);
 
+  const trimmedQuery = query.trim();
+  const fullTextSearchCommand = useMemo<Command | null>(() => {
+    if (!trimmedQuery || filteredCommands.length > 0) return null;
+
+    return {
+      id: 'full-text-search',
+      label: `全文搜索「${trimmedQuery}」`,
+      icon: 'manage_search',
+      action: () => {
+        closeCommandPalette();
+        usePromptStore.getState().setFilter({ searchQuery: trimmedQuery });
+      },
+      category: 'search',
+    };
+  }, [closeCommandPalette, filteredCommands.length, trimmedQuery]);
+
+  const visibleCommands = useMemo(
+    () => (fullTextSearchCommand ? [fullTextSearchCommand] : filteredCommands),
+    [filteredCommands, fullTextSearchCommand]
+  );
+
   // 分组显示
-  const actionCommands = filteredCommands.filter((c) => c.category === 'action');
-  const promptCommands = filteredCommands.filter((c) => c.category === 'prompt');
+  const actionCommands = visibleCommands.filter((c) => c.category === 'action');
+  const titleCommands = visibleCommands.filter((c) => c.category === 'prompt');
+  const searchCommands = visibleCommands.filter((c) => c.category === 'search');
 
   // ESC 键关闭
   useEffect(() => {
@@ -140,6 +162,12 @@ export function CommandPalette() {
     }
   }, [isCommandPaletteOpen]);
 
+  useEffect(() => {
+    setSelectedIndex((index) =>
+      Math.min(index, Math.max(visibleCommands.length - 1, 0))
+    );
+  }, [visibleCommands.length]);
+
   // 键盘导航
   useEffect(() => {
     if (!isCommandPaletteOpen) return;
@@ -149,7 +177,7 @@ export function CommandPalette() {
         case 'ArrowDown':
           e.preventDefault();
           setSelectedIndex((i) =>
-            Math.min(i + 1, filteredCommands.length - 1)
+            Math.min(i + 1, visibleCommands.length - 1)
           );
           break;
         case 'ArrowUp':
@@ -158,14 +186,14 @@ export function CommandPalette() {
           break;
         case 'Enter':
           e.preventDefault();
-          filteredCommands[selectedIndex]?.action();
+          visibleCommands[selectedIndex]?.action();
           break;
       }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isCommandPaletteOpen, selectedIndex, filteredCommands]);
+  }, [isCommandPaletteOpen, selectedIndex, visibleCommands]);
 
   if (!isCommandPaletteOpen) return null;
 
@@ -208,7 +236,7 @@ export function CommandPalette() {
 
           {/* 命令列表 */}
           <div className="max-h-80 overflow-y-auto py-2">
-            {filteredCommands.length === 0 ? (
+            {visibleCommands.length === 0 ? (
               <div className="px-4 py-8 text-center text-muted">
                 未找到匹配的命令
               </div>
@@ -250,12 +278,12 @@ export function CommandPalette() {
                 )}
 
                 {/* Prompt 命令 */}
-                {promptCommands.length > 0 && (
+                {titleCommands.length > 0 && (
                   <div>
                     <div className="px-4 py-1 text-xs font-semibold text-muted uppercase">
-                      最近使用
+                      {query.trim() ? '标题' : '最近使用'}
                     </div>
-                    {promptCommands.map((cmd, index) => (
+                    {titleCommands.map((cmd, index) => (
                       <button
                         key={cmd.id}
                         onClick={() => cmd.action()}
@@ -267,6 +295,36 @@ export function CommandPalette() {
                           transition-colors
                           ${
                             actionCommands.length + index === selectedIndex
+                              ? 'bg-accent-soft text-accent'
+                              : 'hover:bg-surface-dim text-fg'
+                          }
+                        `}
+                      >
+                        <span className="material-symbols-outlined text-xl">
+                          {cmd.icon}
+                        </span>
+                        <span className="flex-1 truncate">{cmd.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* 全文搜索 */}
+                {searchCommands.length > 0 && (
+                  <div>
+                    <div className="px-4 py-1 text-xs font-semibold text-muted uppercase">
+                      搜索
+                    </div>
+                    {searchCommands.map((cmd, index) => (
+                      <button
+                        key={cmd.id}
+                        onClick={() => cmd.action()}
+                        onMouseEnter={() => setSelectedIndex(index)}
+                        className={`
+                          w-full flex items-center gap-3 px-4 py-3 text-left
+                          transition-colors
+                          ${
+                            index === selectedIndex
                               ? 'bg-accent-soft text-accent'
                               : 'hover:bg-surface-dim text-fg'
                           }
