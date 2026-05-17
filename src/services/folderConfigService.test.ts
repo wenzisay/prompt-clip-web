@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createFakeFileRepository, createFakeWorkspace } from './fileRepository';
 import { FolderConfigService } from './folderConfigService';
 
@@ -7,9 +7,16 @@ const workspace = createFakeWorkspace();
 describe('FolderConfigService', () => {
   it('returns defaults when config does not exist', async () => {
     const repository = createFakeFileRepository();
-    await expect(FolderConfigService.readFolderConfig(repository, workspace)).resolves.toEqual({
-      pinnedTags: [],
-    });
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    try {
+      await expect(FolderConfigService.readFolderConfig(repository, workspace)).resolves.toEqual({
+        pinnedTags: [],
+      });
+      expect(warnSpy).not.toHaveBeenCalled();
+    } finally {
+      warnSpy.mockRestore();
+    }
   });
 
   it('normalizes invalid pinned tags', async () => {

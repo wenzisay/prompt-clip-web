@@ -36,6 +36,10 @@ export async function readFolderConfig(
   workspace: WorkspaceRef
 ): Promise<FolderConfig> {
   try {
+    if (!await repository.exists(workspace, CONFIG_FILENAME)) {
+      return DEFAULT_CONFIG;
+    }
+
     const content = await repository.readText(workspace, CONFIG_FILENAME);
     return normalizeConfig(JSON.parse(content));
   } catch (error) {
