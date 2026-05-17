@@ -40,6 +40,7 @@ describe('path utilities', () => {
     expect(sanitizeFilename('NUL.txt')).toBe('NUL-.txt');
     expect(sanitizeFilename('COM1.prompt.md')).toBe('COM1-.prompt.md');
     expect(sanitizeFilename('hello/world:prompt')).toBe('hello-world-prompt');
+    expect(sanitizeFilename('hello\u0000world\u001Fprompt')).toBe('hello-world-prompt');
     expect(sanitizeFilename('  prompt  ')).toBe('prompt');
   });
 });

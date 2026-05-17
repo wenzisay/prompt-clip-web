@@ -23,6 +23,8 @@ const RESERVED_WINDOWS_NAMES = new Set([
   'LPT9',
 ]);
 
+const INVALID_FILENAME_CHARS = new Set(['<', '>', ':', '"', '/', '\\', '|', '?', '*']);
+
 export function toPortablePath(path: string): string {
   return path.replace(/\\/g, '/');
 }
@@ -60,7 +62,9 @@ export function assertSafeRelativePath(path: string): void {
 export function sanitizeFilename(name: string): string {
   const sanitized = name
     .trim()
-    .replace(/[<>:"/\\|?*\u0000-\u001F]/g, '-')
+    .split('')
+    .map((char) => (isInvalidFilenameChar(char) ? '-' : char))
+    .join('')
     .replace(/\s+/g, ' ')
     .replace(/[. ]+$/g, '');
 
@@ -75,4 +79,8 @@ export function sanitizeFilename(name: string): string {
   return RESERVED_WINDOWS_NAMES.has(basename.toUpperCase())
     ? `${basename}-${extension}`
     : sanitized;
+}
+
+function isInvalidFilenameChar(char: string): boolean {
+  return INVALID_FILENAME_CHARS.has(char) || char.charCodeAt(0) <= 0x1f;
 }
