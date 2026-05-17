@@ -32,6 +32,8 @@ interface PromptState {
   setFilter: (filter: Partial<PromptFilter>) => void;
   /** 清除筛选条件 */
   clearFilter: () => void;
+  /** 清空 Prompts */
+  clearPrompts: () => void;
   /** 设置加载状态 */
   setLoading: (loading: boolean) => void;
   /** 设置错误信息 */
@@ -113,6 +115,22 @@ export const usePromptStore = create<PromptState>((set, get) => ({
       },
     });
     get().applyFilter();
+  },
+
+  clearPrompts: () => {
+    SearchService.clearSearchIndex();
+    set({
+      prompts: [],
+      filteredPrompts: [],
+      filter: {
+        searchQuery: '',
+        tag: undefined,
+        favoritesOnly: false,
+        recentOnly: false,
+      },
+      isLoading: false,
+      error: null,
+    });
   },
 
   setLoading: (isLoading) => set({ isLoading }),

@@ -5,7 +5,7 @@
 import { create } from 'zustand';
 import type { TagTreeNode, TagColor } from '@/types/tag';
 import { TagService } from '@/services/tagService';
-import { getStorageItem, removeStorageItem, setStorageItem, StorageKeys } from '@/utils/storage';
+import { getStorageItem, setStorageItem, StorageKeys } from '@/utils/storage';
 
 const savedPinnedTags = getStorageItem<string[]>(StorageKeys.PINNED_TAGS) || [];
 
@@ -100,8 +100,6 @@ export const useTagStore = create<TagState>((set) => ({
     set({
       tags: [],
       tagTree: [],
-      pinnedTags: [],
     });
-    removeStorageItem(StorageKeys.PINNED_TAGS);
   },
 }));
