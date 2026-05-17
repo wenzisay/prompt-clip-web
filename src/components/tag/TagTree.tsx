@@ -14,12 +14,20 @@ import { useEffect, useRef, useState } from 'react';
 interface TreeNodeProps {
   node: TagTreeNode;
   level: number;
+  showFullName?: boolean;
+  expandedNames: Set<string>;
+  onToggleExpand: (tagName: string) => void;
 }
 
-function TreeNode({ node, level }: TreeNodeProps) {
+function TreeNode({
+  node,
+  level,
+  showFullName = false,
+  expandedNames,
+  onToggleExpand,
+}: TreeNodeProps) {
   const {
     pinnedTags,
-    toggleExpand,
     togglePin,
     getTagColor,
     renamePinnedTag,
@@ -36,11 +44,12 @@ function TreeNode({ node, level }: TreeNodeProps) {
   const isActive = filter.tag === node.name;
   const color = getTagColor(node.name);
   const isPinned = pinnedTags.includes(node.name);
+  const isExpanded = expandedNames.has(node.name);
 
   // 切换展开
   const handleToggleExpand = () => {
     if (hasChildren) {
-      toggleExpand(node.name);
+      onToggleExpand(node.name);
     }
   };
 
@@ -52,7 +61,7 @@ function TreeNode({ node, level }: TreeNodeProps) {
 
   const handleTogglePin = (event: React.MouseEvent) => {
     event.stopPropagation();
-    togglePin(node.name);
+    void togglePin(node.name, directoryHandle);
     setIsMenuOpen(false);
   };
 
@@ -85,7 +94,7 @@ function TreeNode({ node, level }: TreeNodeProps) {
         updatePrompt(updated);
       }
 
-      renamePinnedTag(node.name, nextTag);
+      await renamePinnedTag(node.name, nextTag, directoryHandle);
       if (filter.tag && TagService.isTagMatch(filter.tag, node.name)) {
         setFilter({ tag: `${nextTag}${filter.tag.slice(node.name.length)}` });
       }
@@ -123,7 +132,7 @@ function TreeNode({ node, level }: TreeNodeProps) {
         updatePrompt(updated);
       }
 
-      removePinnedTag(node.name);
+      await removePinnedTag(node.name, directoryHandle);
       if (filter.tag && TagService.isTagMatch(filter.tag, node.name)) {
         setFilter({ tag: undefined });
       }
@@ -172,7 +181,7 @@ function TreeNode({ node, level }: TreeNodeProps) {
           >
             <span
               className={`material-symbols-outlined text-lg text-muted transition-transform ${
-                node.expanded ? 'rotate-90' : ''
+                isExpanded ? 'rotate-90' : ''
               }`}
             >
               chevron_right
@@ -196,7 +205,9 @@ function TreeNode({ node, level }: TreeNodeProps) {
         />
 
         {/* 标签名称 */}
-        <span className="flex-1 text-xs truncate">{node.displayName}</span>
+        <span className="flex-1 text-xs truncate">
+          {showFullName ? node.name : node.displayName}
+        </span>
 
         {isPinned && (
           <span className="material-symbols-outlined text-sm text-muted">
@@ -269,10 +280,17 @@ function TreeNode({ node, level }: TreeNodeProps) {
       </div>
 
       {/* 子节点 */}
-      {hasChildren && node.expanded && (
+      {hasChildren && isExpanded && (
         <div>
           {node.children.map((child) => (
-            <TreeNode key={child.name} node={child} level={level + 1} />
+            <TreeNode
+              key={child.name}
+              node={child}
+              level={level + 1}
+              showFullName={showFullName}
+              expandedNames={expandedNames}
+              onToggleExpand={onToggleExpand}
+            />
           ))}
         </div>
       )}
@@ -282,6 +300,16 @@ function TreeNode({ node, level }: TreeNodeProps) {
 
 export function TagTree() {
   const { tagTree, pinnedTags } = useTagStore();
+  const [pinnedExpandedNames, setPinnedExpandedNames] = useState<Set<string>>(new Set());
+  const [allExpandedNames, setAllExpandedNames] = useState<Set<string>>(new Set());
+
+  const togglePinnedExpand = (tagName: string) => {
+    setPinnedExpandedNames((current) => toggleExpandedName(current, tagName));
+  };
+
+  const toggleAllExpand = (tagName: string) => {
+    setAllExpandedNames((current) => toggleExpandedName(current, tagName));
+  };
 
   // 置顶标签
   const pinnedNodes = flattenNodes(tagTree)
@@ -291,11 +319,6 @@ export function TagTree() {
       const bIndex = pinnedTags.indexOf(b.name);
       return aIndex - bIndex;
     });
-
-  // 非置顶标签
-  const unpinnedNodes = tagTree.filter(
-    (node) => !pinnedTags.includes(node.name)
-  );
 
   return (
     <div className="space-y-1">
@@ -311,13 +334,20 @@ export function TagTree() {
             </span>
           </div>
           {pinnedNodes.map((node) => (
-            <TreeNode key={node.name} node={node} level={0} />
+            <TreeNode
+              key={node.name}
+              node={node}
+              level={0}
+              showFullName
+              expandedNames={pinnedExpandedNames}
+              onToggleExpand={togglePinnedExpand}
+            />
           ))}
         </div>
       )}
 
       {/* 所有标签 */}
-      {unpinnedNodes.length > 0 && (
+      {tagTree.length > 0 && (
         <div className="space-y-1">
           {pinnedNodes.length > 0 && (
             <div className="flex items-center gap-1 px-2 py-1 mt-2">
@@ -329,8 +359,14 @@ export function TagTree() {
               </span>
             </div>
           )}
-          {unpinnedNodes.map((node) => (
-            <TreeNode key={node.name} node={node} level={0} />
+          {tagTree.map((node) => (
+            <TreeNode
+              key={node.name}
+              node={node}
+              level={0}
+              expandedNames={allExpandedNames}
+              onToggleExpand={toggleAllExpand}
+            />
           ))}
         </div>
       )}
@@ -347,4 +383,14 @@ export function TagTree() {
 
 function flattenNodes(nodes: TagTreeNode[]): TagTreeNode[] {
   return nodes.flatMap((node) => [node, ...flattenNodes(node.children)]);
+}
+
+function toggleExpandedName(current: Set<string>, tagName: string): Set<string> {
+  const next = new Set(current);
+  if (next.has(tagName)) {
+    next.delete(tagName);
+  } else {
+    next.add(tagName);
+  }
+  return next;
 }

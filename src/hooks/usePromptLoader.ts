@@ -13,7 +13,7 @@ import { PromptService } from '@/services/promptService';
 export function usePromptLoader() {
   const { directoryHandle, isAuthorized } = useFileStore();
   const { setPrompts, setLoading: setPromptLoading, setError } = usePromptStore();
-  const { setTags } = useTagStore();
+  const { loadPinnedTags, setTags } = useTagStore();
 
   useEffect(() => {
     // 如果未授权或没有目录句柄，不加载
@@ -26,6 +26,8 @@ export function usePromptLoader() {
       setError(null);
 
       try {
+        await loadPinnedTags(directoryHandle);
+
         // 加载所有 Prompts
         const prompts = await PromptService.loadPrompts(directoryHandle);
         await setPrompts(prompts);
@@ -42,5 +44,5 @@ export function usePromptLoader() {
     };
 
     load();
-  }, [directoryHandle, isAuthorized, setError, setPromptLoading, setPrompts, setTags]);
+  }, [directoryHandle, isAuthorized, loadPinnedTags, setError, setPromptLoading, setPrompts, setTags]);
 }
