@@ -79,22 +79,77 @@ npm run build
 | `Cmd+3` | 显示收藏 |
 | `Escape` | 关闭面板/模态框 |
 
-## 文件格式
+## 数据存储
 
-Prompt 文件采用 Markdown 格式，支持 Front Matter 元数据：
+### Prompt 数据
+
+每个 Prompt 以 Markdown 文件存储在本地目录，通过 File System Access API 读写。文件使用 YAML frontmatter 保存元数据：
 
 ```markdown
 ---
 title: "Prompt 标题"
 tags: ["tag1", "tag2"]
-favorite: true
-created: 2024-01-01
+created: "2025-01-01T00:00:00.000Z"
+modified: "2025-01-02T00:00:00.000Z"
+copy_count: 5
+pinned: false
 ---
 
-# Prompt 内容
-
-这里写你的提示词内容...
+Prompt 内容...
 ```
+
+### 辅助持久化
+
+应用状态通过浏览器本地存储持久化：
+
+| 存储 | 用途 | 生命周期 |
+|------|------|----------|
+| IndexedDB (`promptclip-file-handles`) | 存储目录句柄 `FileSystemDirectoryHandle`，避免每次重新选目录 | 跨会话 |
+| localStorage (`promptclip-file-storage`) | 授权状态、目录名、最后访问时间 | 跨会话 |
+| localStorage (`promptclip_pinned_tags`) | 置顶标签列表 | 跨会话 |
+
+### 搜索机制
+
+使用 FlexSearch（v0.7.43）构建内存索引，维护三个独立索引并加权合并：
+
+| 索引 | 范围 | 权重 |
+|------|------|------|
+| `titleIndex` | 标题 | +10 |
+| `contentIndex` | 正文内容 | +5 |
+| `tagsIndex` | 标签文本 | +3 |
+
+- 索引配置：`tokenize: 'full'`, `resolution: 9`, `optimize: true`, `cache: true`
+- 搜索输入 300ms 防抖后触发
+- 命令面板无匹配时提供全文搜索回退
+- **索引仅存于内存**，每次打开应用全量重建（Prompt 加载后触发 `buildSearchIndex`）
+
+### 标签系统
+
+标签不从属于独立存储，而是每次 Prompt 列表变化时从所有 Prompt 的 `tags` 字段动态提取并构建标签树。
+
+- 使用 `/` 作为层级分隔符（如 `computing/linux`），支持层级匹配
+- 标签颜色由标签名 hash 确定性分配
+- 置顶标签持久化到 localStorage
+- 标签的增删改直接操作对应 Prompt 文件并写回磁盘
+
+### 数据更新流程
+
+| 操作 | 行为 |
+|------|------|
+| 创建 | 写 `.md` 文件，校验标题唯一性 |
+| 更新 | 先在 `.history/` 存历史版本（最多 10 个），再写入文件；标题变更时删除旧文件 |
+| 删除 | 软删除 → 移入 `.trash/` 目录，文件名加时间戳 |
+| 复制计数 / 置顶 | 跳过历史版本创建（`createHistory: false`） |
+
+更新后状态同步链路：写文件 → Zustand store 更新 → FlexSearch 重建索引 → 过滤器重算 → 标签重提取
+
+### 性能注意事项
+
+当前文件加载为串行读取（`for...await` 逐个处理），文件数量较多时可能影响启动速度。可能的优化方向：
+
+- **并行读取** — 分批并发替代串行 IO
+- **延迟加载** — 先只加载 frontmatter，内容按需读取
+- **索引持久化** — 利用 FlexSearch 内置 `export`/`import` API 将索引序列化到 IndexedDB，配合文件 `lastModified` 快照做增量更新，跳过全量构建
 
 ## 浏览器兼容性
 
