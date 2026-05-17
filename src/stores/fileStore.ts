@@ -59,7 +59,6 @@ export const useFileStore = create<FileState>()(
       },
 
       clearWorkspace: async () => {
-        await fileRepository.clearSavedWorkspace();
         set({
           isAuthorized: false,
           workspace: null,
@@ -67,6 +66,12 @@ export const useFileStore = create<FileState>()(
           lastAccessTime: null,
           error: null,
         });
+
+        try {
+          await fileRepository.clearSavedWorkspace();
+        } catch (error) {
+          console.warn('Failed to clear saved workspace:', error);
+        }
       },
 
       setLoading: (loading) => set({ isLoading: loading }),
@@ -78,14 +83,26 @@ export const useFileStore = create<FileState>()(
         set({ isSupported });
 
         if (!isSupported) {
-          set({ isAuthorized: false, workspace: null });
+          set({
+            isAuthorized: false,
+            workspace: null,
+            workspaceName: null,
+            lastAccessTime: null,
+            error: null,
+          });
           return;
         }
 
         try {
           const workspace = await fileRepository.restoreDirectory();
           if (!workspace) {
-            set({ isAuthorized: false, workspace: null });
+            set({
+              isAuthorized: false,
+              workspace: null,
+              workspaceName: null,
+              lastAccessTime: null,
+              error: null,
+            });
             return;
           }
 
@@ -94,11 +111,18 @@ export const useFileStore = create<FileState>()(
             isAuthorized: permission,
             workspace: permission ? workspace : null,
             workspaceName: permission ? workspace.name : null,
+            lastAccessTime: permission ? new Date() : null,
             error: permission ? null : '目录访问权限已过期，请重新选择数据目录',
           });
         } catch (error) {
           console.warn('Failed to restore workspace:', error);
-          set({ isAuthorized: false, workspace: null });
+          set({
+            isAuthorized: false,
+            workspace: null,
+            workspaceName: null,
+            lastAccessTime: null,
+            error: null,
+          });
         }
       },
     }),

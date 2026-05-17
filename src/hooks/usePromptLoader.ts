@@ -13,16 +13,20 @@ import { fileRepository } from '@/services/fileRepository';
 
 export function usePromptLoader() {
   const { workspace, isAuthorized } = useFileStore();
-  const { setPrompts, setLoading: setPromptLoading, setError } = usePromptStore();
-  const { loadPinnedTags, setTags } = useTagStore();
+  const { setPrompts, setLoading: setPromptLoading, setError, clearPrompts } = usePromptStore();
+  const { loadPinnedTags, setTags, clearTags } = useTagStore();
 
   useEffect(() => {
     // 如果未授权或没有工作区，不加载
     if (!isAuthorized || !workspace) {
+      clearPrompts();
+      clearTags();
       return;
     }
 
     const load = async () => {
+      clearPrompts();
+      clearTags();
       setPromptLoading(true);
       setError(null);
 
@@ -45,5 +49,15 @@ export function usePromptLoader() {
     };
 
     load();
-  }, [workspace, isAuthorized, loadPinnedTags, setError, setPromptLoading, setPrompts, setTags]);
+  }, [
+    workspace,
+    isAuthorized,
+    clearPrompts,
+    clearTags,
+    loadPinnedTags,
+    setError,
+    setPromptLoading,
+    setPrompts,
+    setTags,
+  ]);
 }
