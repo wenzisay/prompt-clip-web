@@ -16,6 +16,7 @@ class FakeFileHandle implements FileSystemFileHandle {
 
   constructor(
     readonly name: string,
+    private readonly entryId: string,
     private readonly read: () => string,
     private readonly writeContent: (content: string) => void
   ) {}
@@ -44,7 +45,7 @@ class FakeFileHandle implements FileSystemFileHandle {
   }
 
   async isSameEntry(other: FileSystemHandle): Promise<boolean> {
-    return this === other;
+    return other instanceof FakeFileHandle && this.entryId === other.entryId;
   }
 
   async queryPermission(): Promise<PermissionState> {
@@ -63,17 +64,20 @@ class FakeDirectoryHandle implements FileSystemDirectoryHandle {
   constructor(readonly name: string) {}
 
   async getFileHandle(name: string, options?: { create?: boolean }): Promise<FileSystemFileHandle> {
-    if (!this.files.has(name)) {
+    const key = name.toLowerCase();
+
+    if (!this.files.has(key)) {
       if (!options?.create) {
         throw new DOMException('Not found', 'NotFoundError');
       }
-      this.files.set(name, '');
+      this.files.set(key, '');
     }
 
     return new FakeFileHandle(
       name,
-      () => this.files.get(name) ?? '',
-      (content) => this.files.set(name, content)
+      key,
+      () => this.files.get(key) ?? '',
+      (content) => this.files.set(key, content)
     );
   }
 
@@ -82,7 +86,7 @@ class FakeDirectoryHandle implements FileSystemDirectoryHandle {
   }
 
   async removeEntry(name: string): Promise<void> {
-    this.files.delete(name);
+    this.files.delete(name.toLowerCase());
   }
 
   async resolve(): Promise<string[] | null> {
@@ -235,6 +239,19 @@ describe('webFileRepository', () => {
 
     await webFileRepository.writeText(workspace!, 'a.md', 'content');
     await webFileRepository.move(workspace!, 'a.md', 'a.md');
+
+    await expect(webFileRepository.readText(workspace!, 'a.md')).resolves.toBe('content');
+  });
+
+  it('does not delete a file when moving to a different path string for the same entry', async () => {
+    const directory = new FakeDirectoryHandle('Prompts');
+    installWindow(directory, new FakeIndexedDB(true));
+
+    const workspace = await webFileRepository.selectDirectory();
+    expect(workspace).not.toBeNull();
+
+    await webFileRepository.writeText(workspace!, 'a.md', 'content');
+    await webFileRepository.move(workspace!, 'a.md', 'A.md');
 
     await expect(webFileRepository.readText(workspace!, 'a.md')).resolves.toBe('content');
   });

@@ -289,11 +289,35 @@ async function exists(_workspace: WorkspaceRef, path: string): Promise<boolean> 
   }
 }
 
+async function getFileHandleIfExists(
+  root: FileSystemDirectoryHandle,
+  path: string
+): Promise<FileSystemFileHandle | null> {
+  try {
+    const { directory, name } = await resolveParentDirectory(root, path, false);
+    return await directory.getFileHandle(name);
+  } catch {
+    return null;
+  }
+}
+
 async function move(workspace: WorkspaceRef, from: string, to: string): Promise<void> {
   const source = normalizeRelativePath(from);
   const target = normalizeRelativePath(to);
 
   if (source === target) {
+    return;
+  }
+
+  const root = await requireSavedDirectoryHandle();
+  const sourceHandle = await getFileHandleIfExists(root, source);
+
+  if (!sourceHandle) {
+    throw new Error('文件不存在或已被移动');
+  }
+
+  const targetHandle = await getFileHandleIfExists(root, target);
+  if (targetHandle && (await sourceHandle.isSameEntry(targetHandle))) {
     return;
   }
 
