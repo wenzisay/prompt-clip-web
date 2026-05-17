@@ -152,10 +152,16 @@ export async function updatePrompt(
 
   const content = serializeMarkdown(updatedPrompt.content, metadata);
   const oldFilename = prompt.filePath || filenameFromId(prompt.id);
-  const nextFilename = pathInSameDirectory(oldFilename, filenameFromTitle(updatedPrompt.title));
+  const nextFilename = updates.title === undefined
+    ? oldFilename
+    : pathInSameDirectory(oldFilename, filenameFromTitle(updatedPrompt.title));
   const entry = await repository.writeText(workspace, nextFilename, content);
 
-  if (oldFilename !== nextFilename && await repository.exists(workspace, oldFilename)) {
+  if (
+    oldFilename !== nextFilename &&
+    oldFilename.toLowerCase() !== nextFilename.toLowerCase() &&
+    await repository.exists(workspace, oldFilename)
+  ) {
     await repository.remove(workspace, oldFilename);
   }
 

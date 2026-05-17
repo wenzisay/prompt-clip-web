@@ -112,6 +112,62 @@ describe('PromptService repository integration', () => {
     expect(await repository.exists(workspace, 'Bar.md')).toBe(false);
   });
 
+  it('keeps the original path for non-title updates when filename differs from title', async () => {
+    const repository = createFakeFileRepository({
+      files: {
+        'draft.md': [
+          '---',
+          'title: Final',
+          '---',
+          '',
+          'Body',
+        ].join('\n'),
+      },
+    });
+    const [prompt] = await PromptService.loadPrompts(repository, workspace);
+
+    const updated = await PromptService.updatePrompt(repository, workspace, prompt, {
+      id: prompt.id,
+      tags: ['kept'],
+    });
+
+    expect(updated.filePath).toBe('draft.md');
+    expect(await repository.exists(workspace, 'draft.md')).toBe(true);
+    expect(await repository.exists(workspace, 'Final.md')).toBe(false);
+  });
+
+  it('does not delete the prompt during case-only title renames', async () => {
+    const repository = createFakeFileRepository({
+      files: {
+        'foo.md': [
+          '---',
+          'title: foo',
+          '---',
+          '',
+          'Body',
+        ].join('\n'),
+      },
+    });
+    const originalRemove = repository.remove;
+    repository.remove = async (targetWorkspace, path) => {
+      const targetPath = path.toLowerCase();
+      for (const existingPath of Object.keys(repository.dumpFiles())) {
+        if (existingPath.toLowerCase() === targetPath) {
+          await originalRemove(targetWorkspace, existingPath);
+        }
+      }
+    };
+    const [prompt] = await PromptService.loadPrompts(repository, workspace);
+
+    const updated = await PromptService.updatePrompt(repository, workspace, prompt, {
+      id: prompt.id,
+      title: 'Foo',
+    });
+
+    expect(updated.filePath).toBe('Foo.md');
+    expect(await repository.exists(workspace, 'Foo.md')).toBe(true);
+  });
+
   it('uses relative file paths as ids for duplicate nested basenames', async () => {
     const repository = createFakeFileRepository({
       files: {
