@@ -9,6 +9,7 @@ import { useFileStore } from '@/stores/fileStore';
 import { SideDrawer } from '@/components/common';
 import { TagSelect } from '@/components/tag';
 import { PromptService } from '@/services/promptService';
+import { fileRepository } from '@/services/fileRepository';
 import { countChars } from '@/utils/markdown';
 import { validatePromptTitleForFilename } from '@/utils/id';
 
@@ -20,7 +21,7 @@ interface CreateModalProps {
 export function CreateModal({ editingPromptId }: CreateModalProps) {
   const { modalType, closeModal, setSelectedPrompt } = useUIStore();
   const { addPrompt, updatePrompt, deletePrompt, prompts } = usePromptStore();
-  const { directoryHandle } = useFileStore();
+  const { workspace } = useFileStore();
 
   const isOpen = modalType === 'create' || modalType === 'edit';
 
@@ -77,7 +78,7 @@ export function CreateModal({ editingPromptId }: CreateModalProps) {
       return;
     }
 
-    if (!directoryHandle) {
+    if (!workspace) {
       setError('未选择目录');
       return;
     }
@@ -88,9 +89,10 @@ export function CreateModal({ editingPromptId }: CreateModalProps) {
       if (editingPromptId && modalType === 'edit') {
         // 编辑模式
         const existing = prompts.find((p) => p.id === editingPromptId);
-        if (existing && directoryHandle) {
+        if (existing && workspace) {
           const updated = await PromptService.updatePrompt(
-            directoryHandle,
+            fileRepository,
+            workspace,
             existing,
             {
               id: existing.id,
@@ -110,7 +112,7 @@ export function CreateModal({ editingPromptId }: CreateModalProps) {
         }
       } else {
         // 新建模式
-        const newPrompt = await PromptService.createPrompt(directoryHandle, {
+        const newPrompt = await PromptService.createPrompt(fileRepository, workspace, {
           title: title.trim(),
           content: content.trim(),
           tags,

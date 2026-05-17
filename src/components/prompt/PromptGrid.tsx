@@ -8,6 +8,7 @@ import { useFileStore } from '@/stores/fileStore';
 import { PromptCard } from './PromptCard';
 import { Spinner } from '@/components/common';
 import { PromptService } from '@/services/promptService';
+import { fileRepository } from '@/services/fileRepository';
 import { FilterTabs } from '@/components/layout/FilterTabs';
 
 interface PromptGridProps {
@@ -18,11 +19,11 @@ interface PromptGridProps {
 export function PromptGrid({ isLoading = false }: PromptGridProps) {
   const { filteredPrompts, deletePrompt } = usePromptStore();
   const { selectedPromptIds, toggleSelectAll, clearSelection, openModal } = useUIStore();
-  const { directoryHandle } = useFileStore();
+  const { workspace } = useFileStore();
   const selectedCount = selectedPromptIds.length;
 
   const handleBatchDelete = async () => {
-    if (!directoryHandle || selectedPromptIds.length === 0) return;
+    if (!workspace || selectedPromptIds.length === 0) return;
     const confirmed = window.confirm(`确定要将 ${selectedPromptIds.length} 个 Prompt 移动到 .trash 吗？`);
     if (!confirmed) return;
 
@@ -30,7 +31,7 @@ export function PromptGrid({ isLoading = false }: PromptGridProps) {
     const promptsToDelete = filteredPrompts.filter((prompt) => selectedSet.has(prompt.id));
 
     for (const prompt of promptsToDelete) {
-      await PromptService.deletePrompt(directoryHandle, prompt);
+      await PromptService.deletePrompt(fileRepository, workspace, prompt);
       deletePrompt(prompt.id);
     }
 

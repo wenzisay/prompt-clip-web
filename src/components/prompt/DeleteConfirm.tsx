@@ -7,6 +7,7 @@ import { useUIStore } from '@/stores/uiStore';
 import { useFileStore } from '@/stores/fileStore';
 import { Modal } from '@/components/common';
 import { PromptService } from '@/services/promptService';
+import { fileRepository } from '@/services/fileRepository';
 
 interface DeleteConfirmProps {
   /** 要删除的 Prompt ID */
@@ -18,16 +19,16 @@ interface DeleteConfirmProps {
 export function DeleteConfirm({ promptId, promptTitle }: DeleteConfirmProps) {
   const { modalType, closeModal } = useUIStore();
   const { deletePrompt, prompts } = usePromptStore();
-  const { directoryHandle } = useFileStore();
+  const { workspace } = useFileStore();
 
   const isOpen = modalType === 'delete';
 
   const handleDelete = async () => {
     try {
       const prompt = prompts.find((p) => p.id === promptId);
-      if (!prompt || !directoryHandle) return;
+      if (!prompt || !workspace) return;
 
-      await PromptService.deletePrompt(directoryHandle, prompt);
+      await PromptService.deletePrompt(fileRepository, workspace, prompt);
       deletePrompt(promptId);
       closeModal();
     } catch (error) {
