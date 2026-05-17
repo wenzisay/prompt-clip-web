@@ -10,15 +10,15 @@ import { ExportTargetService } from './exportTargetService';
 
 export type ExportFormat = 'json' | 'csv' | 'markdown';
 
-export async function exportJSON(prompts: Prompt[]): Promise<void> {
+export async function exportJSON(prompts: Prompt[]): Promise<boolean> {
   const data = prompts.map(toSerializablePrompt);
-  await ExportTargetService.saveExportBlob(
+  return ExportTargetService.saveExportBlob(
     new Blob([JSON.stringify(data, null, 2)], { type: 'application/json;charset=utf-8' }),
     `promptclip-export-${formatExportDate()}.json`
   );
 }
 
-export async function exportCSV(prompts: Prompt[]): Promise<void> {
+export async function exportCSV(prompts: Prompt[]): Promise<boolean> {
   const rows = [
     ['id', 'title', 'content', 'tags', 'created_at', 'updated_at', 'copy_count', 'pinned'],
     ...prompts.map((prompt) => [
@@ -34,13 +34,13 @@ export async function exportCSV(prompts: Prompt[]): Promise<void> {
   ];
 
   const csv = rows.map((row) => row.map(escapeCSVCell).join(',')).join('\n');
-  await ExportTargetService.saveExportBlob(
+  return ExportTargetService.saveExportBlob(
     new Blob([csv], { type: 'text/csv;charset=utf-8' }),
     `promptclip-export-${formatExportDate()}.csv`
   );
 }
 
-export async function exportMDArchive(prompts: Prompt[]): Promise<void> {
+export async function exportMDArchive(prompts: Prompt[]): Promise<boolean> {
   const zip = new JSZip();
 
   for (const prompt of prompts) {
@@ -56,21 +56,19 @@ export async function exportMDArchive(prompts: Prompt[]): Promise<void> {
   }
 
   const blob = await zip.generateAsync({ type: 'blob' });
-  await ExportTargetService.saveExportBlob(blob, `promptclip-export-${formatExportDate()}.zip`);
+  return ExportTargetService.saveExportBlob(blob, `promptclip-export-${formatExportDate()}.zip`);
 }
 
-export async function exportPrompts(prompts: Prompt[], format: ExportFormat): Promise<void> {
+export async function exportPrompts(prompts: Prompt[], format: ExportFormat): Promise<boolean> {
   if (format === 'json') {
-    await exportJSON(prompts);
-    return;
+    return exportJSON(prompts);
   }
 
   if (format === 'csv') {
-    await exportCSV(prompts);
-    return;
+    return exportCSV(prompts);
   }
 
-  await exportMDArchive(prompts);
+  return exportMDArchive(prompts);
 }
 
 function toSerializablePrompt(prompt: Prompt) {

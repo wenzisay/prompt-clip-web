@@ -1,4 +1,6 @@
-export async function saveExportBlob(blob: Blob, filename: string): Promise<void> {
+type SaveDialogFilter = { name: string; extensions: string[] };
+
+export async function saveExportBlob(blob: Blob, filename: string): Promise<boolean> {
   const maybeTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 
   if (maybeTauri) {
@@ -7,24 +9,25 @@ export async function saveExportBlob(blob: Blob, filename: string): Promise<void
     const { save } = (await import(/* @vite-ignore */ dialogPlugin)) as {
       save: (options: {
         defaultPath: string;
-        filters: Array<{ name: string; extensions: string[] }>;
+        filters?: SaveDialogFilter[];
       }) => Promise<string | null>;
     };
     const { writeFile } = (await import(/* @vite-ignore */ fsPlugin)) as {
       writeFile: (path: string, data: Uint8Array) => Promise<void>;
     };
+    const filters = getSaveDialogFilters(filename);
     const path = await save({
       defaultPath: filename,
-      filters: [{ name: 'ZIP', extensions: ['zip'] }],
+      ...(filters.length > 0 ? { filters } : {}),
     });
 
     if (!path) {
-      return;
+      return false;
     }
 
     const bytes = new Uint8Array(await blob.arrayBuffer());
     await writeFile(path, bytes);
-    return;
+    return true;
   }
 
   const url = URL.createObjectURL(blob);
@@ -35,6 +38,25 @@ export async function saveExportBlob(blob: Blob, filename: string): Promise<void
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
+  return true;
+}
+
+function getSaveDialogFilters(filename: string): SaveDialogFilter[] {
+  const extension = filename.split('.').pop()?.toLowerCase();
+
+  if (extension === 'zip') {
+    return [{ name: 'ZIP', extensions: ['zip'] }];
+  }
+
+  if (extension === 'json') {
+    return [{ name: 'JSON', extensions: ['json'] }];
+  }
+
+  if (extension === 'csv') {
+    return [{ name: 'CSV', extensions: ['csv'] }];
+  }
+
+  return [];
 }
 
 export const ExportTargetService = {
