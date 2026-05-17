@@ -216,26 +216,28 @@ export function PromptCard({ prompt }: PromptCardProps) {
       </p>
 
       {/* 标签 */}
-      {prompt.tags.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-3">
-          {prompt.tags.slice(0, 4).map((tag, index) => (
-            <span
-              key={tag}
-              className={`
-                inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium
-                ${index % 2 === 0 ? 'bg-blue-50 text-accent' : 'bg-purple-50 text-tertiary'}
-              `}
-            >
-              {tag.replace(/^#/, '')}
-            </span>
-          ))}
-          {prompt.tags.length > 4 && (
-            <span className="text-xs text-muted">
-              +{prompt.tags.length - 4}
-            </span>
-          )}
-        </div>
-      )}
+      <div className="flex flex-wrap gap-2 mb-3 min-h-5">
+        {prompt.tags.length > 0 && (
+          <>
+            {prompt.tags.slice(0, 4).map((tag, index) => (
+              <span
+                key={tag}
+                className={`
+                  inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium
+                  ${index % 2 === 0 ? 'bg-blue-50 text-accent' : 'bg-purple-50 text-tertiary'}
+                `}
+              >
+                {tag.replace(/^#/, '')}
+              </span>
+            ))}
+            {prompt.tags.length > 4 && (
+              <span className="text-xs text-muted">
+                +{prompt.tags.length - 4}
+              </span>
+            )}
+          </>
+        )}
+      </div>
 
       {/* 底部：元数据 */}
       <div className="flex items-center justify-between text-xs text-muted">
