@@ -38,32 +38,75 @@ function openDatabase(): Promise<IDBDatabase> {
 }
 
 async function withStore<T>(
-  mode: IDBTransactionMode,
   operation: (store: IDBObjectStore) => IDBRequest<T>
 ): Promise<T> {
   const db = await openDatabase();
 
   return new Promise((resolve, reject) => {
-    const transaction = db.transaction(STORE_NAME, mode);
+    let isClosed = false;
+    const closeDatabase = () => {
+      if (!isClosed) {
+        db.close();
+        isClosed = true;
+      }
+    };
+    const transaction = db.transaction(STORE_NAME, 'readonly');
     const store = transaction.objectStore(STORE_NAME);
     const request = operation(store);
 
     request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-    transaction.oncomplete = () => db.close();
+    request.onerror = () => {
+      closeDatabase();
+      reject(request.error);
+    };
+    transaction.oncomplete = closeDatabase;
     transaction.onerror = () => {
-      db.close();
+      closeDatabase();
       reject(transaction.error);
     };
     transaction.onabort = () => {
-      db.close();
+      closeDatabase();
+      reject(transaction.error);
+    };
+  });
+}
+
+async function withWriteStore(operation: (store: IDBObjectStore) => IDBRequest): Promise<void> {
+  const db = await openDatabase();
+
+  return new Promise((resolve, reject) => {
+    let isClosed = false;
+    const closeDatabase = () => {
+      if (!isClosed) {
+        db.close();
+        isClosed = true;
+      }
+    };
+    const transaction = db.transaction(STORE_NAME, 'readwrite');
+    const store = transaction.objectStore(STORE_NAME);
+    const request = operation(store);
+
+    request.onerror = () => {
+      closeDatabase();
+      reject(request.error);
+    };
+    transaction.oncomplete = () => {
+      closeDatabase();
+      resolve();
+    };
+    transaction.onerror = () => {
+      closeDatabase();
+      reject(transaction.error);
+    };
+    transaction.onabort = () => {
+      closeDatabase();
       reject(transaction.error);
     };
   });
 }
 
 async function saveDirectoryHandle(handle: FileSystemDirectoryHandle): Promise<void> {
-  await withStore('readwrite', (store) => store.put(handle, DIRECTORY_KEY));
+  await withWriteStore((store) => store.put(handle, DIRECTORY_KEY));
 }
 
 async function getSavedDirectoryHandle(): Promise<FileSystemDirectoryHandle | null> {
@@ -71,7 +114,7 @@ async function getSavedDirectoryHandle(): Promise<FileSystemDirectoryHandle | nu
     return null;
   }
 
-  const handle = await withStore<FileSystemDirectoryHandle | undefined>('readonly', (store) =>
+  const handle = await withStore<FileSystemDirectoryHandle | undefined>((store) =>
     store.get(DIRECTORY_KEY)
   );
 
@@ -83,7 +126,7 @@ async function deleteSavedDirectoryHandle(): Promise<void> {
     return;
   }
 
-  await withStore('readwrite', (store) => store.delete(DIRECTORY_KEY));
+  await withWriteStore((store) => store.delete(DIRECTORY_KEY));
 }
 
 async function resolveParentDirectory(
@@ -247,9 +290,16 @@ async function exists(_workspace: WorkspaceRef, path: string): Promise<boolean> 
 }
 
 async function move(workspace: WorkspaceRef, from: string, to: string): Promise<void> {
-  const content = await readText(workspace, from);
-  await writeText(workspace, to, content);
-  await remove(workspace, from);
+  const source = normalizeRelativePath(from);
+  const target = normalizeRelativePath(to);
+
+  if (source === target) {
+    return;
+  }
+
+  const content = await readText(workspace, source);
+  await writeText(workspace, target, content);
+  await remove(workspace, source);
 }
 
 async function mkdir(_workspace: WorkspaceRef, path: string): Promise<void> {
