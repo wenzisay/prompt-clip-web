@@ -8,14 +8,7 @@
   "permissions": [
     "core:default",
     "dialog:default",
-    {
-      "identifier": "fs:allow-write-file",
-      "allow": [
-        {
-          "path": "$HOME/**"
-        }
-      ]
-    },
+    "fs:allow-write-file",
     "store:default"
   ]
 }
