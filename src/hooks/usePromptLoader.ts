@@ -24,6 +24,8 @@ export function usePromptLoader() {
       return;
     }
 
+    let isActive = true;
+
     const load = async () => {
       clearPrompts();
       clearTags();
@@ -32,23 +34,34 @@ export function usePromptLoader() {
 
       try {
         await loadPinnedTags(workspace);
+        if (!isActive) return;
 
         // 加载所有 Prompts
         const prompts = await PromptService.loadPrompts(fileRepository, workspace);
+        if (!isActive) return;
+
         await setPrompts(prompts);
+        if (!isActive) return;
 
         // 更新标签存储，保留重复项用于统计每个标签的 Prompt 数量
         setTags(prompts.flatMap((prompt) => prompt.tags));
       } catch (error) {
+        if (!isActive) return;
+
         const message = error instanceof Error ? error.message : '加载 Prompts 失败';
         setError(message);
         console.error('Failed to load prompts:', error);
       } finally {
-        setPromptLoading(false);
+        if (isActive) {
+          setPromptLoading(false);
+        }
       }
     };
 
     load();
+    return () => {
+      isActive = false;
+    };
   }, [
     workspace,
     isAuthorized,
