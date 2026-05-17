@@ -5,8 +5,9 @@
  */
 
 import { useCallback, useEffect } from 'react';
+import type { WorkspaceRef } from '@/types/file';
 import { useFileStore } from '@/stores/fileStore';
-import { FileService } from '@/services/fileService';
+import { fileRepository } from '@/services/fileRepository';
 
 interface UseDirectoryPickerReturn {
   /** 是否已授权 */
@@ -18,9 +19,9 @@ interface UseDirectoryPickerReturn {
   /** 错误信息 */
   error: string | null;
   /** 打开目录选择器 */
-  openDirectory: () => Promise<FileSystemDirectoryHandle | null>;
+  openDirectory: () => Promise<WorkspaceRef | null>;
   /** 清除当前目录 */
-  clearDirectory: () => void;
+  clearDirectory: () => Promise<void>;
 }
 
 export function useDirectoryPicker(): UseDirectoryPickerReturn {
@@ -29,10 +30,10 @@ export function useDirectoryPicker(): UseDirectoryPickerReturn {
     isAuthorized,
     isLoading,
     error,
-    setAuthorized,
+    setWorkspace,
     setLoading,
     setError,
-    clearDirectory: clearDir,
+    clearWorkspace,
     initialize,
   } = useFileStore();
 
@@ -42,43 +43,41 @@ export function useDirectoryPicker(): UseDirectoryPickerReturn {
   }, [initialize]);
 
   // 打开目录选择器
-  const openDirectory = useCallback(async (): Promise<FileSystemDirectoryHandle | null> => {
+  const openDirectory = useCallback(async (): Promise<WorkspaceRef | null> => {
     setError(null);
     setLoading(true);
 
     try {
-      const handle = await FileService.openDirectory();
+      const workspace = await fileRepository.selectDirectory();
 
-      if (handle) {
-        // 请求权限
-        const hasPermission = await FileService.verifyPermission(handle);
+      if (workspace) {
+        const hasPermission = await fileRepository.verifyPermission(workspace);
         if (hasPermission) {
-          setAuthorized(true, handle.name, handle);
-          return handle;
-        } else {
-          setError('未授予目录访问权限');
-          setAuthorized(false);
-          return null;
+          setWorkspace(workspace);
+          return workspace;
         }
-      } else {
-        // 用户取消
-        setLoading(false);
+
+        setError('未授予目录访问权限');
+        setWorkspace(null);
         return null;
       }
+
+      setLoading(false);
+      return null;
     } catch (err) {
       const message = err instanceof Error ? err.message : '打开目录失败';
       setError(message);
-      setAuthorized(false);
+      setWorkspace(null);
       return null;
     } finally {
       setLoading(false);
     }
-  }, [setError, setLoading, setAuthorized]);
+  }, [setError, setLoading, setWorkspace]);
 
   // 清除当前目录
-  const clearDirectory = useCallback(() => {
-    clearDir();
-  }, [clearDir]);
+  const clearDirectory = useCallback(async () => {
+    await clearWorkspace();
+  }, [clearWorkspace]);
 
   return {
     isAuthorized,

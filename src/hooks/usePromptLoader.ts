@@ -9,15 +9,16 @@ import { useFileStore } from '@/stores/fileStore';
 import { usePromptStore } from '@/stores/promptStore';
 import { useTagStore } from '@/stores/tagStore';
 import { PromptService } from '@/services/promptService';
+import { fileRepository } from '@/services/fileRepository';
 
 export function usePromptLoader() {
-  const { directoryHandle, isAuthorized } = useFileStore();
+  const { workspace, isAuthorized } = useFileStore();
   const { setPrompts, setLoading: setPromptLoading, setError } = usePromptStore();
   const { loadPinnedTags, setTags } = useTagStore();
 
   useEffect(() => {
-    // 如果未授权或没有目录句柄，不加载
-    if (!isAuthorized || !directoryHandle) {
+    // 如果未授权或没有工作区，不加载
+    if (!isAuthorized || !workspace) {
       return;
     }
 
@@ -26,10 +27,10 @@ export function usePromptLoader() {
       setError(null);
 
       try {
-        await loadPinnedTags(directoryHandle);
+        await loadPinnedTags(workspace);
 
         // 加载所有 Prompts
-        const prompts = await PromptService.loadPrompts(directoryHandle);
+        const prompts = await PromptService.loadPrompts(fileRepository, workspace);
         await setPrompts(prompts);
 
         // 更新标签存储，保留重复项用于统计每个标签的 Prompt 数量
@@ -44,5 +45,5 @@ export function usePromptLoader() {
     };
 
     load();
-  }, [directoryHandle, isAuthorized, loadPinnedTags, setError, setPromptLoading, setPrompts, setTags]);
+  }, [workspace, isAuthorized, loadPinnedTags, setError, setPromptLoading, setPrompts, setTags]);
 }
