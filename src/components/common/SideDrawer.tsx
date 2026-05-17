@@ -2,9 +2,36 @@
  * 右侧抽屉组件
  */
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Overlay } from './Overlay';
 import { IconButton } from './IconButton';
+
+const DRAWER_WIDTH_STORAGE_KEY = 'promptclip:drawer-width';
+const DEFAULT_DRAWER_WIDTH = 480;
+const MIN_DRAWER_WIDTH = 360;
+const VIEWPORT_MARGIN = 64;
+
+function getMaxDrawerWidth(): number {
+  if (typeof window === 'undefined') return DEFAULT_DRAWER_WIDTH;
+  const minWidth = Math.min(MIN_DRAWER_WIDTH, window.innerWidth);
+  return Math.max(minWidth, window.innerWidth - VIEWPORT_MARGIN);
+}
+
+function clampDrawerWidth(width: number): number {
+  if (typeof window === 'undefined') return width;
+
+  const minWidth = Math.min(MIN_DRAWER_WIDTH, window.innerWidth);
+  const maxWidth = Math.max(minWidth, getMaxDrawerWidth());
+  return Math.min(Math.max(width, minWidth), maxWidth);
+}
+
+function getInitialDrawerWidth(): number {
+  if (typeof window === 'undefined') return DEFAULT_DRAWER_WIDTH;
+
+  const storedWidth = window.localStorage.getItem(DRAWER_WIDTH_STORAGE_KEY);
+  const parsedWidth = storedWidth ? Number(storedWidth) : DEFAULT_DRAWER_WIDTH;
+  return clampDrawerWidth(Number.isFinite(parsedWidth) ? parsedWidth : DEFAULT_DRAWER_WIDTH);
+}
 
 export interface SideDrawerProps {
   isOpen: boolean;
@@ -31,6 +58,9 @@ export function SideDrawer({
   panelClassName = '',
   bodyClassName = '',
 }: SideDrawerProps) {
+  const [drawerWidth, setDrawerWidth] = useState(getInitialDrawerWidth);
+  const [isResizing, setIsResizing] = useState(false);
+
   useEffect(() => {
     if (!isOpen) return;
 
@@ -53,6 +83,51 @@ export function SideDrawer({
     };
   }, [isOpen]);
 
+  useEffect(() => {
+    const handleResize = () => {
+      setDrawerWidth((width) => clampDrawerWidth(width));
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    if (!isResizing) return;
+
+    document.body.style.cursor = 'ew-resize';
+    document.body.style.userSelect = 'none';
+
+    return () => {
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, [isResizing]);
+
+  const handleResizeStart = (event: React.PointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setIsResizing(true);
+    let nextStoredWidth = drawerWidth;
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      const nextWidth = clampDrawerWidth(window.innerWidth - moveEvent.clientX);
+      nextStoredWidth = nextWidth;
+      setDrawerWidth(nextWidth);
+    };
+
+    const handlePointerUp = () => {
+      setIsResizing(false);
+      window.localStorage.setItem(DRAWER_WIDTH_STORAGE_KEY, String(nextStoredWidth));
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerUp);
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerUp);
+  };
+
   return (
     <>
       <Overlay
@@ -63,14 +138,32 @@ export function SideDrawer({
 
       <section
         className={`
-          fixed top-0 right-0 h-full w-detail bg-surface border-l border-border
+          fixed top-0 right-0 h-full bg-surface border-l border-border
           shadow-card-hover transform transition-transform duration-200 ease-out
           z-40 flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full'}
           ${panelClassName}
         `}
+        style={{ width: drawerWidth }}
         aria-modal="true"
         role="dialog"
       >
+        <div
+          className={`
+            absolute left-0 top-0 z-10 h-full w-2 -translate-x-1/2 cursor-ew-resize
+            transition-colors hover:bg-accent-soft
+            ${isResizing ? 'bg-accent-soft' : ''}
+          `}
+          onPointerDown={handleResizeStart}
+          onDoubleClick={() => {
+            const nextWidth = clampDrawerWidth(DEFAULT_DRAWER_WIDTH);
+            setDrawerWidth(nextWidth);
+            window.localStorage.setItem(DRAWER_WIDTH_STORAGE_KEY, String(nextWidth));
+          }}
+          aria-label="调整抽屉宽度"
+          role="separator"
+          title="拖动调整宽度"
+        />
+
         {header ?? (
           <div className="h-14 shrink-0 flex items-center justify-between px-4 border-b border-border">
             <h2 className="font-semibold text-fg truncate flex-1">{title}</h2>

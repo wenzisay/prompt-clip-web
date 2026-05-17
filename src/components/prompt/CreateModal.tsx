@@ -161,8 +161,9 @@ export function CreateModal({ editingPromptId }: CreateModalProps) {
           </button>
         </>
       }
+      bodyClassName="flex flex-col"
     >
-      <div className="space-y-4">
+      <div className="flex min-h-full flex-1 flex-col gap-4">
         {/* 错误提示 */}
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 text-sm">
@@ -185,14 +186,11 @@ export function CreateModal({ editingPromptId }: CreateModalProps) {
             }}
             placeholder="输入 Prompt 标题..."
             maxLength={120}
-            className="w-full px-3 py-2 bg-surface-dim rounded-lg text-sm text-fg placeholder:text-muted border border-transparent focus:border-accent focus:bg-surface transition-colors focus:outline-none"
+            className="w-full px-3 py-2 bg-surface-container rounded-lg text-sm text-fg placeholder:text-muted border border-[var(--border-strong)] shadow-inner focus:border-accent focus:bg-surface focus:ring-2 focus:ring-accent-soft transition-colors focus:outline-none"
             autoFocus
             disabled={isSaving}
           />
-          <div className="mt-1 flex justify-between text-xs text-muted">
-            <span>文件名将保存为：{title.trim() || '未命名'}.md</span>
-            <span>{title.trim().length}/120</span>
-          </div>
+          <div className="mt-1 text-right text-xs text-muted">{title.trim().length}/120</div>
         </div>
 
         {/* 标签 */}
@@ -204,7 +202,7 @@ export function CreateModal({ editingPromptId }: CreateModalProps) {
         </div>
 
         {/* 内容 */}
-        <div className="flex min-h-[360px] flex-col">
+        <div className="flex min-h-[360px] flex-1 flex-col">
           <label htmlFor="prompt-content" className="block text-sm font-medium text-fg mb-1">
             内容 <span className="text-red-500">*</span>
           </label>
@@ -213,7 +211,7 @@ export function CreateModal({ editingPromptId }: CreateModalProps) {
             value={content}
             onChange={(e) => setContent(e.target.value)}
             placeholder="输入 Prompt 内容..."
-            className="min-h-[320px] flex-1 w-full px-3 py-2 bg-surface-dim rounded-lg text-sm text-fg placeholder:text-muted border border-transparent focus:border-accent focus:bg-surface transition-colors focus:outline-none resize-none font-mono"
+            className="min-h-[320px] flex-1 w-full px-3 py-2 bg-surface-container rounded-lg text-sm text-fg placeholder:text-muted border border-[var(--border-strong)] shadow-inner focus:border-accent focus:bg-surface focus:ring-2 focus:ring-accent-soft transition-colors focus:outline-none resize-none font-mono"
             disabled={isSaving}
           />
           <div className="flex justify-end mt-1">

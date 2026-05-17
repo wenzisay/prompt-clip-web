@@ -104,7 +104,10 @@ export const useUIStore = create<UIState>((set, get) => ({
   },
 
   openModal: (type) => {
-    set({ modalType: type });
+    set({
+      modalType: type,
+      isDetailOpen: type === 'create' || type === 'edit' ? false : get().isDetailOpen,
+    });
   },
 
   closeModal: () => {
