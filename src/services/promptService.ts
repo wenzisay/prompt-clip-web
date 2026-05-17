@@ -155,20 +155,18 @@ export async function updatePrompt(
   const nextFilename = updates.title === undefined
     ? oldFilename
     : pathInSameDirectory(oldFilename, filenameFromTitle(updatedPrompt.title));
-  const entry = await repository.writeText(workspace, nextFilename, content);
 
-  if (
-    oldFilename !== nextFilename &&
-    oldFilename.toLowerCase() !== nextFilename.toLowerCase() &&
-    await repository.exists(workspace, oldFilename)
-  ) {
-    await repository.remove(workspace, oldFilename);
+  if (oldFilename === nextFilename) {
+    await repository.writeText(workspace, oldFilename, content);
+  } else {
+    await repository.writeText(workspace, oldFilename, content);
+    await repository.move(workspace, oldFilename, nextFilename);
   }
 
   return {
     ...updatedPrompt,
-    id: idFromFilename(entry.path),
-    filePath: entry.path,
+    id: idFromFilename(nextFilename),
+    filePath: nextFilename,
   };
 }
 
@@ -234,7 +232,7 @@ export async function createHistoryVersion(
     await repository.mkdir(workspace, CONFIG.FILE_SYSTEM.HISTORY_DIR);
 
     const timestamp = formatDateForFile(prompt.updatedAt);
-    const historyFilename = `${prompt.id}.${timestamp}.md`;
+    const historyFilename = `${encodeHistoryPromptId(prompt.id)}.${timestamp}.md`;
     const content = await repository.readText(workspace, filename);
 
     await repository.writeText(
@@ -265,7 +263,11 @@ export async function validatePromptTitle(
     ? pathInSameDirectory(currentFilename, filename)
     : filename;
 
-  if (targetFilename !== currentFilename && await repository.exists(workspace, targetFilename)) {
+  if (
+    targetFilename !== currentFilename &&
+    targetFilename.toLowerCase() !== currentFilename?.toLowerCase() &&
+    await repository.exists(workspace, targetFilename)
+  ) {
     throw new Error('标题已存在，请使用不同的标题');
   }
 }
@@ -317,8 +319,8 @@ async function listHistoryEntries(
     { includeHiddenDirectories: true }
   );
 
-  const promptHistoryPrefix = `${HISTORY_PATH_PREFIX}${promptId}.`;
-  return entries.filter((entry) => entry.path.startsWith(promptHistoryPrefix));
+  const encodedPromptId = encodeHistoryPromptId(promptId);
+  return entries.filter((entry) => isHistoryEntryForPrompt(entry, encodedPromptId));
 }
 
 function pathInSameDirectory(currentPath: string, filename: string): string {
@@ -329,6 +331,22 @@ function pathInSameDirectory(currentPath: string, filename: string): string {
   }
 
   return joinPath(currentPath.slice(0, lastSeparatorIndex), filename);
+}
+
+function encodeHistoryPromptId(promptId: string): string {
+  return encodeURIComponent(promptId).replace(/\./g, '%2E');
+}
+
+function isHistoryEntryForPrompt(entry: FileEntry, encodedPromptId: string): boolean {
+  if (!entry.path.startsWith(HISTORY_PATH_PREFIX)) {
+    return false;
+  }
+
+  const escapedPromptId = encodedPromptId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const filenamePattern = new RegExp(
+    `^${escapedPromptId}\\.\\d{4}-\\d{2}-\\d{2}-\\d{6}\\.md$`
+  );
+  return filenamePattern.test(entry.name);
 }
 
 function extractFrontmatterBlockTags(content: string): string[] | null {

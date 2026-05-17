@@ -148,14 +148,16 @@ describe('PromptService repository integration', () => {
         ].join('\n'),
       },
     });
-    const originalRemove = repository.remove;
-    repository.remove = async (targetWorkspace, path) => {
-      const targetPath = path.toLowerCase();
-      for (const existingPath of Object.keys(repository.dumpFiles())) {
-        if (existingPath.toLowerCase() === targetPath) {
-          await originalRemove(targetWorkspace, existingPath);
-        }
+    const originalExists = repository.exists;
+    repository.exists = async (targetWorkspace, path) => {
+      if (await originalExists(targetWorkspace, path)) {
+        return true;
       }
+
+      const targetPath = path.toLowerCase();
+      return Object.keys(repository.dumpFiles()).some(
+        (existingPath) => existingPath.toLowerCase() === targetPath
+      );
     };
     const [prompt] = await PromptService.loadPrompts(repository, workspace);
 
@@ -166,6 +168,8 @@ describe('PromptService repository integration', () => {
 
     expect(updated.filePath).toBe('Foo.md');
     expect(await repository.exists(workspace, 'Foo.md')).toBe(true);
+    expect(Object.keys(repository.dumpFiles())).toContain('Foo.md');
+    expect(Object.keys(repository.dumpFiles())).not.toContain('foo.md');
   });
 
   it('uses relative file paths as ids for duplicate nested basenames', async () => {
@@ -185,6 +189,7 @@ describe('PromptService repository integration', () => {
     const repository = createFakeFileRepository({
       files: {
         '.history/foo.2026-05-17-010000.md': 'Foo',
+        '.history/foo.bar.2026-05-17-010000.md': 'Foo dot bar',
         '.history/foobar.2026-05-17-010000.md': 'Foobar',
       },
     });
@@ -193,5 +198,20 @@ describe('PromptService repository integration', () => {
 
     expect(versions).toHaveLength(1);
     expect(versions[0].filename).toBe('foo.2026-05-17-010000.md');
+  });
+
+  it('encodes dotted prompt ids for history matching', async () => {
+    const repository = createFakeFileRepository({
+      files: {
+        '.history/foo.2026-05-17-010000.md': 'Foo',
+        '.history/foo.bar.2026-05-17-010000.md': 'Legacy ambiguous',
+        '.history/foo%2Ebar.2026-05-17-010000.md': 'Foo dot bar',
+      },
+    });
+
+    const versions = await PromptService.getHistoryVersions(repository, workspace, 'foo.bar');
+
+    expect(versions).toHaveLength(1);
+    expect(versions[0].filename).toBe('foo%2Ebar.2026-05-17-010000.md');
   });
 });
