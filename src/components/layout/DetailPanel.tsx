@@ -2,10 +2,8 @@ import { useState } from 'react';
 import { useUIStore } from '@/stores/uiStore';
 import { usePromptStore } from '@/stores/promptStore';
 import { useFileStore } from '@/stores/fileStore';
-import { IconButton, SideDrawer } from '@/components/common';
-import { TagPill } from '@/components/tag';
+import { SideDrawer } from '@/components/common';
 import { PromptContent } from '@/components/prompt';
-import { formatDate } from '@/utils/date';
 import { countChars } from '@/utils/markdown';
 import { PromptService } from '@/services/promptService';
 
@@ -65,56 +63,97 @@ export function DetailPanel() {
       isOpen={isDetailOpen}
       title={selectedPrompt.title}
       onClose={() => toggleDetail(false)}
-      headerActions={
-        <IconButton
-          icon={selectedPrompt.pinned ? 'star' : 'star_border'}
-          label={selectedPrompt.pinned ? '取消收藏' : '收藏'}
-          onClick={handleTogglePin}
-          size="sm"
-          variant="ghost"
-          filled={selectedPrompt.pinned}
-          className={selectedPrompt.pinned ? 'text-yellow-500' : 'text-muted'}
-        />
-      }
-      footer={
-        <>
+      bodyClassName="p-0"
+      header={
+        <div className="h-14 shrink-0 flex items-center justify-between border-b border-border px-4">
           <button
-            onClick={handleCopy}
-            className="px-4 py-2 text-sm font-medium text-fg rounded-lg hover:bg-surface-dim transition-colors flex items-center gap-2"
+            type="button"
+            onClick={() => toggleDetail(false)}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-dim hover:text-fg"
+            aria-label="关闭"
+            title="关闭"
           >
-            <span className="material-symbols-outlined text-lg">
-              {copied ? 'check' : 'content_copy'}
-            </span>
-            {copied ? '已复制' : '复制'}
+            <span className="material-symbols-outlined text-2xl">close</span>
           </button>
-          <button
-            onClick={handleEdit}
-            className="px-4 py-2 text-sm font-medium text-white bg-accent rounded-lg hover:opacity-90 transition-colors flex items-center gap-2"
-          >
-            <span className="material-symbols-outlined text-lg">edit</span>
-            编辑
-          </button>
-        </>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleEdit}
+              className="inline-flex h-9 items-center gap-2 rounded-lg border border-gray-200 bg-surface px-3 text-sm font-medium text-fg shadow-card transition-colors hover:bg-surface-dim"
+            >
+              <span className="material-symbols-outlined text-xl">edit</span>
+              编辑
+            </button>
+            <button
+              onClick={handleCopy}
+              className="inline-flex h-9 items-center gap-2 rounded-lg bg-accent px-3 text-sm font-medium text-white shadow-card transition-opacity hover:opacity-90"
+            >
+              <span className="material-symbols-outlined text-xl">
+                {copied ? 'check' : 'content_copy'}
+              </span>
+              {copied ? '已复制' : '复制'}
+            </button>
+          </div>
+        </div>
       }
     >
-          {/* 标签 */}
-          {selectedPrompt.tags.length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-4">
-              {selectedPrompt.tags.map((tag) => (
-                <TagPill key={tag} label={tag} />
-              ))}
-            </div>
-          )}
+      <article className="px-6 pb-10 pt-6">
+        <h1 className="mb-3 text-xl font-semibold leading-tight tracking-normal text-fg">
+          {selectedPrompt.title}
+        </h1>
 
-          {/* 元数据 */}
-          <div className="flex items-center gap-4 text-xs text-muted mb-6 pb-4 border-b border-border">
-            <span>{countChars(selectedPrompt.content)} 字符</span>
-            <span>复制 {selectedPrompt.copyCount} 次</span>
-            <span>更新于 {formatDate(selectedPrompt.updatedAt)}</span>
+        {/* 标签 */}
+        {selectedPrompt.tags.length > 0 && (
+          <div className="mb-5 flex flex-wrap gap-2">
+            {selectedPrompt.tags.map((tag, index) => (
+              <span
+                key={tag}
+                className={`
+                  inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium
+                  ${index % 2 === 0 ? 'bg-blue-50 text-accent' : 'bg-purple-50 text-tertiary'}
+                `}
+              >
+                {tag.replace(/^#/, '')}
+              </span>
+            ))}
           </div>
+        )}
 
-          {/* Markdown 内容 */}
-          <PromptContent content={selectedPrompt.content} />
+        {/* 元数据 */}
+        <div className="mb-6 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border pb-5 text-xs leading-none text-muted">
+          <span className="inline-flex items-center gap-1.5">
+            <span className="material-symbols-outlined text-lg">description</span>
+            {countChars(selectedPrompt.content)} 字符
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="material-symbols-outlined text-lg">schedule</span>
+            使用 {selectedPrompt.copyCount} 次
+          </span>
+          <button
+            type="button"
+            onClick={handleTogglePin}
+            className="inline-flex items-center gap-1.5 rounded-md transition-colors hover:text-fg"
+            aria-label={selectedPrompt.pinned ? '取消收藏' : '收藏'}
+            title={selectedPrompt.pinned ? '取消收藏' : '收藏'}
+          >
+            <span
+              className={`
+                material-symbols-outlined text-lg
+                ${selectedPrompt.pinned ? 'text-yellow-500' : 'text-muted'}
+              `}
+            >
+              {selectedPrompt.pinned ? 'star' : 'star_border'}
+            </span>
+            {selectedPrompt.pinned ? '已收藏' : '未收藏'}
+          </button>
+        </div>
+
+        {/* Markdown 内容 */}
+        <PromptContent
+          content={selectedPrompt.content}
+          className="prompt-detail-content"
+        />
+      </article>
     </SideDrawer>
   );
 }

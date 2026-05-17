@@ -10,9 +10,11 @@ interface PromptContentProps {
   content: string;
   /** 是否正在加载 */
   isLoading?: boolean;
+  /** 自定义类名 */
+  className?: string;
 }
 
-export function PromptContent({ content, isLoading = false }: PromptContentProps) {
+export function PromptContent({ content, isLoading = false, className = '' }: PromptContentProps) {
   const [html, setHtml] = useState<string>('');
 
   useEffect(() => {
@@ -50,7 +52,7 @@ export function PromptContent({ content, isLoading = false }: PromptContentProps
 
   return (
     <div
-      className="prose prose-sm max-w-none"
+      className={`prose prose-sm max-w-none ${className}`}
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );

@@ -197,3 +197,27 @@
   max-width: 100%;
   border-radius: 0.5em;
 }
+
+.prompt-detail-content {
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.prompt-detail-content h1,
+.prompt-detail-content h2,
+.prompt-detail-content h3,
+.prompt-detail-content h4,
+.prompt-detail-content h5,
+.prompt-detail-content h6 {
+  margin-top: 1.25em;
+  margin-bottom: 0.6em;
+}
+
+.prompt-detail-content p {
+  margin-bottom: 1em;
+}
+
+.prompt-detail-content ul,
+.prompt-detail-content ol {
+  margin-bottom: 1em;
+}

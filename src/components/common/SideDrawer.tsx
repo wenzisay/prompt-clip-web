@@ -11,9 +11,12 @@ export interface SideDrawerProps {
   title: string;
   onClose: () => void;
   children: React.ReactNode;
+  header?: React.ReactNode;
   headerActions?: React.ReactNode;
   footer?: React.ReactNode;
   closeOnOverlayClick?: boolean;
+  panelClassName?: string;
+  bodyClassName?: string;
 }
 
 export function SideDrawer({
@@ -21,9 +24,12 @@ export function SideDrawer({
   title,
   onClose,
   children,
+  header,
   headerActions,
   footer,
   closeOnOverlayClick = true,
+  panelClassName = '',
+  bodyClassName = '',
 }: SideDrawerProps) {
   useEffect(() => {
     if (!isOpen) return;
@@ -60,26 +66,29 @@ export function SideDrawer({
           fixed top-0 right-0 h-full w-detail bg-surface border-l border-border
           shadow-card-hover transform transition-transform duration-200 ease-out
           z-40 flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full'}
+          ${panelClassName}
         `}
         aria-modal="true"
         role="dialog"
       >
-        <div className="h-14 shrink-0 flex items-center justify-between px-4 border-b border-border">
-          <h2 className="font-semibold text-fg truncate flex-1">{title}</h2>
-          <div className="flex items-center gap-1">
-            {headerActions}
-            <IconButton
-              icon="close"
-              label="关闭"
-              onClick={onClose}
-              size="sm"
-              variant="ghost"
-              className="text-muted"
-            />
+        {header ?? (
+          <div className="h-14 shrink-0 flex items-center justify-between px-4 border-b border-border">
+            <h2 className="font-semibold text-fg truncate flex-1">{title}</h2>
+            <div className="flex items-center gap-1">
+              {headerActions}
+              <IconButton
+                icon="close"
+                label="关闭"
+                onClick={onClose}
+                size="sm"
+                variant="ghost"
+                className="text-muted"
+              />
+            </div>
           </div>
-        </div>
+        )}
 
-        <div className="flex-1 overflow-y-auto p-6">{children}</div>
+        <div className={`flex-1 overflow-y-auto p-6 ${bodyClassName}`}>{children}</div>
 
         {footer && (
           <div className="h-14 shrink-0 flex items-center justify-end gap-2 px-4 border-t border-border">
