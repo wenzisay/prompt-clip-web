@@ -4,17 +4,10 @@ export async function saveExportBlob(blob: Blob, filename: string): Promise<bool
   const maybeTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 
   if (maybeTauri) {
-    const dialogPlugin = '@tauri-apps/plugin-dialog';
-    const fsPlugin = '@tauri-apps/plugin-fs';
-    const { save } = (await import(/* @vite-ignore */ dialogPlugin)) as {
-      save: (options: {
-        defaultPath: string;
-        filters?: SaveDialogFilter[];
-      }) => Promise<string | null>;
-    };
-    const { writeFile } = (await import(/* @vite-ignore */ fsPlugin)) as {
-      writeFile: (path: string, data: Uint8Array) => Promise<void>;
-    };
+    const [{ save }, { writeFile }] = await Promise.all([
+      import('@tauri-apps/plugin-dialog'),
+      import('@tauri-apps/plugin-fs'),
+    ]);
     const filters = getSaveDialogFilters(filename);
     const path = await save({
       defaultPath: filename,
