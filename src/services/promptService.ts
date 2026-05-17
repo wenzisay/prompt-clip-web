@@ -265,7 +265,6 @@ export async function validatePromptTitle(
 
   if (
     targetFilename !== currentFilename &&
-    targetFilename.toLowerCase() !== currentFilename?.toLowerCase() &&
     await repository.exists(workspace, targetFilename)
   ) {
     throw new Error('标题已存在，请使用不同的标题');

@@ -148,17 +148,6 @@ describe('PromptService repository integration', () => {
         ].join('\n'),
       },
     });
-    const originalExists = repository.exists;
-    repository.exists = async (targetWorkspace, path) => {
-      if (await originalExists(targetWorkspace, path)) {
-        return true;
-      }
-
-      const targetPath = path.toLowerCase();
-      return Object.keys(repository.dumpFiles()).some(
-        (existingPath) => existingPath.toLowerCase() === targetPath
-      );
-    };
     const [prompt] = await PromptService.loadPrompts(repository, workspace);
 
     const updated = await PromptService.updatePrompt(repository, workspace, prompt, {
@@ -170,6 +159,39 @@ describe('PromptService repository integration', () => {
     expect(await repository.exists(workspace, 'Foo.md')).toBe(true);
     expect(Object.keys(repository.dumpFiles())).toContain('Foo.md');
     expect(Object.keys(repository.dumpFiles())).not.toContain('foo.md');
+  });
+
+  it('rejects case-only renames when the target path already exists', async () => {
+    const repository = createFakeFileRepository({
+      files: {
+        'foo.md': [
+          '---',
+          'title: foo',
+          '---',
+          '',
+          'Lower',
+        ].join('\n'),
+        'Foo.md': [
+          '---',
+          'title: Foo',
+          '---',
+          '',
+          'Upper',
+        ].join('\n'),
+      },
+    });
+    const prompts = await PromptService.loadPrompts(repository, workspace);
+    const prompt = prompts.find((item) => item.filePath === 'foo.md');
+
+    expect(prompt).toBeDefined();
+    await expect(
+      PromptService.updatePrompt(repository, workspace, prompt!, {
+        id: prompt!.id,
+        title: 'Foo',
+      })
+    ).rejects.toThrow('标题已存在，请使用不同的标题');
+
+    expect(repository.dumpFiles()['Foo.md']).toContain('Upper');
   });
 
   it('uses relative file paths as ids for duplicate nested basenames', async () => {
