@@ -19,8 +19,8 @@ export interface Prompt {
   copyCount: number;
   /** 是否已收藏/置顶 */
   pinned: boolean;
-  /** 文件句柄（用于直接操作文件） */
-  fileHandle?: FileSystemFileHandle;
+  /** 相对工作区根目录的 Markdown 文件路径 */
+  filePath: string;
 }
 
 /**
