@@ -28,12 +28,13 @@ export function toPortablePath(path: string): string {
 }
 
 export function normalizeRelativePath(path: string): string {
+  assertSafeRelativePath(path);
+
   const normalized = toPortablePath(path)
     .split('/')
     .filter((part) => part.length > 0)
     .join('/');
 
-  assertSafeRelativePath(normalized);
   return normalized;
 }
 
@@ -48,7 +49,8 @@ export function assertSafeRelativePath(path: string): void {
   if (
     portable.length === 0 ||
     portable.startsWith('/') ||
-    /^[A-Za-z]:\//.test(portable) ||
+    /^[A-Za-z]:/.test(portable) ||
+    portable.startsWith('//') ||
     parts.some((part) => part === '..')
   ) {
     throw new Error('文件路径不合法');
@@ -66,6 +68,11 @@ export function sanitizeFilename(name: string): string {
     return 'untitled';
   }
 
-  const upperName = sanitized.toUpperCase();
-  return RESERVED_WINDOWS_NAMES.has(upperName) ? `${sanitized}-` : sanitized;
+  const reservedMatch = /^([^.]+)(\..*)?$/.exec(sanitized);
+  const basename = reservedMatch?.[1] ?? sanitized;
+  const extension = reservedMatch?.[2] ?? '';
+
+  return RESERVED_WINDOWS_NAMES.has(basename.toUpperCase())
+    ? `${basename}-${extension}`
+    : sanitized;
 }

@@ -21,8 +21,12 @@ describe('path utilities', () => {
   it('rejects unsafe relative paths', () => {
     expect(() => assertSafeRelativePath('')).toThrow('文件路径不合法');
     expect(() => assertSafeRelativePath('/absolute.md')).toThrow('文件路径不合法');
+    expect(() => normalizeRelativePath('/absolute.md')).toThrow('文件路径不合法');
+    expect(() => normalizeRelativePath('\\\\server\\share.md')).toThrow('文件路径不合法');
     expect(() => assertSafeRelativePath('../outside.md')).toThrow('文件路径不合法');
     expect(() => assertSafeRelativePath('folder/../outside.md')).toThrow('文件路径不合法');
+    expect(() => assertSafeRelativePath('C:/absolute.md')).toThrow('文件路径不合法');
+    expect(() => assertSafeRelativePath('C:relative.md')).toThrow('文件路径不合法');
   });
 
   it('keeps safe relative paths', () => {
@@ -32,6 +36,9 @@ describe('path utilities', () => {
 
   it('sanitizes cross-platform filenames', () => {
     expect(sanitizeFilename('CON')).toBe('CON-');
+    expect(sanitizeFilename('CON.md')).toBe('CON-.md');
+    expect(sanitizeFilename('NUL.txt')).toBe('NUL-.txt');
+    expect(sanitizeFilename('COM1.prompt.md')).toBe('COM1-.prompt.md');
     expect(sanitizeFilename('hello/world:prompt')).toBe('hello-world-prompt');
     expect(sanitizeFilename('  prompt  ')).toBe('prompt');
   });
