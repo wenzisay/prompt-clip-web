@@ -58,7 +58,7 @@ function AppContent() {
           <TopBar />
 
           {/* Prompt 网格区域 */}
-          <div className="flex-1 overflow-y-auto p-6 bg-bg">
+          <div className="flex-1 overflow-y-auto px-6 pb-6 pt-4 bg-bg">
             <PromptGrid />
           </div>
         </main>

@@ -2,25 +2,12 @@
  * 侧边栏组件
  */
 
-import { usePromptStore } from '@/stores/promptStore';
-import { useUIStore } from '@/stores/uiStore';
 import { TagTree } from '@/components/tag/TagTree';
 import { useState } from 'react';
 
 export function Sidebar() {
   // const { tagTree } = useTagStore();
-  const { filter, setFilter } = usePromptStore();
-  const { clearSelection } = useUIStore();
   const [isCollapsed, setIsCollapsed] = useState(false);
-
-  const handleFilterChange = (newFilter: 'all' | 'recent' | 'favorites') => {
-    clearSelection();
-    setFilter({
-      favoritesOnly: newFilter === 'favorites',
-      recentOnly: newFilter === 'recent',
-      tag: undefined,
-    });
-  };
 
   return (
     <aside
@@ -51,53 +38,6 @@ export function Sidebar() {
           </span>
         </button>
       </div>
-
-      {/* 筛选按钮 */}
-      {!isCollapsed && (
-        <div className="px-3 py-4 border-b border-border">
-          <div className="flex gap-2">
-            <button
-              onClick={() => handleFilterChange('all')}
-              className={`
-                flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors
-                ${
-                  !filter.favoritesOnly && !filter.recentOnly
-                    ? 'bg-accent-soft text-accent'
-                    : 'text-muted hover:bg-surface-dim'
-                }
-              `}
-            >
-              全部
-            </button>
-            <button
-              onClick={() => handleFilterChange('recent')}
-              className={`
-                flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors
-                ${
-                  filter.recentOnly
-                    ? 'bg-accent-soft text-accent'
-                    : 'text-muted hover:bg-surface-dim'
-                }
-              `}
-            >
-              最近
-            </button>
-            <button
-              onClick={() => handleFilterChange('favorites')}
-              className={`
-                flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors
-                ${
-                  filter.favoritesOnly
-                    ? 'bg-accent-soft text-accent'
-                    : 'text-muted hover:bg-surface-dim'
-                }
-              `}
-            >
-              收藏
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* 标签树 */}
       {!isCollapsed && (

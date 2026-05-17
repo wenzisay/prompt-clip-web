@@ -6,7 +6,6 @@ import type { Prompt } from '@/types/prompt';
 import { useUIStore } from '@/stores/uiStore';
 import { usePromptStore } from '@/stores/promptStore';
 import { useFileStore } from '@/stores/fileStore';
-import { TagPill } from '@/components/tag';
 import { IconButton } from '@/components/common';
 import { formatDate } from '@/utils/date';
 import { useState, useRef, useEffect } from 'react';
@@ -218,9 +217,17 @@ export function PromptCard({ prompt }: PromptCardProps) {
 
       {/* 标签 */}
       {prompt.tags.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mb-3">
-          {prompt.tags.slice(0, 4).map((tag) => (
-            <TagPill key={tag} label={tag} color="blue" size="sm" />
+        <div className="flex flex-wrap gap-2 mb-3">
+          {prompt.tags.slice(0, 4).map((tag, index) => (
+            <span
+              key={tag}
+              className={`
+                inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium
+                ${index % 2 === 0 ? 'bg-blue-50 text-accent' : 'bg-purple-50 text-tertiary'}
+              `}
+            >
+              {tag.replace(/^#/, '')}
+            </span>
           ))}
           {prompt.tags.length > 4 && (
             <span className="text-xs text-muted">

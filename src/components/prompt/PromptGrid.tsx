@@ -8,6 +8,7 @@ import { useFileStore } from '@/stores/fileStore';
 import { PromptCard } from './PromptCard';
 import { Spinner } from '@/components/common';
 import { PromptService } from '@/services/promptService';
+import { FilterTabs } from '@/components/layout/FilterTabs';
 
 interface PromptGridProps {
   /** 加载状态 */
@@ -48,14 +49,17 @@ export function PromptGrid({ isLoading = false }: PromptGridProps) {
   // 空状态
   if (filteredPrompts.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-center">
-        <span className="material-symbols-outlined text-6xl text-muted-light mb-4">
-          search_off
-        </span>
-        <h3 className="text-lg font-medium text-fg mb-2">没有找到 Prompts</h3>
-        <p className="text-muted text-sm max-w-md">
-          尝试调整搜索条件或创建一个新的 Prompt
-        </p>
+      <div className="space-y-4">
+        <FilterTabs />
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <span className="material-symbols-outlined text-6xl text-muted-light mb-4">
+            search_off
+          </span>
+          <h3 className="text-lg font-medium text-fg mb-2">没有找到 Prompts</h3>
+          <p className="text-muted text-sm max-w-md">
+            尝试调整搜索条件或创建一个新的 Prompt
+          </p>
+        </div>
       </div>
     );
   }
@@ -63,6 +67,8 @@ export function PromptGrid({ isLoading = false }: PromptGridProps) {
   // 网格
   return (
     <div className="space-y-4">
+      <FilterTabs />
+
       {selectedCount > 0 && (
         <div className="sticky top-0 z-10 bg-surface border border-border rounded-card shadow-card px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3 text-sm">

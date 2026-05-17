@@ -196,7 +196,7 @@ function TreeNode({ node, level }: TreeNodeProps) {
         />
 
         {/* 标签名称 */}
-        <span className="flex-1 text-sm truncate">#{node.displayName}</span>
+        <span className="flex-1 text-xs truncate">{node.displayName}</span>
 
         {isPinned && (
           <span className="material-symbols-outlined text-sm text-muted">
@@ -282,8 +282,6 @@ function TreeNode({ node, level }: TreeNodeProps) {
 
 export function TagTree() {
   const { tagTree, pinnedTags } = useTagStore();
-  const { filter, setFilter } = usePromptStore();
-  const { clearSelection } = useUIStore();
 
   // 置顶标签
   const pinnedNodes = flattenNodes(tagTree)
@@ -299,25 +297,8 @@ export function TagTree() {
     (node) => !pinnedTags.includes(node.name)
   );
 
-  // 清除筛选
-  const handleClearFilter = () => {
-    clearSelection();
-    setFilter({ tag: undefined });
-  };
-
   return (
     <div className="space-y-1">
-      {/* 清除筛选按钮 */}
-      {filter.tag && (
-        <button
-          onClick={handleClearFilter}
-          className="w-full flex items-center gap-2 py-1.5 px-2 rounded-lg text-sm text-accent hover:bg-accent-soft transition-colors"
-        >
-          <span className="material-symbols-outlined text-lg">close</span>
-          <span>清除筛选</span>
-        </button>
-      )}
-
       {/* 置顶标签 */}
       {pinnedNodes.length > 0 && (
         <div className="space-y-1">

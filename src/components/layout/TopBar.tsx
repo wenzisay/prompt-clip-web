@@ -43,29 +43,28 @@ export function TopBar() {
       </div>
 
       {/* 搜索框 */}
-      <div className="w-[min(420px,40vw)] max-w-md">
-        <div className="relative">
-          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-muted text-lg">
+      <div className="w-[min(560px,42vw)] max-w-[560px]">
+        <div className="relative flex h-10 items-center rounded-xl border border-[rgba(113,119,134,0.14)] bg-surface shadow-[0_1px_2px_rgba(16,24,40,0.03)] transition-colors focus-within:border-[rgba(113,119,134,0.24)] focus-within:shadow-[0_1px_2px_rgba(16,24,40,0.04),0_0_0_4px_rgba(0,88,188,0.05)]">
+          <span className="material-symbols-outlined pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[22px] text-muted">
             search
           </span>
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="搜索 Prompts... (Cmd+K)"
-            className={`
-              w-full pl-10 pr-10 py-2 bg-surface-dim rounded-lg
-              text-sm text-fg placeholder:text-muted
-              border border-transparent focus:border-accent focus:bg-surface
-              transition-colors focus:outline-none
-            `}
+            placeholder="快速切换"
+            className="h-full w-full rounded-xl bg-transparent pl-12 pr-20 text-sm text-fg outline-none placeholder:text-muted"
           />
+          <div className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 rounded-md border border-[rgba(113,119,134,0.12)] bg-surface-dim px-1.5 py-0.5 font-mono text-[11px] font-medium leading-none text-muted sm:block">
+            ⌘K
+          </div>
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-surface-high"
+              className="absolute right-12 top-1/2 -translate-y-1/2 rounded-md p-1 transition-colors hover:bg-surface-high"
+              aria-label="清空搜索"
             >
-              <span className="material-symbols-outlined text-muted text-lg">
+              <span className="material-symbols-outlined text-lg text-muted">
                 close
               </span>
             </button>
