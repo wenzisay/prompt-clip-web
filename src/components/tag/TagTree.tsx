@@ -307,7 +307,7 @@ export function TagTree() {
               push_pin
             </span>
             <span className="text-xs font-semibold text-muted uppercase">
-              置顶
+              置顶标签
             </span>
           </div>
           {pinnedNodes.map((node) => (

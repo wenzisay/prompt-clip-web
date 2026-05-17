@@ -59,4 +59,5 @@ export const StorageKeys = {
   UI_STATE: 'ui_state',
   SETTINGS: 'settings',
   RECENT_PROMPTS: 'recent_prompts',
+  PINNED_TAGS: 'pinned_tags',
 } as const;

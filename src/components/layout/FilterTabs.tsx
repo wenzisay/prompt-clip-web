@@ -37,7 +37,7 @@ export function FilterTabs() {
   return (
     <div className="flex items-center gap-2">
       {FILTER_TABS.map((tab) => {
-        const isActive = activeTab === tab.value;
+        const isActive = !selectedTag && activeTab === tab.value;
 
         return (
           <button
@@ -59,7 +59,7 @@ export function FilterTabs() {
 
       {selectedTag && (
         <div
-          className="h-9 max-w-[220px] rounded-full bg-accent-soft px-4 text-sm font-semibold text-accent inline-flex items-center gap-1.5"
+          className="h-9 max-w-[220px] rounded-full bg-accent px-4 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(0,88,188,0.12)] inline-flex items-center gap-1.5"
           title={selectedTag}
         >
           <span className="material-symbols-outlined text-base">sell</span>

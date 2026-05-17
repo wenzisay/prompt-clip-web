@@ -5,6 +5,13 @@
 import { create } from 'zustand';
 import type { TagTreeNode, TagColor } from '@/types/tag';
 import { TagService } from '@/services/tagService';
+import { getStorageItem, removeStorageItem, setStorageItem, StorageKeys } from '@/utils/storage';
+
+const savedPinnedTags = getStorageItem<string[]>(StorageKeys.PINNED_TAGS) || [];
+
+function savePinnedTags(pinnedTags: string[]) {
+  setStorageItem(StorageKeys.PINNED_TAGS, pinnedTags);
+}
 
 interface TagState {
   /** 所有唯一标签 */
@@ -33,7 +40,7 @@ interface TagState {
 export const useTagStore = create<TagState>((set) => ({
   tags: [],
   tagTree: [],
-  pinnedTags: [],
+  pinnedTags: savedPinnedTags,
 
   setTags: (tags) => {
     const uniqueTags = Array.from(new Set(tags)).sort();
@@ -56,6 +63,7 @@ export const useTagStore = create<TagState>((set) => ({
 
       // 更新标签树中的置顶状态
       const newTree = TagService.toggleTagPin(state.tagTree, tagName);
+      savePinnedTags(newPinned);
 
       return {
         pinnedTags: newPinned,
@@ -65,17 +73,23 @@ export const useTagStore = create<TagState>((set) => ({
   },
 
   renamePinnedTag: (oldTagName, newTagName) => {
-    set((state) => ({
-      pinnedTags: state.pinnedTags.map((tag) =>
+    set((state) => {
+      const newPinned = state.pinnedTags.map((tag) =>
         tag === oldTagName ? newTagName : tag
-      ),
-    }));
+      );
+      savePinnedTags(newPinned);
+
+      return { pinnedTags: newPinned };
+    });
   },
 
   removePinnedTag: (tagName) => {
-    set((state) => ({
-      pinnedTags: state.pinnedTags.filter((tag) => tag !== tagName),
-    }));
+    set((state) => {
+      const newPinned = state.pinnedTags.filter((tag) => tag !== tagName);
+      savePinnedTags(newPinned);
+
+      return { pinnedTags: newPinned };
+    });
   },
 
   getTagColor: (tagName) => {
@@ -88,5 +102,6 @@ export const useTagStore = create<TagState>((set) => ({
       tagTree: [],
       pinnedTags: [],
     });
+    removeStorageItem(StorageKeys.PINNED_TAGS);
   },
 }));
