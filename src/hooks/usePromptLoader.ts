@@ -33,7 +33,7 @@ export function usePromptLoader() {
       setError(null);
 
       try {
-        await loadPinnedTags(workspace);
+        await loadPinnedTags(workspace, () => isActive);
         if (!isActive) return;
 
         // 加载所有 Prompts

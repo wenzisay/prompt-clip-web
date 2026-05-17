@@ -38,7 +38,7 @@ interface TagState {
   /** 设置置顶标签 */
   setPinnedTags: (pinnedTags: string[]) => void;
   /** 从文件夹配置加载置顶标签 */
-  loadPinnedTags: (workspace: WorkspaceRef) => Promise<void>;
+  loadPinnedTags: (workspace: WorkspaceRef, isCurrent?: () => boolean) => Promise<void>;
   /** 切换标签展开状态 */
   toggleExpand: (tagName: string) => void;
   /** 切换标签置顶 */
@@ -76,15 +76,19 @@ export const useTagStore = create<TagState>((set) => ({
     set({ pinnedTags: Array.from(new Set(pinnedTags)) });
   },
 
-  loadPinnedTags: async (workspace) => {
+  loadPinnedTags: async (workspace, isCurrent) => {
     const hasFolderConfig = await FolderConfigService.folderConfigExists(fileRepository, workspace);
     const config = await FolderConfigService.readFolderConfig(fileRepository, workspace);
     const shouldMigrateLegacyPins = !hasFolderConfig && savedPinnedTags.length > 0;
     const nextPinnedTags = shouldMigrateLegacyPins ? savedPinnedTags : config.pinnedTags;
 
+    if (isCurrent && !isCurrent()) return;
+
     set({ pinnedTags: nextPinnedTags });
 
     if (shouldMigrateLegacyPins) {
+      if (isCurrent && !isCurrent()) return;
+
       await savePinnedTags(workspace, savedPinnedTags);
     }
   },
