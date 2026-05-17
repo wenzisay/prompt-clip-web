@@ -78,4 +78,64 @@ describe('PromptService repository integration', () => {
 
     expect(Object.keys(repository.dumpFiles()).some((path) => path.startsWith('.history/'))).toBe(false);
   });
+
+  it('preserves nested directories when updating and renaming prompts', async () => {
+    const repository = createFakeFileRepository({
+      files: {
+        'folder/Foo.md': [
+          '---',
+          'title: Foo',
+          '---',
+          '',
+          'Body',
+        ].join('\n'),
+      },
+    });
+    const [prompt] = await PromptService.loadPrompts(repository, workspace);
+
+    const copied = await PromptService.incrementCopyCount(repository, workspace, prompt);
+    expect(copied.filePath).toBe('folder/Foo.md');
+    expect(await repository.exists(workspace, 'folder/Foo.md')).toBe(true);
+    expect(await repository.exists(workspace, 'Foo.md')).toBe(false);
+
+    const renamed = await PromptService.updatePrompt(repository, workspace, copied, {
+      id: copied.id,
+      title: 'Bar',
+    });
+
+    expect(renamed).toMatchObject({
+      id: 'folder/Bar',
+      filePath: 'folder/Bar.md',
+    });
+    expect(await repository.exists(workspace, 'folder/Foo.md')).toBe(false);
+    expect(await repository.exists(workspace, 'folder/Bar.md')).toBe(true);
+    expect(await repository.exists(workspace, 'Bar.md')).toBe(false);
+  });
+
+  it('uses relative file paths as ids for duplicate nested basenames', async () => {
+    const repository = createFakeFileRepository({
+      files: {
+        'a/foo.md': 'A',
+        'b/foo.md': 'B',
+      },
+    });
+
+    const prompts = await PromptService.loadPrompts(repository, workspace);
+
+    expect(prompts.map((prompt) => prompt.id).sort()).toEqual(['a/foo', 'b/foo']);
+  });
+
+  it('matches history versions by exact prompt id delimiter', async () => {
+    const repository = createFakeFileRepository({
+      files: {
+        '.history/foo.2026-05-17-010000.md': 'Foo',
+        '.history/foobar.2026-05-17-010000.md': 'Foobar',
+      },
+    });
+
+    const versions = await PromptService.getHistoryVersions(repository, workspace, 'foo');
+
+    expect(versions).toHaveLength(1);
+    expect(versions[0].filename).toBe('foo.2026-05-17-010000.md');
+  });
 });

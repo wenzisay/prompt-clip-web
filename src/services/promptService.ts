@@ -31,13 +31,14 @@ export async function loadPrompt(
   const content = await repository.readText(workspace, entry.path);
   const { metadata, content: markdownContent } = parseMarkdown(content);
   const promptContent = markdownContent.replace(/^\r?\n/, '');
+  const id = idFromFilename(entry.path);
   const fileTitle = idFromFilename(entry.name);
   const tags = metadata.tags && metadata.tags.length > 0
     ? metadata.tags
     : extractFrontmatterBlockTags(content) ?? [];
 
   return {
-    id: fileTitle,
+    id,
     title: metadata.title || extractTitle(promptContent) || fileTitle,
     content: promptContent,
     tags,
@@ -98,7 +99,7 @@ export async function createPrompt(
   const entry = await repository.writeText(workspace, filename, content);
 
   return {
-    id: idFromFilename(entry.name),
+    id: idFromFilename(entry.path),
     title,
     content: input.content,
     tags: input.tags,
@@ -151,7 +152,7 @@ export async function updatePrompt(
 
   const content = serializeMarkdown(updatedPrompt.content, metadata);
   const oldFilename = prompt.filePath || filenameFromId(prompt.id);
-  const nextFilename = filenameFromTitle(updatedPrompt.title);
+  const nextFilename = pathInSameDirectory(oldFilename, filenameFromTitle(updatedPrompt.title));
   const entry = await repository.writeText(workspace, nextFilename, content);
 
   if (oldFilename !== nextFilename && await repository.exists(workspace, oldFilename)) {
@@ -160,7 +161,7 @@ export async function updatePrompt(
 
   return {
     ...updatedPrompt,
-    id: idFromFilename(nextFilename),
+    id: idFromFilename(entry.path),
     filePath: entry.path,
   };
 }
@@ -254,8 +255,11 @@ export async function validatePromptTitle(
 
   const filename = filenameFromTitle(title);
   const currentFilename = currentPromptId ? filenameFromId(currentPromptId) : null;
+  const targetFilename = currentFilename
+    ? pathInSameDirectory(currentFilename, filename)
+    : filename;
 
-  if (filename !== currentFilename && await repository.exists(workspace, filename)) {
+  if (targetFilename !== currentFilename && await repository.exists(workspace, targetFilename)) {
     throw new Error('标题已存在，请使用不同的标题');
   }
 }
@@ -307,9 +311,18 @@ async function listHistoryEntries(
     { includeHiddenDirectories: true }
   );
 
-  return entries.filter((entry) =>
-    entry.path.startsWith(HISTORY_PATH_PREFIX) && entry.name.startsWith(promptId)
-  );
+  const promptHistoryPrefix = `${HISTORY_PATH_PREFIX}${promptId}.`;
+  return entries.filter((entry) => entry.path.startsWith(promptHistoryPrefix));
+}
+
+function pathInSameDirectory(currentPath: string, filename: string): string {
+  const lastSeparatorIndex = currentPath.lastIndexOf('/');
+
+  if (lastSeparatorIndex === -1) {
+    return filename;
+  }
+
+  return joinPath(currentPath.slice(0, lastSeparatorIndex), filename);
 }
 
 function extractFrontmatterBlockTags(content: string): string[] | null {
