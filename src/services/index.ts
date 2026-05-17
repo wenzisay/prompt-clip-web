@@ -3,6 +3,7 @@
  */
 
 export * from './fileService';
+export * from './fileRepository';
 export * from './promptService';
 export * from './tagService';
 export * from './searchService';
