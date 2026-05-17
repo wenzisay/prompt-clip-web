@@ -3,21 +3,23 @@
  */
 
 import { create } from 'zustand';
+import type { WorkspaceRef } from '@/types/file';
 import type { TagTreeNode, TagColor } from '@/types/tag';
 import { TagService } from '@/services/tagService';
 import { FolderConfigService } from '@/services/folderConfigService';
+import { fileRepository } from '@/services/fileRepository';
 import { getStorageItem, StorageKeys } from '@/utils/storage';
 
 const savedPinnedTags = getStorageItem<string[]>(StorageKeys.PINNED_TAGS) || [];
 
 async function savePinnedTags(
-  directoryHandle: FileSystemDirectoryHandle | null | undefined,
+  workspace: WorkspaceRef | null | undefined,
   pinnedTags: string[]
 ) {
-  if (!directoryHandle) return;
+  if (!workspace) return;
 
   try {
-    await FolderConfigService.updatePinnedTags(directoryHandle, pinnedTags);
+    await FolderConfigService.updatePinnedTags(fileRepository, workspace, pinnedTags);
   } catch (error) {
     console.warn('Failed to persist pinned tags:', error);
   }
@@ -36,21 +38,21 @@ interface TagState {
   /** 设置置顶标签 */
   setPinnedTags: (pinnedTags: string[]) => void;
   /** 从文件夹配置加载置顶标签 */
-  loadPinnedTags: (directoryHandle: FileSystemDirectoryHandle) => Promise<void>;
+  loadPinnedTags: (workspace: WorkspaceRef) => Promise<void>;
   /** 切换标签展开状态 */
   toggleExpand: (tagName: string) => void;
   /** 切换标签置顶 */
-  togglePin: (tagName: string, directoryHandle?: FileSystemDirectoryHandle | null) => Promise<void>;
+  togglePin: (tagName: string, workspace?: WorkspaceRef | null) => Promise<void>;
   /** 标签重命名后同步置顶列表 */
   renamePinnedTag: (
     oldTagName: string,
     newTagName: string,
-    directoryHandle?: FileSystemDirectoryHandle | null
+    workspace?: WorkspaceRef | null
   ) => Promise<void>;
   /** 标签删除后同步置顶列表 */
   removePinnedTag: (
     tagName: string,
-    directoryHandle?: FileSystemDirectoryHandle | null
+    workspace?: WorkspaceRef | null
   ) => Promise<void>;
   /** 获取标签颜色 */
   getTagColor: (tagName: string) => TagColor;
@@ -74,16 +76,16 @@ export const useTagStore = create<TagState>((set) => ({
     set({ pinnedTags: Array.from(new Set(pinnedTags)) });
   },
 
-  loadPinnedTags: async (directoryHandle) => {
-    const hasFolderConfig = await FolderConfigService.folderConfigExists(directoryHandle);
-    const config = await FolderConfigService.readFolderConfig(directoryHandle);
+  loadPinnedTags: async (workspace) => {
+    const hasFolderConfig = await FolderConfigService.folderConfigExists(fileRepository, workspace);
+    const config = await FolderConfigService.readFolderConfig(fileRepository, workspace);
     const shouldMigrateLegacyPins = !hasFolderConfig && savedPinnedTags.length > 0;
     const nextPinnedTags = shouldMigrateLegacyPins ? savedPinnedTags : config.pinnedTags;
 
     set({ pinnedTags: nextPinnedTags });
 
     if (shouldMigrateLegacyPins) {
-      await savePinnedTags(directoryHandle, savedPinnedTags);
+      await savePinnedTags(workspace, savedPinnedTags);
     }
   },
 
@@ -93,7 +95,7 @@ export const useTagStore = create<TagState>((set) => ({
     }));
   },
 
-  togglePin: async (tagName, directoryHandle) => {
+  togglePin: async (tagName, workspace) => {
     let pinnedTags: string[] = [];
 
     set((state) => {
@@ -111,10 +113,10 @@ export const useTagStore = create<TagState>((set) => ({
       };
     });
 
-    await savePinnedTags(directoryHandle, pinnedTags);
+    await savePinnedTags(workspace, pinnedTags);
   },
 
-  renamePinnedTag: async (oldTagName, newTagName, directoryHandle) => {
+  renamePinnedTag: async (oldTagName, newTagName, workspace) => {
     let pinnedTags: string[] = [];
 
     set((state) => {
@@ -126,10 +128,10 @@ export const useTagStore = create<TagState>((set) => ({
       return { pinnedTags: newPinned };
     });
 
-    await savePinnedTags(directoryHandle, pinnedTags);
+    await savePinnedTags(workspace, pinnedTags);
   },
 
-  removePinnedTag: async (tagName, directoryHandle) => {
+  removePinnedTag: async (tagName, workspace) => {
     let pinnedTags: string[] = [];
 
     set((state) => {
@@ -139,7 +141,7 @@ export const useTagStore = create<TagState>((set) => ({
       return { pinnedTags: newPinned };
     });
 
-    await savePinnedTags(directoryHandle, pinnedTags);
+    await savePinnedTags(workspace, pinnedTags);
   },
 
   getTagColor: (tagName) => {
