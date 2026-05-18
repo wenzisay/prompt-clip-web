@@ -25,30 +25,79 @@
 - **Markdown**: Marked
 - **文件处理**: File System Access API + JSZip
 
-## 安装
+## 环境要求
+
+| 依赖 | 最低版本 | 说明 |
+|------|----------|------|
+| Node.js | 18+ | 前端构建 |
+| npm | 9+ | 包管理 |
+| Rust | 1.77.2+ | 仅桌面端构建需要 |
+| Tauri CLI | 2.x | 随 `npm install` 安装为 devDependency |
+
+### 桌面端额外依赖
+
+**macOS**: 无额外依赖，Xcode Command Line Tools 即可（`xcode-select --install`）。
+
+**Windows**:
+- [Visual Studio Build Tools 2022](https://visualstudio.microsoft.com/visual-cpp-build-tools/) — 安装时勾选「C++ 桌面开发」工作负载
+- [WebView2](https://developer.microsoft.com/en-us/microsoft-edge/webview2/) — Windows 10/11 已预装，旧版 Windows 需手动安装
+
+**Linux** (需安装系统依赖):
+```bash
+# Debian/Ubuntu
+sudo apt install libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+
+# Fedora
+sudo dnf install webkit2gtk4.1-devel gcc curl wget file libxdo-devel openssl-devel libappindicator-gtk3-devel librsvg2-devel
+
+# Arch
+sudo pacman -S webkit2gtk-4.1 base-devel curl wget file xdotool openssl libappindicator-gtk3 librsvg
+```
+
+## 安装与构建
 
 ```bash
 # 克隆仓库
 git clone https://github.com/wenzisay/prompt-clip-web.git
-
-# 进入目录
 cd prompt-clip-web
 
 # 安装依赖
 npm install
+```
 
+### Web 版本（纯浏览器）
+
+```bash
 # 启动开发服务器
 npm run dev
 
-# 构建生产版本
+# 构建生产版本（输出到 dist/）
 npm run build
+```
 
-# 启动桌面端开发环境
+### 桌面版本（Tauri）
+
+```bash
+# 启动桌面端开发环境（自动启动前端 dev server + Rust 编译）
 npm run tauri:dev
 
 # 构建桌面端安装包
 npm run tauri:build
 ```
+
+构建产物位于 `src-tauri/target/release/bundle/`：
+
+| 平台 | 产物 |
+|------|------|
+| macOS | `.dmg`、`.app` |
+| Windows | `.msi`、`.exe`（NSIS 安装包） |
+| Linux | `.deb`、`.AppImage` |
+
+> **注意**: Tauri 不支持交叉编译，需要在目标平台上构建对应的安装包。如需在 macOS 上构建 Windows 版本，请使用 GitHub Actions CI（见下方）。
+
+### CI 多平台构建（可选）
+
+如需自动构建多平台安装包，可配置 GitHub Actions。推送 tag 时触发构建，同时生成 macOS / Windows / Linux 安装包并上传至 GitHub Releases。
 
 ## 使用方法
 
