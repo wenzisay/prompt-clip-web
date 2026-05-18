@@ -13,7 +13,7 @@ export const KEYBINDINGS = {
   CLOSE: 'Escape',
   /** 快速切换到全部 */
   VIEW_ALL: 'Cmd+1',
-  /** 快速切换到最近 */
+  /** 快速切换到最近修改 */
   VIEW_RECENT: 'Cmd+2',
   /** 快速切换到收藏 */
   VIEW_FAVORITES: 'Cmd+3',
@@ -36,7 +36,7 @@ export const KEYBINDING_DESCRIPTIONS = {
   [KEYBINDINGS.SAVE]: '保存',
   [KEYBINDINGS.CLOSE]: '关闭',
   [KEYBINDINGS.VIEW_ALL]: '显示全部',
-  [KEYBINDINGS.VIEW_RECENT]: '显示最近',
+  [KEYBINDINGS.VIEW_RECENT]: '显示最近修改',
   [KEYBINDINGS.VIEW_FAVORITES]: '显示收藏',
   [KEYBINDINGS.COPY]: '复制',
   [KEYBINDINGS.PASTE]: '粘贴',

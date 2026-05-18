@@ -87,9 +87,18 @@ export const usePromptStore = create<PromptState>((set, get) => ({
 
   togglePinned: (promptId) => {
     set((state) => ({
-      prompts: state.prompts.map((p) =>
-        p.id === promptId ? { ...p, pinned: !p.pinned } : p
-      ),
+      prompts: state.prompts.map((p) => {
+        if (p.id !== promptId) {
+          return p;
+        }
+
+        const pinned = !p.pinned;
+        return {
+          ...p,
+          pinned,
+          pinnedAt: pinned ? new Date() : undefined,
+        };
+      }),
     }));
     const prompt = get().prompts.find((p) => p.id === promptId);
     if (prompt) {
@@ -160,13 +169,24 @@ export const usePromptStore = create<PromptState>((set, get) => ({
       result = result.filter((p) => p.pinned);
     }
 
-    // 仅最近（7天内）
-    if (filter.recentOnly) {
-      const weekAgo = new Date();
-      weekAgo.setDate(weekAgo.getDate() - 7);
-      result = result.filter((p) => p.updatedAt >= weekAgo);
-    }
+    result = sortPromptsForFilter(result, filter);
 
     set({ filteredPrompts: result });
   },
 }));
+
+function sortPromptsForFilter(prompts: Prompt[], filter: PromptFilter): Prompt[] {
+  if (filter.favoritesOnly) {
+    return prompts.sort((a, b) => getPinnedTime(b) - getPinnedTime(a));
+  }
+
+  if (filter.recentOnly) {
+    return prompts.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+  }
+
+  return prompts.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+}
+
+function getPinnedTime(prompt: Prompt): number {
+  return (prompt.pinnedAt ?? prompt.updatedAt).getTime();
+}

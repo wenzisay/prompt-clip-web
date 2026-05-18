@@ -46,6 +46,7 @@ export async function loadPrompt(
     updatedAt: metadata.modified ? new Date(metadata.modified) : entry.modifiedAt,
     copyCount: metadata.copyCount ?? 0,
     pinned: metadata.pinned ?? false,
+    pinnedAt: metadata.pinnedAt ? new Date(metadata.pinnedAt) : undefined,
     filePath: entry.path,
   };
 }
@@ -107,6 +108,7 @@ export async function createPrompt(
     updatedAt: now,
     copyCount: 0,
     pinned: false,
+    pinnedAt: undefined,
     filePath: entry.path,
   };
 }
@@ -131,6 +133,7 @@ export async function updatePrompt(
 
   const now = new Date();
   const updatedTitle = updates.title?.trim();
+  const pinnedAt = getNextPinnedAt(prompt, updates.pinned, now);
   const updatedPrompt: Prompt = {
     ...prompt,
     ...(updatedTitle !== undefined && { title: updatedTitle }),
@@ -138,6 +141,7 @@ export async function updatePrompt(
     ...(updates.tags !== undefined && { tags: updates.tags }),
     ...(updates.copyCount !== undefined && { copyCount: updates.copyCount }),
     ...(updates.pinned !== undefined && { pinned: updates.pinned }),
+    pinnedAt,
     updatedAt: now,
   };
 
@@ -148,6 +152,7 @@ export async function updatePrompt(
     modified: now.toISOString(),
     copyCount: updatedPrompt.copyCount,
     pinned: updatedPrompt.pinned,
+    pinnedAt: updatedPrompt.pinnedAt?.toISOString(),
   };
 
   const content = serializeMarkdown(updatedPrompt.content, metadata);
@@ -216,6 +221,22 @@ export async function togglePinned(
     id: prompt.id,
     pinned: !prompt.pinned,
   }, { createHistory: false });
+}
+
+function getNextPinnedAt(
+  prompt: Prompt,
+  pinned: boolean | undefined,
+  now: Date
+): Date | undefined {
+  if (pinned === undefined) {
+    return prompt.pinnedAt;
+  }
+
+  if (!pinned) {
+    return undefined;
+  }
+
+  return prompt.pinned ? prompt.pinnedAt : now;
 }
 
 /**

@@ -1,10 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createFakeFileRepository, createFakeWorkspace } from './fileRepository';
 import { PromptService } from './promptService';
 
 const workspace = createFakeWorkspace();
 
 describe('PromptService repository integration', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('loads prompts from markdown files with file paths', async () => {
     const repository = createFakeFileRepository({
       files: {
@@ -77,6 +81,29 @@ describe('PromptService repository integration', () => {
     await PromptService.togglePinned(repository, workspace, created);
 
     expect(Object.keys(repository.dumpFiles()).some((path) => path.startsWith('.history/'))).toBe(false);
+  });
+
+  it('records pinned time when favoriting and clears it when unfavoriting', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-17T00:00:00.000Z'));
+    const repository = createFakeFileRepository({ now: () => new Date() });
+    const created = await PromptService.createPrompt(repository, workspace, {
+      title: 'Favorite',
+      content: 'Text',
+      tags: [],
+    });
+
+    vi.setSystemTime(new Date('2026-05-18T01:00:00.000Z'));
+    const favorited = await PromptService.togglePinned(repository, workspace, created);
+    expect(favorited.pinnedAt?.toISOString()).toBe('2026-05-18T01:00:00.000Z');
+    expect(repository.dumpFiles()['Favorite.md']).toContain(
+      'pinned_at: "2026-05-18T01:00:00.000Z"'
+    );
+
+    vi.setSystemTime(new Date('2026-05-18T02:00:00.000Z'));
+    const unfavorited = await PromptService.togglePinned(repository, workspace, favorited);
+    expect(unfavorited.pinnedAt).toBeUndefined();
+    expect(repository.dumpFiles()['Favorite.md']).not.toContain('pinned_at');
   });
 
   it('preserves nested directories when updating and renaming prompts', async () => {

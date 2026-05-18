@@ -26,6 +26,7 @@ export function parseMarkdown(content: string): {
       modified: data.modified as string | undefined,
       copyCount: normalizeNumber(data.copy_count ?? data.copyCount),
       pinned: data.pinned as boolean | undefined,
+      pinnedAt: data.pinned_at as string | undefined,
     },
     content: markdownContent,
     raw: content,
@@ -48,6 +49,7 @@ export function serializeMarkdown(
   if (metadata.modified) frontmatter.modified = metadata.modified;
   if (metadata.copyCount !== undefined) frontmatter.copy_count = metadata.copyCount;
   if (metadata.pinned !== undefined) frontmatter.pinned = metadata.pinned;
+  if (metadata.pinnedAt) frontmatter.pinned_at = metadata.pinnedAt;
 
   // 如果没有 frontmatter 数据，直接返回内容
   if (Object.keys(frontmatter).length === 0) {

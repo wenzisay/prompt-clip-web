@@ -19,6 +19,8 @@ export interface Prompt {
   copyCount: number;
   /** 是否已收藏/置顶 */
   pinned: boolean;
+  /** 收藏时间 */
+  pinnedAt?: Date;
   /** 相对工作区根目录的 Markdown 文件路径 */
   filePath: string;
 }
@@ -51,7 +53,7 @@ export interface PromptFilter {
   tag?: string;
   /** 仅显示收藏 */
   favoritesOnly?: boolean;
-  /** 仅显示最近使用 */
+  /** 仅显示最近修改 */
   recentOnly?: boolean;
 }
 
@@ -65,4 +67,5 @@ export interface PromptMetadata {
   modified?: string;
   copyCount?: number;
   pinned?: boolean;
+  pinnedAt?: string;
 }

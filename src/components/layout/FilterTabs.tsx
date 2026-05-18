@@ -10,7 +10,7 @@ type FilterTab = 'all' | 'recent' | 'favorites';
 
 const FILTER_TABS: Array<{ value: FilterTab; label: string }> = [
   { value: 'all', label: '全部' },
-  { value: 'recent', label: '最近' },
+  { value: 'recent', label: '最近修改' },
   { value: 'favorites', label: '收藏' },
 ];
 

@@ -2,7 +2,7 @@
  * Prompt 卡片组件
  */
 
-import type { Prompt } from '@/types/prompt';
+import type { Prompt, PromptFilter } from '@/types/prompt';
 import { useUIStore } from '@/stores/uiStore';
 import { usePromptStore } from '@/stores/promptStore';
 import { useFileStore } from '@/stores/fileStore';
@@ -19,7 +19,7 @@ interface PromptCardProps {
 
 export function PromptCard({ prompt }: PromptCardProps) {
   const { setSelectedPrompt, openModal, selectedPromptIds, toggleSelectPrompt } = useUIStore();
-  const { updatePrompt } = usePromptStore();
+  const { filter, updatePrompt } = usePromptStore();
   const { workspace } = useFileStore();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -34,8 +34,8 @@ export function PromptCard({ prompt }: PromptCardProps) {
     .join(' ')
     .slice(0, 120);
 
-  // 格式化日期
-  const relativeDate = formatDate(prompt.updatedAt);
+  // 格式化当前分类对应的日期
+  const relativeDate = formatDate(getPromptCardDate(prompt, filter));
 
   // 点击卡片打开详情
   const handleClick = () => {
@@ -260,4 +260,19 @@ export function PromptCard({ prompt }: PromptCardProps) {
       </div>
     </div>
   );
+}
+
+export function getPromptCardDate(
+  prompt: Prompt,
+  filter: PromptFilter
+): Date {
+  if (filter.favoritesOnly) {
+    return prompt.pinnedAt ?? prompt.updatedAt;
+  }
+
+  if (filter.recentOnly) {
+    return prompt.updatedAt;
+  }
+
+  return prompt.createdAt;
 }
