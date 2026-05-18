@@ -10,6 +10,7 @@ import { IconButton } from '@/components/common';
 import { formatDate } from '@/utils/date';
 import { useState, useRef, useEffect } from 'react';
 import { PromptService } from '@/services/promptService';
+import { fileRepository } from '@/services/fileRepository';
 
 interface PromptCardProps {
   /** Prompt 数据 */
@@ -19,7 +20,7 @@ interface PromptCardProps {
 export function PromptCard({ prompt }: PromptCardProps) {
   const { setSelectedPrompt, openModal, selectedPromptIds, toggleSelectPrompt } = useUIStore();
   const { updatePrompt } = usePromptStore();
-  const { directoryHandle } = useFileStore();
+  const { workspace } = useFileStore();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -46,8 +47,8 @@ export function PromptCard({ prompt }: PromptCardProps) {
 
     try {
       await navigator.clipboard.writeText(prompt.content);
-      if (directoryHandle) {
-        const updated = await PromptService.incrementCopyCount(directoryHandle, prompt);
+      if (workspace) {
+        const updated = await PromptService.incrementCopyCount(fileRepository, workspace, prompt);
         updatePrompt(updated);
       }
       setCopied(true);
@@ -60,8 +61,8 @@ export function PromptCard({ prompt }: PromptCardProps) {
   // 切换收藏
   const handleTogglePin = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!directoryHandle) return;
-    const updated = await PromptService.togglePinned(directoryHandle, prompt);
+    if (!workspace) return;
+    const updated = await PromptService.togglePinned(fileRepository, workspace, prompt);
     updatePrompt(updated);
   };
 

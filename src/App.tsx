@@ -16,7 +16,7 @@ import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useEffect } from 'react';
 
 function AppContent() {
-  const { isAuthorized, directoryHandle, initialize } = useFileStore();
+  const { isAuthorized, workspace, initialize } = useFileStore();
   const { modalType, selectedPromptId } = useUIStore();
   const { prompts } = usePromptStore();
   const { setTags } = useTagStore();
@@ -36,7 +36,7 @@ function AppContent() {
   useKeyboardShortcuts();
 
   // 未授权时显示欢迎界面
-  if (!isAuthorized || !directoryHandle) {
+  if (!isAuthorized || !workspace) {
     return <WelcomeScreen />;
   }
 

@@ -1,5 +1,7 @@
 # PromptClip 桌面版多端设计文档
 
+> Implementation status: file repository abstraction and Tauri desktop support implemented according to `docs/superpowers/plans/2026-05-17-desktop-multiplatform.md`.
+
 > 基于《桌面版多端实现方案.md》整理，用于指导下一步 Web、macOS、Windows 多端开发。
 
 ## 1. 背景
@@ -634,4 +636,3 @@ Web 端：
 - 自动更新。
 - 代码签名与发布流水线。
 - SQLite 或本地索引缓存。
-

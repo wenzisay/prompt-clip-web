@@ -9,7 +9,7 @@ import { IconButton } from '@/components/common';
 import { useEffect, useState } from 'react';
 
 export function TopBar() {
-  const { directoryName } = useFileStore();
+  const { workspaceName } = useFileStore();
   const { openModal } = useUIStore();
   const { filteredPrompts, filter } = usePromptStore();
   const [searchQuery, setSearchQuery] = useState(filter.searchQuery || '');
@@ -36,7 +36,7 @@ export function TopBar() {
         <div className="flex items-center gap-2 text-muted">
           <span className="material-symbols-outlined text-lg">folder</span>
           <span className="text-sm truncate max-w-[200px]">
-            {directoryName || '未选择目录'}
+            {workspaceName || '未选择目录'}
           </span>
         </div>
 

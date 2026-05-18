@@ -6,11 +6,12 @@ import { SideDrawer } from '@/components/common';
 import { PromptContent } from '@/components/prompt';
 import { countChars } from '@/utils/markdown';
 import { PromptService } from '@/services/promptService';
+import { fileRepository } from '@/services/fileRepository';
 
 export function DetailPanel() {
   const { isDetailOpen, selectedPromptId, toggleDetail, openModal } = useUIStore();
   const { prompts, updatePrompt } = usePromptStore();
-  const { directoryHandle } = useFileStore();
+  const { workspace } = useFileStore();
   const [copied, setCopied] = useState(false);
 
   // 获取选中的 Prompt
@@ -22,8 +23,8 @@ export function DetailPanel() {
 
     try {
       await navigator.clipboard.writeText(selectedPrompt.content);
-      if (directoryHandle) {
-        const updated = await PromptService.incrementCopyCount(directoryHandle, selectedPrompt);
+      if (workspace) {
+        const updated = await PromptService.incrementCopyCount(fileRepository, workspace, selectedPrompt);
         updatePrompt(updated);
       }
       setCopied(true);
@@ -35,8 +36,8 @@ export function DetailPanel() {
 
   // 切换收藏
   const handleTogglePin = async () => {
-    if (!selectedPrompt || !directoryHandle) return;
-    const updated = await PromptService.togglePinned(directoryHandle, selectedPrompt);
+    if (!selectedPrompt || !workspace) return;
+    const updated = await PromptService.togglePinned(fileRepository, workspace, selectedPrompt);
     updatePrompt(updated);
   };
 

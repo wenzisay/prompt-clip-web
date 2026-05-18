@@ -42,6 +42,12 @@ npm run dev
 
 # 构建生产版本
 npm run build
+
+# 启动桌面端开发环境
+npm run tauri:dev
+
+# 构建桌面端安装包
+npm run tauri:build
 ```
 
 ## 使用方法
@@ -80,6 +86,8 @@ npm run build
 | `Escape` | 关闭面板/模态框 |
 
 ## 数据存储
+
+桌面版使用 Tauri 2 访问用户选择的本地目录。Web 版仍使用 File System Access API，推荐 Chrome 或 Edge。
 
 ### Prompt 数据
 

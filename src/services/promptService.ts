@@ -4,7 +4,9 @@
  * 处理 Prompt 的创建、读取、更新、删除操作
  */
 
+import type { FileEntry, WorkspaceRef } from '@/types/file';
 import type { Prompt, CreatePromptInput, UpdatePromptInput, PromptMetadata } from '@/types/prompt';
+import type { FileRepository } from './fileRepository';
 import {
   filenameFromId,
   filenameFromTitle,
@@ -12,28 +14,39 @@ import {
   idFromFilename,
   validatePromptTitleForFilename,
 } from '@/utils/id';
-import { FileService } from './fileService';
+import { joinPath } from '@/utils/path';
 import { parseMarkdown, serializeMarkdown, extractTitle } from '@/utils/markdown';
 import { CONFIG } from '@/constants/config';
+
+const HISTORY_PATH_PREFIX = `${CONFIG.FILE_SYSTEM.HISTORY_DIR}/`;
 
 /**
  * 从文件加载 Prompt
  */
-export async function loadPrompt(fileHandle: FileSystemFileHandle): Promise<Prompt> {
-  const content = await FileService.readFile(fileHandle);
+export async function loadPrompt(
+  repository: FileRepository,
+  workspace: WorkspaceRef,
+  entry: FileEntry
+): Promise<Prompt> {
+  const content = await repository.readText(workspace, entry.path);
   const { metadata, content: markdownContent } = parseMarkdown(content);
-  const fileTitle = idFromFilename(fileHandle.name);
+  const promptContent = markdownContent.replace(/^\r?\n/, '');
+  const id = idFromFilename(entry.path);
+  const fileTitle = idFromFilename(entry.name);
+  const tags = metadata.tags && metadata.tags.length > 0
+    ? metadata.tags
+    : extractFrontmatterBlockTags(content) ?? [];
 
   return {
-    id: fileTitle,
-    title: metadata.title || extractTitle(markdownContent) || fileTitle,
-    content: markdownContent,
-    tags: metadata.tags || [],
-    createdAt: metadata.created ? new Date(metadata.created) : await FileService.getFileModTime(fileHandle),
-    updatedAt: metadata.modified ? new Date(metadata.modified) : await FileService.getFileModTime(fileHandle),
-    copyCount: metadata.copyCount || 0,
-    pinned: metadata.pinned || false,
-    fileHandle,
+    id,
+    title: metadata.title || extractTitle(promptContent) || fileTitle,
+    content: promptContent,
+    tags,
+    createdAt: metadata.created ? new Date(metadata.created) : entry.modifiedAt,
+    updatedAt: metadata.modified ? new Date(metadata.modified) : entry.modifiedAt,
+    copyCount: metadata.copyCount ?? 0,
+    pinned: metadata.pinned ?? false,
+    filePath: entry.path,
   };
 }
 
@@ -41,17 +54,18 @@ export async function loadPrompt(fileHandle: FileSystemFileHandle): Promise<Prom
  * 加载目录中的所有 Prompts
  */
 export async function loadPrompts(
-  directoryHandle: FileSystemDirectoryHandle
+  repository: FileRepository,
+  workspace: WorkspaceRef
 ): Promise<Prompt[]> {
-  const fileHandles = await FileService.listFiles(directoryHandle);
+  const entries = await repository.listFiles(workspace, [...CONFIG.FILE_SYSTEM.SUPPORTED_EXTENSIONS]);
   const prompts: Prompt[] = [];
 
-  for (const fileHandle of fileHandles) {
+  for (const entry of entries) {
     try {
-      const prompt = await loadPrompt(fileHandle);
+      const prompt = await loadPrompt(repository, workspace, entry);
       prompts.push(prompt);
     } catch (error) {
-      console.error(`Failed to load prompt: ${fileHandle.name}`, error);
+      console.error(`Failed to load prompt: ${entry.path}`, error);
     }
   }
 
@@ -63,13 +77,13 @@ export async function loadPrompts(
  * 创建新 Prompt
  */
 export async function createPrompt(
-  directoryHandle: FileSystemDirectoryHandle,
+  repository: FileRepository,
+  workspace: WorkspaceRef,
   input: CreatePromptInput
 ): Promise<Prompt> {
-  await validatePromptTitle(directoryHandle, input.title);
+  await validatePromptTitle(repository, workspace, input.title);
 
   const title = input.title.trim();
-  const id = title;
   const now = new Date();
   const metadata: PromptMetadata = {
     title,
@@ -82,14 +96,10 @@ export async function createPrompt(
 
   const content = serializeMarkdown(input.content, metadata);
   const filename = filenameFromTitle(title);
-
-  await FileService.writeFile(directoryHandle, filename, content);
-
-  // 获取文件句柄
-  const fileHandle = await directoryHandle.getFileHandle(filename);
+  const entry = await repository.writeText(workspace, filename, content);
 
   return {
-    id,
+    id: idFromFilename(entry.path),
     title,
     content: input.content,
     tags: input.tags,
@@ -97,7 +107,7 @@ export async function createPrompt(
     updatedAt: now,
     copyCount: 0,
     pinned: false,
-    fileHandle,
+    filePath: entry.path,
   };
 }
 
@@ -105,17 +115,18 @@ export async function createPrompt(
  * 更新现有 Prompt
  */
 export async function updatePrompt(
-  directoryHandle: FileSystemDirectoryHandle,
+  repository: FileRepository,
+  workspace: WorkspaceRef,
   prompt: Prompt,
   updates: UpdatePromptInput,
   options: { createHistory?: boolean } = {}
 ): Promise<Prompt> {
   if (updates.title !== undefined) {
-    await validatePromptTitle(directoryHandle, updates.title, prompt.id);
+    await validatePromptTitle(repository, workspace, updates.title, prompt.id);
   }
 
   if (options.createHistory !== false) {
-    await createHistoryVersion(directoryHandle, prompt);
+    await createHistoryVersion(repository, workspace, prompt);
   }
 
   const now = new Date();
@@ -140,19 +151,22 @@ export async function updatePrompt(
   };
 
   const content = serializeMarkdown(updatedPrompt.content, metadata);
-  const oldFilename = prompt.fileHandle?.name || filenameFromId(prompt.id);
-  const nextFilename = filenameFromTitle(updatedPrompt.title);
+  const oldFilename = prompt.filePath || filenameFromId(prompt.id);
+  const nextFilename = updates.title === undefined
+    ? oldFilename
+    : pathInSameDirectory(oldFilename, filenameFromTitle(updatedPrompt.title));
 
-  const fileHandle = await FileService.writeFile(directoryHandle, nextFilename, content);
-
-  if (oldFilename !== nextFilename && await FileService.fileExists(directoryHandle, oldFilename)) {
-    await FileService.deleteFile(directoryHandle, oldFilename);
+  if (oldFilename === nextFilename) {
+    await repository.writeText(workspace, oldFilename, content);
+  } else {
+    await repository.writeText(workspace, oldFilename, content);
+    await repository.move(workspace, oldFilename, nextFilename);
   }
 
   return {
     ...updatedPrompt,
     id: idFromFilename(nextFilename),
-    fileHandle,
+    filePath: nextFilename,
   };
 }
 
@@ -160,24 +174,19 @@ export async function updatePrompt(
  * 删除 Prompt
  */
 export async function deletePrompt(
-  directoryHandle: FileSystemDirectoryHandle,
+  repository: FileRepository,
+  workspace: WorkspaceRef,
   prompt: Prompt
 ): Promise<void> {
-  const filename = prompt.fileHandle?.name || filenameFromId(prompt.id);
+  const filename = prompt.filePath || filenameFromId(prompt.id);
   const timestamp = formatDateForFile(new Date());
   const trashFilename = `${idFromFilename(filename)}.${timestamp}.md`;
 
-  // 先移到回收站
-  try {
-    await FileService.createDirectory(directoryHandle, CONFIG.FILE_SYSTEM.TRASH_DIR);
-  } catch {
-    // 目录可能已存在
-  }
-
-  await FileService.moveFile(
-    directoryHandle,
+  await repository.mkdir(workspace, CONFIG.FILE_SYSTEM.TRASH_DIR);
+  await repository.move(
+    workspace,
     filename,
-    `${CONFIG.FILE_SYSTEM.TRASH_DIR}/${trashFilename}`
+    joinPath(CONFIG.FILE_SYSTEM.TRASH_DIR, trashFilename)
   );
 }
 
@@ -185,10 +194,11 @@ export async function deletePrompt(
  * 增加复制计数
  */
 export async function incrementCopyCount(
-  directoryHandle: FileSystemDirectoryHandle,
+  repository: FileRepository,
+  workspace: WorkspaceRef,
   prompt: Prompt
 ): Promise<Prompt> {
-  return updatePrompt(directoryHandle, prompt, {
+  return updatePrompt(repository, workspace, prompt, {
     id: prompt.id,
     copyCount: prompt.copyCount + 1,
   }, { createHistory: false });
@@ -198,10 +208,11 @@ export async function incrementCopyCount(
  * 切换收藏状态
  */
 export async function togglePinned(
-  directoryHandle: FileSystemDirectoryHandle,
+  repository: FileRepository,
+  workspace: WorkspaceRef,
   prompt: Prompt
 ): Promise<Prompt> {
-  return updatePrompt(directoryHandle, prompt, {
+  return updatePrompt(repository, workspace, prompt, {
     id: prompt.id,
     pinned: !prompt.pinned,
   }, { createHistory: false });
@@ -211,35 +222,33 @@ export async function togglePinned(
  * 创建历史版本
  */
 export async function createHistoryVersion(
-  directoryHandle: FileSystemDirectoryHandle,
+  repository: FileRepository,
+  workspace: WorkspaceRef,
   prompt: Prompt
 ): Promise<void> {
-  // 如果没有文件句柄，跳过
-  if (!prompt.fileHandle) return;
+  const filename = prompt.filePath || filenameFromId(prompt.id);
 
   try {
-    // 创建历史目录
-    await FileService.createDirectory(directoryHandle, CONFIG.FILE_SYSTEM.HISTORY_DIR);
+    await repository.mkdir(workspace, CONFIG.FILE_SYSTEM.HISTORY_DIR);
 
-    const historyDir = await directoryHandle.getDirectoryHandle(CONFIG.FILE_SYSTEM.HISTORY_DIR);
     const timestamp = formatDateForFile(prompt.updatedAt);
-    const historyFilename = `${prompt.id}.${timestamp}.md`;
+    const historyFilename = `${encodeHistoryPromptId(prompt.id)}.${timestamp}.md`;
+    const content = await repository.readText(workspace, filename);
 
-    // 读取当前内容
-    const content = await FileService.readFile(prompt.fileHandle);
-
-    // 写入历史版本
-    await FileService.writeFile(historyDir, historyFilename, content);
-
-    // 清理旧的历史版本
-    await cleanupOldHistoryVersions(historyDir, prompt.id);
+    await repository.writeText(
+      workspace,
+      joinPath(CONFIG.FILE_SYSTEM.HISTORY_DIR, historyFilename),
+      content
+    );
+    await cleanupOldHistoryVersions(repository, workspace, prompt.id);
   } catch (error) {
     console.error('Failed to create history version:', error);
   }
 }
 
 export async function validatePromptTitle(
-  directoryHandle: FileSystemDirectoryHandle,
+  repository: FileRepository,
+  workspace: WorkspaceRef,
   title: string,
   currentPromptId?: string
 ): Promise<void> {
@@ -250,8 +259,14 @@ export async function validatePromptTitle(
 
   const filename = filenameFromTitle(title);
   const currentFilename = currentPromptId ? filenameFromId(currentPromptId) : null;
+  const targetFilename = currentFilename
+    ? pathInSameDirectory(currentFilename, filename)
+    : filename;
 
-  if (filename !== currentFilename && await FileService.fileExists(directoryHandle, filename)) {
+  if (
+    targetFilename !== currentFilename &&
+    await repository.exists(workspace, targetFilename)
+  ) {
     throw new Error('标题已存在，请使用不同的标题');
   }
 }
@@ -260,30 +275,17 @@ export async function validatePromptTitle(
  * 清理旧的历史版本
  */
 async function cleanupOldHistoryVersions(
-  historyDir: FileSystemDirectoryHandle,
+  repository: FileRepository,
+  workspace: WorkspaceRef,
   promptId: string
 ): Promise<void> {
-  const historyFiles: { name: string; handle: FileSystemFileHandle; time: number }[] = [];
-
-  // 找出该 prompt 的所有历史版本
-  for await (const entry of historyDir.values()) {
-    if (entry.kind === 'file' && entry.name.startsWith(promptId)) {
-      const handle = entry as FileSystemFileHandle;
-      const file = await handle.getFile();
-      historyFiles.push({
-        name: entry.name,
-        handle,
-        time: file.lastModified,
-      });
-    }
-  }
-
-  // 按时间排序，删除超出限制的旧版本
-  historyFiles.sort((a, b) => b.time - a.time);
-  const toDelete = historyFiles.slice(CONFIG.FILE_SYSTEM.MAX_HISTORY_VERSIONS);
+  const historyFiles = await listHistoryEntries(repository, workspace, promptId);
+  const toDelete = historyFiles
+    .sort((a, b) => b.modifiedAt.getTime() - a.modifiedAt.getTime())
+    .slice(CONFIG.FILE_SYSTEM.MAX_HISTORY_VERSIONS);
 
   for (const file of toDelete) {
-    await historyDir.removeEntry(file.name);
+    await repository.remove(workspace, file.path);
   }
 }
 
@@ -291,28 +293,93 @@ async function cleanupOldHistoryVersions(
  * 获取 Prompt 的历史版本列表
  */
 export async function getHistoryVersions(
-  directoryHandle: FileSystemDirectoryHandle,
+  repository: FileRepository,
+  workspace: WorkspaceRef,
   promptId: string
 ): Promise<Array<{ filename: string; date: Date }>> {
-  try {
-    const historyDir = await directoryHandle.getDirectoryHandle(CONFIG.FILE_SYSTEM.HISTORY_DIR);
-    const versions: Array<{ filename: string; date: Date }> = [];
+  const versions = await listHistoryEntries(repository, workspace, promptId);
 
-    for await (const entry of historyDir.values()) {
-      if (entry.kind === 'file' && entry.name.startsWith(promptId)) {
-        const handle = entry as FileSystemFileHandle;
-        const file = await handle.getFile();
-        versions.push({
-          filename: entry.name,
-          date: new Date(file.lastModified),
-        });
+  return versions
+    .map((entry) => ({
+      filename: entry.name,
+      date: entry.modifiedAt,
+    }))
+    .sort((a, b) => b.date.getTime() - a.date.getTime());
+}
+
+async function listHistoryEntries(
+  repository: FileRepository,
+  workspace: WorkspaceRef,
+  promptId: string
+): Promise<FileEntry[]> {
+  const entries = await repository.listFiles(
+    workspace,
+    [...CONFIG.FILE_SYSTEM.SUPPORTED_EXTENSIONS],
+    { includeHiddenDirectories: true }
+  );
+
+  const encodedPromptId = encodeHistoryPromptId(promptId);
+  return entries.filter((entry) => isHistoryEntryForPrompt(entry, encodedPromptId));
+}
+
+function pathInSameDirectory(currentPath: string, filename: string): string {
+  const lastSeparatorIndex = currentPath.lastIndexOf('/');
+
+  if (lastSeparatorIndex === -1) {
+    return filename;
+  }
+
+  return joinPath(currentPath.slice(0, lastSeparatorIndex), filename);
+}
+
+function encodeHistoryPromptId(promptId: string): string {
+  return encodeURIComponent(promptId).replace(/\./g, '%2E');
+}
+
+function isHistoryEntryForPrompt(entry: FileEntry, encodedPromptId: string): boolean {
+  if (!entry.path.startsWith(HISTORY_PATH_PREFIX)) {
+    return false;
+  }
+
+  const escapedPromptId = encodedPromptId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const filenamePattern = new RegExp(
+    `^${escapedPromptId}\\.\\d{4}-\\d{2}-\\d{2}-\\d{6}\\.md$`
+  );
+  return filenamePattern.test(entry.name);
+}
+
+function extractFrontmatterBlockTags(content: string): string[] | null {
+  const match = content
+    .replace(/^\uFEFF/, '')
+    .match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+
+  if (!match) {
+    return null;
+  }
+
+  const lines = match[1].split(/\r?\n/);
+  const tags: string[] = [];
+
+  for (let index = 0; index < lines.length; index += 1) {
+    if (lines[index].trim() !== 'tags:') {
+      continue;
+    }
+
+    for (let tagIndex = index + 1; tagIndex < lines.length; tagIndex += 1) {
+      const line = lines[tagIndex];
+      if (!/^\s+-\s+/.test(line)) {
+        break;
+      }
+      const tag = line.replace(/^\s+-\s+/, '').trim();
+      if (tag) {
+        tags.push(tag);
       }
     }
 
-    return versions.sort((a, b) => b.date.getTime() - a.date.getTime());
-  } catch {
-    return [];
+    return tags;
   }
+
+  return null;
 }
 
 /**

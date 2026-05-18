@@ -7,6 +7,7 @@ import { usePromptStore } from '@/stores/promptStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useFileStore } from '@/stores/fileStore';
 import { PromptService } from '@/services/promptService';
+import { fileRepository } from '@/services/fileRepository';
 import { TagService } from '@/services/tagService';
 import type { TagTreeNode } from '@/types/tag';
 import { useEffect, useRef, useState } from 'react';
@@ -34,7 +35,7 @@ function TreeNode({
     removePinnedTag,
   } = useTagStore();
   const { prompts, filter, setFilter, updatePrompt } = usePromptStore();
-  const { directoryHandle } = useFileStore();
+  const { workspace } = useFileStore();
   const { clearSelection } = useUIStore();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isBusy, setIsBusy] = useState(false);
@@ -61,13 +62,13 @@ function TreeNode({
 
   const handleTogglePin = (event: React.MouseEvent) => {
     event.stopPropagation();
-    void togglePin(node.name, directoryHandle);
+    void togglePin(node.name, workspace);
     setIsMenuOpen(false);
   };
 
   const handleRename = async (event: React.MouseEvent) => {
     event.stopPropagation();
-    if (!directoryHandle || isBusy) return;
+    if (!workspace || isBusy) return;
 
     const input = window.prompt('输入新的标签路径', `#${node.name}`);
     const nextTag = TagService.normalizeTagPath(input || '');
@@ -84,7 +85,8 @@ function TreeNode({
 
       for (const prompt of affectedPrompts) {
         const updated = await PromptService.updatePrompt(
-          directoryHandle,
+          fileRepository,
+          workspace,
           prompt,
           {
             id: prompt.id,
@@ -94,7 +96,7 @@ function TreeNode({
         updatePrompt(updated);
       }
 
-      await renamePinnedTag(node.name, nextTag, directoryHandle);
+      await renamePinnedTag(node.name, nextTag, workspace);
       if (filter.tag && TagService.isTagMatch(filter.tag, node.name)) {
         setFilter({ tag: `${nextTag}${filter.tag.slice(node.name.length)}` });
       }
@@ -106,7 +108,7 @@ function TreeNode({
 
   const handleRemove = async (event: React.MouseEvent) => {
     event.stopPropagation();
-    if (!directoryHandle || isBusy) return;
+    if (!workspace || isBusy) return;
 
     const confirmed = window.confirm(`确定要从相关 Prompt 中移除标签 #${node.name} 吗？`);
     if (!confirmed) {
@@ -122,7 +124,8 @@ function TreeNode({
 
       for (const prompt of affectedPrompts) {
         const updated = await PromptService.updatePrompt(
-          directoryHandle,
+          fileRepository,
+          workspace,
           prompt,
           {
             id: prompt.id,
@@ -132,7 +135,7 @@ function TreeNode({
         updatePrompt(updated);
       }
 
-      await removePinnedTag(node.name, directoryHandle);
+      await removePinnedTag(node.name, workspace);
       if (filter.tag && TagService.isTagMatch(filter.tag, node.name)) {
         setFilter({ tag: undefined });
       }
@@ -259,7 +262,7 @@ function TreeNode({
               <button
                 type="button"
                 onClick={handleRename}
-                disabled={!directoryHandle || isBusy}
+                disabled={!workspace || isBusy}
                 className="w-full px-3 py-2 text-left text-sm text-fg hover:bg-surface-dim transition-colors flex items-center gap-2 disabled:opacity-50"
               >
                 <span className="material-symbols-outlined text-lg">edit</span>
@@ -268,7 +271,7 @@ function TreeNode({
               <button
                 type="button"
                 onClick={handleRemove}
-                disabled={!directoryHandle || isBusy}
+                disabled={!workspace || isBusy}
                 className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2 disabled:opacity-50"
               >
                 <span className="material-symbols-outlined text-lg">delete</span>

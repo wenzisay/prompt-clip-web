@@ -4,7 +4,8 @@
  * 配置写入用户授权的 Prompt 数据目录，随目录一起迁移和备份。
  */
 
-import { FileService } from '@/services/fileService';
+import type { WorkspaceRef } from '@/types/file';
+import type { FileRepository } from '@/services/fileRepository';
 
 const CONFIG_FILENAME = '.promptclip.json';
 
@@ -31,11 +32,15 @@ function normalizeConfig(input: unknown): FolderConfig {
 }
 
 export async function readFolderConfig(
-  directoryHandle: FileSystemDirectoryHandle
+  repository: FileRepository,
+  workspace: WorkspaceRef
 ): Promise<FolderConfig> {
   try {
-    const fileHandle = await directoryHandle.getFileHandle(CONFIG_FILENAME);
-    const content = await FileService.readFile(fileHandle);
+    if (!await repository.exists(workspace, CONFIG_FILENAME)) {
+      return DEFAULT_CONFIG;
+    }
+
+    const content = await repository.readText(workspace, CONFIG_FILENAME);
     return normalizeConfig(JSON.parse(content));
   } catch (error) {
     if (error instanceof Error && error.name !== 'NotFoundError') {
@@ -46,34 +51,32 @@ export async function readFolderConfig(
 }
 
 export async function folderConfigExists(
-  directoryHandle: FileSystemDirectoryHandle
+  repository: FileRepository,
+  workspace: WorkspaceRef
 ): Promise<boolean> {
-  try {
-    await directoryHandle.getFileHandle(CONFIG_FILENAME);
-    return true;
-  } catch {
-    return false;
-  }
+  return await repository.exists(workspace, CONFIG_FILENAME);
 }
 
 export async function writeFolderConfig(
-  directoryHandle: FileSystemDirectoryHandle,
+  repository: FileRepository,
+  workspace: WorkspaceRef,
   config: FolderConfig
 ): Promise<void> {
   const normalizedConfig = normalizeConfig(config);
-  await FileService.writeFile(
-    directoryHandle,
+  await repository.writeText(
+    workspace,
     CONFIG_FILENAME,
     `${JSON.stringify(normalizedConfig, null, 2)}\n`
   );
 }
 
 export async function updatePinnedTags(
-  directoryHandle: FileSystemDirectoryHandle,
+  repository: FileRepository,
+  workspace: WorkspaceRef,
   pinnedTags: string[]
 ): Promise<void> {
-  const config = await readFolderConfig(directoryHandle);
-  await writeFolderConfig(directoryHandle, {
+  const config = await readFolderConfig(repository, workspace);
+  await writeFolderConfig(repository, workspace, {
     ...config,
     pinnedTags,
   });

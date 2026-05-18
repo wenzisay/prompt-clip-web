@@ -52,8 +52,10 @@ export function ExportModal() {
 
     setIsExporting(true);
     try {
-      await ExportService.exportPrompts(exportPrompts, format);
-      closeModal();
+      const exported = await ExportService.exportPrompts(exportPrompts, format);
+      if (exported) {
+        closeModal();
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : '导出失败');
     } finally {

@@ -12,14 +12,14 @@ export function Sidebar() {
   // const { tagTree } = useTagStore();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isStorageExpanded, setIsStorageExpanded] = useState(false);
-  const { directoryName, clearDirectory } = useFileStore();
+  const { workspaceName, clearWorkspace } = useFileStore();
   const { clearPrompts } = usePromptStore();
   const { clearTags } = useTagStore();
 
   const handleSwitchDirectory = () => {
     clearPrompts();
     clearTags();
-    clearDirectory();
+    void clearWorkspace();
   };
 
   return (
@@ -92,9 +92,9 @@ export function Sidebar() {
                   <div className="min-w-0 flex-1">
                     <p
                       className="truncate text-sm font-medium text-fg"
-                      title={directoryName || '未选择目录'}
+                      title={workspaceName || '未选择目录'}
                     >
-                      {directoryName || '未选择目录'}
+                      {workspaceName || '未选择目录'}
                     </p>
                   </div>
                 </div>
