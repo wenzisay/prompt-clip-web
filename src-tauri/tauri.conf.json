@@ -13,8 +13,10 @@
     "windows": [
       {
         "title": "PromptClip",
-        "width": 800,
-        "height": 600,
+        "width": 1024,
+        "height": 760,
+        "minWidth": 900,
+        "minHeight": 640,
         "resizable": true,
         "fullscreen": false
       }
