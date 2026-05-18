@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => ({
   stat: vi.fn(),
   writeTextFile: vi.fn(),
   StoreLoad: vi.fn(),
+  invoke: vi.fn(),
   join: vi.fn(async (...parts: string[]) => parts.join('/')),
 }));
 
@@ -44,6 +45,10 @@ vi.mock('@tauri-apps/plugin-store', () => ({
   Store: {
     load: mocks.StoreLoad,
   },
+}));
+
+vi.mock('@tauri-apps/api/core', () => ({
+  invoke: mocks.invoke,
 }));
 
 vi.mock('@tauri-apps/api/path', () => ({
@@ -116,36 +121,20 @@ describe('tauriFileRepository', () => {
   });
 
   it('recursively lists matching files and skips hidden directories by default', async () => {
-    mocks.readDir.mockImplementation(async (path: string) => {
-      if (path === workspace.path) {
-        return [
-          { name: 'visible', isDirectory: true, isFile: false, isSymlink: false },
-          { name: '.git', isDirectory: true, isFile: false, isSymlink: false },
-          { name: 'root.md', isDirectory: false, isFile: true, isSymlink: false },
-          { name: 'notes.txt', isDirectory: false, isFile: true, isSymlink: false },
-        ];
-      }
-      if (path === `${workspace.path}/visible`) {
-        return [{ name: 'child.MD', isDirectory: false, isFile: true, isSymlink: false }];
-      }
-      if (path === `${workspace.path}/.git`) {
-        return [{ name: 'ignored.md', isDirectory: false, isFile: true, isSymlink: false }];
-      }
-      return [];
-    });
-    mocks.stat.mockImplementation(async (path: string) => ({
-      isFile: true,
-      isDirectory: false,
-      isSymlink: false,
-      size: path.endsWith('root.md') ? 10 : 20,
-      mtime: path.endsWith('root.md') ? new Date('2026-01-01T00:00:00.000Z') : null,
-      atime: null,
-      birthtime: null,
-      readonly: false,
-      fileAttributes: null,
-      dev: null,
-      ino: null,
-    }));
+    mocks.invoke.mockResolvedValue([
+      {
+        name: 'child.MD',
+        path: 'visible/child.MD',
+        size: 20,
+        modifiedAt: 0,
+      },
+      {
+        name: 'root.md',
+        path: 'root.md',
+        size: 10,
+        modifiedAt: new Date('2026-01-01T00:00:00.000Z').getTime(),
+      },
+    ]);
 
     const files = await tauriFileRepository.listFiles(workspace, ['.md']);
 
@@ -163,22 +152,20 @@ describe('tauriFileRepository', () => {
         modifiedAt: new Date('2026-01-01T00:00:00.000Z'),
       },
     ]);
-    expect(mocks.readDir).not.toHaveBeenCalledWith(`${workspace.path}/.git`);
+    expect(mocks.invoke).toHaveBeenCalledWith('workspace_list_files', {
+      root: workspace.path,
+      extensions: ['.md'],
+      includeHiddenDirectories: false,
+    });
+    expect(mocks.readDir).not.toHaveBeenCalled();
   });
 
   it('creates parent directories before writing text', async () => {
-    mocks.stat.mockResolvedValue({
-      isFile: true,
-      isDirectory: false,
-      isSymlink: false,
+    mocks.invoke.mockResolvedValue({
+      name: 'new.md',
+      path: 'folder/new.md',
       size: 7,
-      mtime: new Date('2026-01-02T00:00:00.000Z'),
-      atime: null,
-      birthtime: null,
-      readonly: false,
-      fileAttributes: null,
-      dev: null,
-      ino: null,
+      modifiedAt: new Date('2026-01-02T00:00:00.000Z').getTime(),
     });
 
     await expect(
@@ -190,10 +177,65 @@ describe('tauriFileRepository', () => {
       modifiedAt: new Date('2026-01-02T00:00:00.000Z'),
     });
 
-    expect(mocks.mkdir).toHaveBeenCalledWith(`${workspace.path}/folder`, { recursive: true });
-    expect(mocks.writeTextFile).toHaveBeenCalledWith(
-      `${workspace.path}/folder/new.md`,
-      'content'
+    expect(mocks.invoke).toHaveBeenCalledWith('workspace_write_text', {
+      root: workspace.path,
+      path: 'folder/new.md',
+      content: 'content',
+    });
+    expect(mocks.mkdir).not.toHaveBeenCalled();
+    expect(mocks.writeTextFile).not.toHaveBeenCalled();
+  });
+
+  it('uses native file commands for workspace dotfiles', async () => {
+    mocks.invoke.mockImplementation(async (command: string) => {
+      if (command === 'workspace_exists') {
+        return true;
+      }
+      if (command === 'workspace_read_text') {
+        return '{"pinnedTags":["ai"]}';
+      }
+      if (command === 'workspace_write_text') {
+        return {
+          name: '.promptclip.json',
+          path: '.promptclip.json',
+          size: 22,
+          modifiedAt: new Date('2026-01-03T00:00:00.000Z').getTime(),
+        };
+      }
+      throw new Error(`Unexpected command: ${command}`);
+    });
+
+    await expect(tauriFileRepository.exists(workspace, '.promptclip.json')).resolves.toBe(true);
+    await expect(
+      tauriFileRepository.readText(workspace, '.promptclip.json')
+    ).resolves.toBe('{"pinnedTags":["ai"]}');
+    await expect(
+      tauriFileRepository.writeText(workspace, '.promptclip.json', '{"pinnedTags":["ai"]}')
+    ).resolves.toEqual({
+      name: '.promptclip.json',
+      path: '.promptclip.json',
+      size: 22,
+      modifiedAt: new Date('2026-01-03T00:00:00.000Z'),
+    });
+
+    expect(mocks.invoke).toHaveBeenCalledWith('workspace_exists', {
+      root: workspace.path,
+      path: '.promptclip.json',
+    });
+    expect(mocks.invoke).toHaveBeenCalledWith('workspace_read_text', {
+      root: workspace.path,
+      path: '.promptclip.json',
+    });
+    expect(mocks.invoke).toHaveBeenCalledWith('workspace_write_text', {
+      root: workspace.path,
+      path: '.promptclip.json',
+      content: '{"pinnedTags":["ai"]}',
+    });
+    expect(mocks.exists).not.toHaveBeenCalledWith(`${workspace.path}/.promptclip.json`);
+    expect(mocks.readTextFile).not.toHaveBeenCalledWith(`${workspace.path}/.promptclip.json`);
+    expect(mocks.writeTextFile).not.toHaveBeenCalledWith(
+      `${workspace.path}/.promptclip.json`,
+      '{"pinnedTags":["ai"]}'
     );
   });
 

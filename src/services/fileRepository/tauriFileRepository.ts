@@ -1,16 +1,5 @@
-import { join } from '@tauri-apps/api/path';
+import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
-import {
-  exists as fsExists,
-  mkdir as fsMkdir,
-  readDir,
-  readTextFile,
-  remove as fsRemove,
-  rename,
-  stat,
-  writeTextFile,
-} from '@tauri-apps/plugin-fs';
-import type { DirEntry, FileInfo } from '@tauri-apps/plugin-fs';
 import { Store } from '@tauri-apps/plugin-store';
 import { CONFIG } from '@/constants/config';
 import type { FileEntry, WorkspaceRef } from '@/types/file';
@@ -20,6 +9,13 @@ import type { FileRepository } from './types';
 const STORE_FILE = 'promptclip-workspace.json';
 const WORKSPACE_KEY = 'workspace';
 const EXPIRED_PERMISSION_MESSAGE = '目录访问权限已过期，请重新选择数据目录';
+
+interface NativeFileEntry {
+  name: string;
+  path: string;
+  size: number;
+  modifiedAt: number;
+}
 
 export function isTauriRuntime(): boolean {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
@@ -55,26 +51,24 @@ function requireWorkspacePath(workspace: WorkspaceRef): string {
   return workspace.path;
 }
 
-async function joinWorkspacePath(workspace: WorkspaceRef, path: string): Promise<string> {
-  const root = requireWorkspacePath(workspace);
-  const normalized = normalizeRelativePath(path);
-  return join(root, ...normalized.split('/'));
-}
-
-function fileEntryFromInfo(path: string, info: FileInfo): FileEntry {
-  const normalized = normalizeRelativePath(path);
-  const parts = normalized.split('/');
-
+function fileEntryFromNative(entry: NativeFileEntry): FileEntry {
   return {
-    name: parts[parts.length - 1] ?? normalized,
-    path: normalized,
-    size: info.size,
-    modifiedAt: info.mtime ?? new Date(0),
+    name: entry.name,
+    path: entry.path,
+    size: entry.size,
+    modifiedAt: new Date(entry.modifiedAt),
   };
 }
 
-async function statFileEntry(path: string, nativePath: string): Promise<FileEntry> {
-  return fileEntryFromInfo(path, await stat(nativePath));
+function workspaceArgs(workspace: WorkspaceRef): { root: string } {
+  return { root: requireWorkspacePath(workspace) };
+}
+
+function workspacePathArgs(workspace: WorkspaceRef, path: string): { root: string; path: string } {
+  return {
+    root: requireWorkspacePath(workspace),
+    path: normalizeRelativePath(path),
+  };
 }
 
 async function selectDirectory(): Promise<WorkspaceRef | null> {
@@ -115,7 +109,7 @@ async function verifyPermission(workspace: WorkspaceRef): Promise<boolean> {
   }
 
   try {
-    return await fsExists(workspace.path);
+    return await invoke<boolean>('workspace_root_exists', workspaceArgs(workspace));
   } catch {
     return false;
   }
@@ -136,46 +130,16 @@ async function listFiles(
   extensions: string[] = [...CONFIG.FILE_SYSTEM.SUPPORTED_EXTENSIONS],
   options?: { includeHiddenDirectories?: boolean }
 ): Promise<FileEntry[]> {
-  const root = requireWorkspacePath(workspace);
-  const files: FileEntry[] = [];
-  const normalizedExtensions = extensions.map((extension) => extension.toLowerCase());
-
-  async function traverse(nativeDirectoryPath: string, relativeDirectoryPath: string): Promise<void> {
-    const entries = await readDir(nativeDirectoryPath);
-
-    for (const entry of entries) {
-      const relativePath = relativeDirectoryPath
-        ? `${relativeDirectoryPath}/${entry.name}`
-        : entry.name;
-
-      if (entry.isDirectory) {
-        if (options?.includeHiddenDirectories || !entry.name.startsWith('.')) {
-          await traverse(await join(nativeDirectoryPath, entry.name), relativePath);
-        }
-        continue;
-      }
-
-      if (isMatchingFile(entry, relativePath, normalizedExtensions)) {
-        files.push(await statFileEntry(relativePath, await join(nativeDirectoryPath, entry.name)));
-      }
-    }
-  }
-
-  await traverse(root, '');
-  return files;
-}
-
-function isMatchingFile(entry: DirEntry, path: string, extensions: string[]): boolean {
-  if (!entry.isFile) {
-    return false;
-  }
-
-  const lowerPath = path.toLowerCase();
-  return extensions.some((extension) => lowerPath.endsWith(extension));
+  const entries = await invoke<NativeFileEntry[]>('workspace_list_files', {
+    ...workspaceArgs(workspace),
+    extensions,
+    includeHiddenDirectories: options?.includeHiddenDirectories ?? false,
+  });
+  return entries.map(fileEntryFromNative);
 }
 
 async function readText(workspace: WorkspaceRef, path: string): Promise<string> {
-  return readTextFile(await joinWorkspacePath(workspace, path));
+  return invoke('workspace_read_text', workspacePathArgs(workspace, path));
 }
 
 async function writeText(
@@ -183,26 +147,18 @@ async function writeText(
   path: string,
   content: string
 ): Promise<FileEntry> {
-  const root = requireWorkspacePath(workspace);
-  const normalized = normalizeRelativePath(path);
-  const parts = normalized.split('/');
-  const parentParts = parts.slice(0, -1);
-
-  if (parentParts.length > 0) {
-    await fsMkdir(await join(root, ...parentParts), { recursive: true });
-  }
-
-  const nativePath = await join(root, ...parts);
-  await writeTextFile(nativePath, content);
-
-  return statFileEntry(normalized, nativePath);
+  const entry = await invoke<NativeFileEntry>('workspace_write_text', {
+    ...workspacePathArgs(workspace, path),
+    content,
+  });
+  return fileEntryFromNative(entry);
 }
 
 async function exists(workspace: WorkspaceRef, path: string): Promise<boolean> {
-  const nativePath = await joinWorkspacePath(workspace, path);
+  const args = workspacePathArgs(workspace, path);
 
   try {
-    return await fsExists(nativePath);
+    return await invoke<boolean>('workspace_exists', args);
   } catch {
     return false;
   }
@@ -216,18 +172,19 @@ async function move(workspace: WorkspaceRef, from: string, to: string): Promise<
     return;
   }
 
-  await rename(
-    await joinWorkspacePath(workspace, source),
-    await joinWorkspacePath(workspace, target)
-  );
+  await invoke('workspace_move', {
+    root: requireWorkspacePath(workspace),
+    from: source,
+    to: target,
+  });
 }
 
 async function mkdir(workspace: WorkspaceRef, path: string): Promise<void> {
-  await fsMkdir(await joinWorkspacePath(workspace, path), { recursive: true });
+  await invoke('workspace_mkdir', workspacePathArgs(workspace, path));
 }
 
 async function remove(workspace: WorkspaceRef, path: string): Promise<void> {
-  await fsRemove(await joinWorkspacePath(workspace, path), { recursive: true });
+  await invoke('workspace_remove', workspacePathArgs(workspace, path));
 }
 
 export const tauriFileRepository: FileRepository = {
