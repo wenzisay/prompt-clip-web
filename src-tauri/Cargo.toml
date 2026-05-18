@@ -23,4 +23,5 @@ serde = { version = "1.0", features = ["derive"] }
 tauri = { version = "2.11.2", features = [] }
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
+tauri-plugin-persisted-scope = "2"
 tauri-plugin-store = "2"
