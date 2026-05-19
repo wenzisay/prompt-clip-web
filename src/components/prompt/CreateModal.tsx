@@ -20,7 +20,7 @@ interface CreateModalProps {
 
 export function CreateModal({ editingPromptId }: CreateModalProps) {
   const { modalType, closeModal, setSelectedPrompt } = useUIStore();
-  const { addPrompt, updatePrompt, deletePrompt, prompts } = usePromptStore();
+  const { addPrompt, updatePrompt, deletePrompt, prompts, filter } = usePromptStore();
   const { workspace } = useFileStore();
 
   const isOpen = modalType === 'create' || modalType === 'edit';
@@ -42,10 +42,10 @@ export function CreateModal({ editingPromptId }: CreateModalProps) {
         setTags(prompt.tags);
       }
     } else {
-      // 新建模式：重置表单
+      // 新建模式：重置表单，自动带入当前筛选的标签
       setTitle('');
       setContent('');
-      setTags([]);
+      setTags(filter.tag ? [filter.tag] : []);
     }
     setError(null);
   }, [editingPromptId, modalType, isOpen, prompts]);
