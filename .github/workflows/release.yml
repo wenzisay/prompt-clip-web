@@ -45,7 +45,10 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
-      - name: Build Tauri app
+      - name: Build Tauri app (manual)
+        run: npm run tauri:build -- ${{ matrix.args }}
+
+      - name: Create Release
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -55,4 +58,3 @@ jobs:
           releaseBody: 'See the assets to download this version and install.'
           releaseDraft: true
           prerelease: false
-          customCommand: 'npm run tauri:build -- ${{ matrix.args }}'
