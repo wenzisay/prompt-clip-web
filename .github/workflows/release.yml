@@ -45,17 +45,18 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
-      - name: Build Tauri app (manual)
+      - name: Build Tauri app
         run: npm run tauri:build -- ${{ matrix.args }}
 
       - name: Create Release
-        uses: tauri-apps/tauri-action@v0
+        uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: 'PromptClip ${{ github.ref_name }}'
-          releaseBody: 'See the assets to download this version and install.'
-          releaseDraft: true
+          tag_name: ${{ github.ref_name }}
+          name: 'PromptClip ${{ github.ref_name }}'
+          body: 'See the assets to download this version and install.'
+          draft: true
           prerelease: false
-          args: ''
+          files: |
+            src-tauri/target/*/release/bundle/**/*
