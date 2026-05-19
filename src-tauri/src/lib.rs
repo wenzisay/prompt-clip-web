@@ -78,8 +78,20 @@ enum WindowLifecycleAction {
 }
 
 #[derive(Debug, PartialEq, Eq)]
+enum AppLifecycleAction {
+    Continue,
+    ShowMainWindow,
+}
+
+#[derive(Debug, PartialEq, Eq)]
 enum WindowLifecycleEvent {
     CloseRequested,
+    Other,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum AppLifecycleEvent {
+    Reopen,
     Other,
 }
 
@@ -87,6 +99,14 @@ fn window_lifecycle_event(event: &tauri::WindowEvent) -> WindowLifecycleEvent {
     match event {
         tauri::WindowEvent::CloseRequested { .. } => WindowLifecycleEvent::CloseRequested,
         _ => WindowLifecycleEvent::Other,
+    }
+}
+
+fn app_lifecycle_event(event: &tauri::RunEvent) -> AppLifecycleEvent {
+    match event {
+        #[cfg(target_os = "macos")]
+        tauri::RunEvent::Reopen { .. } => AppLifecycleEvent::Reopen,
+        _ => AppLifecycleEvent::Other,
     }
 }
 
@@ -101,6 +121,13 @@ fn window_lifecycle_action(
     }
 }
 
+fn app_lifecycle_action(event: AppLifecycleEvent) -> AppLifecycleAction {
+    match event {
+        AppLifecycleEvent::Reopen => AppLifecycleAction::ShowMainWindow,
+        AppLifecycleEvent::Other => AppLifecycleAction::Continue,
+    }
+}
+
 fn show_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     if let Some(window) = app.get_webview_window(MAIN_WINDOW_LABEL) {
         let _ = window.show();
@@ -111,7 +138,10 @@ fn show_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
 
 #[cfg(test)]
 mod tests {
-    use super::{window_lifecycle_action, WindowLifecycleAction, WindowLifecycleEvent};
+    use super::{
+        app_lifecycle_action, window_lifecycle_action, AppLifecycleAction, AppLifecycleEvent,
+        WindowLifecycleAction, WindowLifecycleEvent,
+    };
 
     #[test]
     fn should_hide_to_tray_when_window_close_is_requested() {
@@ -134,6 +164,14 @@ mod tests {
         assert_eq!(
             window_lifecycle_action(WindowLifecycleEvent::Other, false),
             WindowLifecycleAction::Continue
+        );
+    }
+
+    #[test]
+    fn should_show_main_window_when_app_reopens() {
+        assert_eq!(
+            app_lifecycle_action(AppLifecycleEvent::Reopen),
+            AppLifecycleAction::ShowMainWindow
         );
     }
 }
@@ -369,6 +407,13 @@ pub fn run() {
             workspace_mkdir,
             workspace_remove,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app, event| {
+            if app_lifecycle_action(app_lifecycle_event(&event))
+                == AppLifecycleAction::ShowMainWindow
+            {
+                show_main_window(app);
+            }
+        });
 }
