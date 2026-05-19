@@ -1,8 +1,18 @@
 use serde::Serialize;
 use std::fs;
 use std::path::{Component, Path, PathBuf};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 use std::time::UNIX_EPOCH;
+use tauri::menu::MenuBuilder;
+use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent};
 use tauri::Manager;
+
+const MAIN_WINDOW_LABEL: &str = "main";
+const SHOW_MENU_ID: &str = "show";
+const QUIT_MENU_ID: &str = "quit";
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -64,6 +74,7 @@ fn modified_at_millis(metadata: &fs::Metadata) -> u128 {
 enum WindowLifecycleAction {
     Continue,
     ExitApplication,
+    HideToTray,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -79,10 +90,22 @@ fn window_lifecycle_event(event: &tauri::WindowEvent) -> WindowLifecycleEvent {
     }
 }
 
-fn window_lifecycle_action(event: WindowLifecycleEvent) -> WindowLifecycleAction {
-    match event {
-        WindowLifecycleEvent::CloseRequested => WindowLifecycleAction::ExitApplication,
-        WindowLifecycleEvent::Other => WindowLifecycleAction::Continue,
+fn window_lifecycle_action(
+    event: WindowLifecycleEvent,
+    is_quitting: bool,
+) -> WindowLifecycleAction {
+    match (event, is_quitting) {
+        (WindowLifecycleEvent::CloseRequested, false) => WindowLifecycleAction::HideToTray,
+        (WindowLifecycleEvent::CloseRequested, true) => WindowLifecycleAction::ExitApplication,
+        (WindowLifecycleEvent::Other, _) => WindowLifecycleAction::Continue,
+    }
+}
+
+fn show_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+    if let Some(window) = app.get_webview_window(MAIN_WINDOW_LABEL) {
+        let _ = window.show();
+        let _ = window.unminimize();
+        let _ = window.set_focus();
     }
 }
 
@@ -91,9 +114,17 @@ mod tests {
     use super::{window_lifecycle_action, WindowLifecycleAction, WindowLifecycleEvent};
 
     #[test]
-    fn should_exit_application_when_window_close_is_requested() {
+    fn should_hide_to_tray_when_window_close_is_requested() {
         assert_eq!(
-            window_lifecycle_action(WindowLifecycleEvent::CloseRequested),
+            window_lifecycle_action(WindowLifecycleEvent::CloseRequested, false),
+            WindowLifecycleAction::HideToTray
+        );
+    }
+
+    #[test]
+    fn should_exit_application_when_quitting_is_requested() {
+        assert_eq!(
+            window_lifecycle_action(WindowLifecycleEvent::CloseRequested, true),
             WindowLifecycleAction::ExitApplication
         );
     }
@@ -101,7 +132,7 @@ mod tests {
     #[test]
     fn should_continue_for_other_window_events() {
         assert_eq!(
-            window_lifecycle_action(WindowLifecycleEvent::Other),
+            window_lifecycle_action(WindowLifecycleEvent::Other, false),
             WindowLifecycleAction::Continue
         );
     }
@@ -261,16 +292,71 @@ fn workspace_remove(root: String, path: String) -> Result<(), String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let is_quitting = Arc::new(AtomicBool::new(false));
+    let close_is_quitting = Arc::clone(&is_quitting);
+    let menu_is_quitting = Arc::clone(&is_quitting);
+
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            show_main_window(app);
+        }))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         // fs must be registered before persisted-scope so selected paths can be restored.
         .plugin(tauri_plugin_persisted_scope::init())
         .plugin(tauri_plugin_store::Builder::new().build())
-        .on_window_event(|window, event| {
-            let action = window_lifecycle_action(window_lifecycle_event(event));
-            if action == WindowLifecycleAction::ExitApplication {
-                window.app_handle().exit(0);
+        .setup(|app| {
+            let menu = MenuBuilder::new(app)
+                .text(SHOW_MENU_ID, "显示")
+                .text(QUIT_MENU_ID, "退出")
+                .build()?;
+            let mut tray = TrayIconBuilder::new()
+                .tooltip("PromptClip")
+                .menu(&menu)
+                .show_menu_on_left_click(false);
+
+            if let Some(icon) = app.default_window_icon().cloned() {
+                tray = tray.icon(icon);
+            }
+
+            tray.build(app)?;
+            Ok(())
+        })
+        .on_menu_event(move |app, event| match event.id().as_ref() {
+            SHOW_MENU_ID => show_main_window(app),
+            QUIT_MENU_ID => {
+                menu_is_quitting.store(true, Ordering::SeqCst);
+                app.exit(0);
+            }
+            _ => {}
+        })
+        .on_tray_icon_event(|app, event| match event {
+            TrayIconEvent::Click {
+                button: MouseButton::Left,
+                ..
+            }
+            | TrayIconEvent::DoubleClick {
+                button: MouseButton::Left,
+                ..
+            } => show_main_window(app),
+            _ => {}
+        })
+        .on_window_event(move |window, event| {
+            let action = window_lifecycle_action(
+                window_lifecycle_event(event),
+                close_is_quitting.load(Ordering::SeqCst),
+            );
+            match action {
+                WindowLifecycleAction::HideToTray => {
+                    if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                        api.prevent_close();
+                    }
+                    let _ = window.hide();
+                }
+                WindowLifecycleAction::ExitApplication => {
+                    window.app_handle().exit(0);
+                }
+                WindowLifecycleAction::Continue => {}
             }
         })
         .invoke_handler(tauri::generate_handler![
