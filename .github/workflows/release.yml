@@ -59,4 +59,7 @@ jobs:
           draft: true
           prerelease: false
           files: |
-            src-tauri/target/*/release/bundle/**/*
+            src-tauri/target/*/release/bundle/**/*.dmg
+            src-tauri/target/*/release/bundle/**/*.app
+            src-tauri/target/*/release/bundle/**/*.exe
+            src-tauri/target/*/release/bundle/**/*.msi
