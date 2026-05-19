@@ -2,6 +2,7 @@ use serde::Serialize;
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 use std::time::UNIX_EPOCH;
+use tauri::Manager;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -57,6 +58,53 @@ fn modified_at_millis(metadata: &fs::Metadata) -> u128 {
         .and_then(|modified| modified.duration_since(UNIX_EPOCH).ok())
         .map(|duration| duration.as_millis())
         .unwrap_or(0)
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum WindowLifecycleAction {
+    Continue,
+    ExitApplication,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum WindowLifecycleEvent {
+    CloseRequested,
+    Other,
+}
+
+fn window_lifecycle_event(event: &tauri::WindowEvent) -> WindowLifecycleEvent {
+    match event {
+        tauri::WindowEvent::CloseRequested { .. } => WindowLifecycleEvent::CloseRequested,
+        _ => WindowLifecycleEvent::Other,
+    }
+}
+
+fn window_lifecycle_action(event: WindowLifecycleEvent) -> WindowLifecycleAction {
+    match event {
+        WindowLifecycleEvent::CloseRequested => WindowLifecycleAction::ExitApplication,
+        WindowLifecycleEvent::Other => WindowLifecycleAction::Continue,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{window_lifecycle_action, WindowLifecycleAction, WindowLifecycleEvent};
+
+    #[test]
+    fn should_exit_application_when_window_close_is_requested() {
+        assert_eq!(
+            window_lifecycle_action(WindowLifecycleEvent::CloseRequested),
+            WindowLifecycleAction::ExitApplication
+        );
+    }
+
+    #[test]
+    fn should_continue_for_other_window_events() {
+        assert_eq!(
+            window_lifecycle_action(WindowLifecycleEvent::Other),
+            WindowLifecycleAction::Continue
+        );
+    }
 }
 
 fn file_entry(
@@ -219,6 +267,12 @@ pub fn run() {
         // fs must be registered before persisted-scope so selected paths can be restored.
         .plugin(tauri_plugin_persisted_scope::init())
         .plugin(tauri_plugin_store::Builder::new().build())
+        .on_window_event(|window, event| {
+            let action = window_lifecycle_action(window_lifecycle_event(event));
+            if action == WindowLifecycleAction::ExitApplication {
+                window.app_handle().exit(0);
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             workspace_root_exists,
             workspace_exists,
