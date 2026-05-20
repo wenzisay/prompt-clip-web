@@ -15,16 +15,22 @@ import { useEffect, useRef, useState } from 'react';
 interface TreeNodeProps {
   node: TagTreeNode;
   level: number;
+  scope: TagTreeNodeScope;
   showFullName?: boolean;
   expandedNames: Set<string>;
+  activeScope: TagTreeNodeScope | null;
+  onSetActiveScope: (scope: TagTreeNodeScope) => void;
   onToggleExpand: (tagName: string) => void;
 }
 
 function TreeNode({
   node,
   level,
+  scope,
   showFullName = false,
   expandedNames,
+  activeScope,
+  onSetActiveScope,
   onToggleExpand,
 }: TreeNodeProps) {
   const {
@@ -42,7 +48,7 @@ function TreeNode({
   const menuRef = useRef<HTMLDivElement>(null);
 
   const hasChildren = node.children.length > 0;
-  const isActive = filter.tag === node.name;
+  const isActive = isTagTreeNodeActive(filter.tag, activeScope, node.name, scope);
   const color = getTagColor(node.name);
   const isPinned = pinnedTags.includes(node.name);
   const isExpanded = expandedNames.has(node.name);
@@ -57,6 +63,7 @@ function TreeNode({
   // 点击筛选
   const handleClick = () => {
     clearSelection();
+    onSetActiveScope(scope);
     setFilter({ tag: node.name });
   };
 
@@ -290,8 +297,11 @@ function TreeNode({
               key={child.name}
               node={child}
               level={level + 1}
+              scope={scope}
               showFullName={showFullName}
               expandedNames={expandedNames}
+              activeScope={activeScope}
+              onSetActiveScope={onSetActiveScope}
               onToggleExpand={onToggleExpand}
             />
           ))}
@@ -303,8 +313,16 @@ function TreeNode({
 
 export function TagTree() {
   const { tagTree, pinnedTags } = useTagStore();
+  const { filter } = usePromptStore();
   const [pinnedExpandedNames, setPinnedExpandedNames] = useState<Set<string>>(new Set());
   const [allExpandedNames, setAllExpandedNames] = useState<Set<string>>(new Set());
+  const [activeScope, setActiveScope] = useState<TagTreeNodeScope | null>(null);
+
+  useEffect(() => {
+    if (!filter.tag) {
+      setActiveScope(null);
+    }
+  }, [filter.tag]);
 
   const togglePinnedExpand = (tagName: string) => {
     setPinnedExpandedNames((current) => toggleExpandedName(current, tagName));
@@ -341,8 +359,11 @@ export function TagTree() {
               key={node.name}
               node={node}
               level={0}
+              scope="pinned"
               showFullName
               expandedNames={pinnedExpandedNames}
+              activeScope={activeScope}
+              onSetActiveScope={setActiveScope}
               onToggleExpand={togglePinnedExpand}
             />
           ))}
@@ -367,7 +388,10 @@ export function TagTree() {
               key={node.name}
               node={node}
               level={0}
+              scope="all"
               expandedNames={allExpandedNames}
+              activeScope={activeScope}
+              onSetActiveScope={setActiveScope}
               onToggleExpand={toggleAllExpand}
             />
           ))}
@@ -396,4 +420,23 @@ function toggleExpandedName(current: Set<string>, tagName: string): Set<string> 
     next.add(tagName);
   }
   return next;
+}
+
+export type TagTreeNodeScope = 'pinned' | 'all';
+
+export function isTagTreeNodeActive(
+  filterTag: string | undefined,
+  activeScope: TagTreeNodeScope | null,
+  nodeName: string,
+  scope: TagTreeNodeScope
+): boolean {
+  if (filterTag !== nodeName) {
+    return false;
+  }
+
+  if (activeScope) {
+    return activeScope === scope;
+  }
+
+  return scope === 'all';
 }
