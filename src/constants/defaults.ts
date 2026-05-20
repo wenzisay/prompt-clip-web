@@ -12,11 +12,12 @@ export const DEFAULT_TAG_COLOR: TagColor = 'blue';
 
 /** 新 Prompt 默认模板 */
 export const DEFAULT_PROMPT_TEMPLATE = `---
+id: "{{ID}}"
 title: "新 Prompt"
 tags: []
 created: "{{DATE}}"
 modified: "{{DATE}}"
-copyCount: 0
+copy_count: 0
 pinned: false
 ---
 
@@ -40,9 +41,6 @@ export const DEFAULT_SETTINGS = {
   autoSave: true,
   showLineNumbers: false,
 } as const;
-
-/** 历史版本文件名模板 */
-export const HISTORY_FILENAME_TEMPLATE = '{{filename}}.{{timestamp}}';
 
 /** 字符统计格式 */
 export const CHAR_COUNT_FORMAT = {

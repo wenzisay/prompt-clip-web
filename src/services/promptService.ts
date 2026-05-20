@@ -5,13 +5,20 @@
  */
 
 import type { FileEntry, WorkspaceRef } from '@/types/file';
-import type { Prompt, CreatePromptInput, UpdatePromptInput, PromptMetadata } from '@/types/prompt';
+import type {
+  CreatePromptInput,
+  Prompt,
+  PromptMetadata,
+  UpdatePromptInput,
+} from '@/types/prompt';
 import type { FileRepository } from './fileRepository';
 import {
   filenameFromId,
   filenameFromTitle,
   formatDateForFile,
+  generateStableId,
   idFromFilename,
+  isStableId,
   validatePromptTitleForFilename,
 } from '@/utils/id';
 import { joinPath } from '@/utils/path';
@@ -20,35 +27,28 @@ import { CONFIG } from '@/constants/config';
 
 const HISTORY_PATH_PREFIX = `${CONFIG.FILE_SYSTEM.HISTORY_DIR}/`;
 
+interface ParsedPromptFile {
+  entry: FileEntry;
+  metadata: PromptMetadata;
+  content: string;
+  raw: string;
+}
+
 /**
  * 从文件加载 Prompt
  */
 export async function loadPrompt(
   repository: FileRepository,
   workspace: WorkspaceRef,
-  entry: FileEntry
+  entry: FileEntry,
+  effectiveStableId: string
 ): Promise<Prompt> {
-  const content = await repository.readText(workspace, entry.path);
-  const { metadata, content: markdownContent } = parseMarkdown(content);
-  const promptContent = markdownContent.replace(/^\r?\n/, '');
-  const id = idFromFilename(entry.path);
-  const fileTitle = idFromFilename(entry.name);
-  const tags = metadata.tags && metadata.tags.length > 0
-    ? metadata.tags
-    : extractFrontmatterBlockTags(content) ?? [];
+  if (!isStableId(effectiveStableId)) {
+    throw new Error('Prompt stable id is invalid');
+  }
 
-  return {
-    id,
-    title: metadata.title || extractTitle(promptContent) || fileTitle,
-    content: promptContent,
-    tags,
-    createdAt: metadata.created ? new Date(metadata.created) : entry.modifiedAt,
-    updatedAt: metadata.modified ? new Date(metadata.modified) : entry.modifiedAt,
-    copyCount: metadata.copyCount ?? 0,
-    pinned: metadata.pinned ?? false,
-    pinnedAt: metadata.pinnedAt ? new Date(metadata.pinnedAt) : undefined,
-    filePath: entry.path,
-  };
+  const parsed = await readPromptFile(repository, workspace, entry);
+  return buildPromptFromParsed(parsed, effectiveStableId);
 }
 
 /**
@@ -58,17 +58,40 @@ export async function loadPrompts(
   repository: FileRepository,
   workspace: WorkspaceRef
 ): Promise<Prompt[]> {
-  const entries = await repository.listFiles(workspace, [...CONFIG.FILE_SYSTEM.SUPPORTED_EXTENSIONS]);
-  const prompts: Prompt[] = [];
+  const entries = await repository.listFiles(
+    workspace,
+    [...CONFIG.FILE_SYSTEM.SUPPORTED_EXTENSIONS]
+  );
+  const parsedFiles: ParsedPromptFile[] = [];
 
   for (const entry of entries) {
     try {
-      const prompt = await loadPrompt(repository, workspace, entry);
-      prompts.push(prompt);
+      parsedFiles.push(await readPromptFile(repository, workspace, entry));
     } catch (error) {
       console.error(`Failed to load prompt: ${entry.path}`, error);
     }
   }
+
+  const idAssignments = assignEffectiveStableIds(parsedFiles);
+  const prompts = await Promise.all(
+    parsedFiles.map(async (parsed) => {
+      const assignedId = getAssignedStableId(idAssignments, parsed.entry.path);
+      let effectiveStableId = assignedId;
+      let isTemporaryLegacyId = false;
+
+      if (shouldWritePromptFileWithId(parsed, assignedId)) {
+        try {
+          await writePromptFileWithId(repository, workspace, parsed, assignedId);
+        } catch (error) {
+          console.error(`Failed to migrate prompt id for file: ${parsed.entry.path}`, error);
+          effectiveStableId = idFromFilename(parsed.entry.path);
+          isTemporaryLegacyId = true;
+        }
+      }
+
+      return buildPromptFromParsed(parsed, effectiveStableId, isTemporaryLegacyId);
+    })
+  );
 
   // 按修改时间排序
   return prompts.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
@@ -86,7 +109,10 @@ export async function createPrompt(
 
   const title = input.title.trim();
   const now = new Date();
+  const existingStableIds = await collectExistingStableIds(repository, workspace);
+  const stableId = generateUniqueStableId(existingStableIds);
   const metadata: PromptMetadata = {
+    id: stableId,
     title,
     tags: input.tags,
     created: now.toISOString(),
@@ -100,7 +126,7 @@ export async function createPrompt(
   const entry = await repository.writeText(workspace, filename, content);
 
   return {
-    id: idFromFilename(entry.path),
+    id: stableId,
     title,
     content: input.content,
     tags: input.tags,
@@ -124,7 +150,7 @@ export async function updatePrompt(
   options: { createHistory?: boolean } = {}
 ): Promise<Prompt> {
   if (updates.title !== undefined) {
-    await validatePromptTitle(repository, workspace, updates.title, prompt.id);
+    await validatePromptTitle(repository, workspace, updates.title, prompt.filePath);
   }
 
   if (options.createHistory !== false) {
@@ -146,6 +172,7 @@ export async function updatePrompt(
   };
 
   const metadata: PromptMetadata = {
+    ...(hasPersistedStableId(prompt) && { id: prompt.id }),
     title: updatedPrompt.title,
     tags: updatedPrompt.tags,
     created: updatedPrompt.createdAt.toISOString(),
@@ -170,7 +197,7 @@ export async function updatePrompt(
 
   return {
     ...updatedPrompt,
-    id: idFromFilename(nextFilename),
+    id: prompt.id,
     filePath: nextFilename,
   };
 }
@@ -185,7 +212,11 @@ export async function deletePrompt(
 ): Promise<void> {
   const filename = prompt.filePath || filenameFromId(prompt.id);
   const timestamp = formatDateForFile(new Date());
-  const trashFilename = `${idFromFilename(filename)}.${timestamp}.md`;
+  const trashName = isStableId(prompt.id)
+    && !prompt.isTemporaryLegacyId
+    ? prompt.id
+    : basenameWithoutMarkdownExtension(basenameFromPath(filename));
+  const trashFilename = `${trashName}.${timestamp}.md`;
 
   await repository.mkdir(workspace, CONFIG.FILE_SYSTEM.TRASH_DIR);
   await repository.move(
@@ -247,13 +278,18 @@ export async function createHistoryVersion(
   workspace: WorkspaceRef,
   prompt: Prompt
 ): Promise<void> {
+  if (!hasPersistedStableId(prompt)) {
+    console.error(`Cannot create history for non-persisted prompt id: ${prompt.id}`);
+    return;
+  }
+
   const filename = prompt.filePath || filenameFromId(prompt.id);
 
   try {
     await repository.mkdir(workspace, CONFIG.FILE_SYSTEM.HISTORY_DIR);
 
     const timestamp = formatDateForFile(prompt.updatedAt);
-    const historyFilename = `${encodeHistoryPromptId(prompt.id)}.${timestamp}.md`;
+    const historyFilename = `${prompt.id}.${timestamp}.md`;
     const content = await repository.readText(workspace, filename);
 
     await repository.writeText(
@@ -271,7 +307,7 @@ export async function validatePromptTitle(
   repository: FileRepository,
   workspace: WorkspaceRef,
   title: string,
-  currentPromptId?: string
+  currentFilePath?: string
 ): Promise<void> {
   const message = validatePromptTitleForFilename(title);
   if (message) {
@@ -279,13 +315,12 @@ export async function validatePromptTitle(
   }
 
   const filename = filenameFromTitle(title);
-  const currentFilename = currentPromptId ? filenameFromId(currentPromptId) : null;
-  const targetFilename = currentFilename
-    ? pathInSameDirectory(currentFilename, filename)
+  const targetFilename = currentFilePath
+    ? pathInSameDirectory(currentFilePath, filename)
     : filename;
 
   if (
-    targetFilename !== currentFilename &&
+    targetFilename !== currentFilePath &&
     await repository.exists(workspace, targetFilename)
   ) {
     throw new Error('标题已存在，请使用不同的标题');
@@ -333,14 +368,210 @@ async function listHistoryEntries(
   workspace: WorkspaceRef,
   promptId: string
 ): Promise<FileEntry[]> {
+  if (!isStableId(promptId)) {
+    return [];
+  }
+
   const entries = await repository.listFiles(
     workspace,
     [...CONFIG.FILE_SYSTEM.SUPPORTED_EXTENSIONS],
     { includeHiddenDirectories: true }
   );
 
-  const encodedPromptId = encodeHistoryPromptId(promptId);
-  return entries.filter((entry) => isHistoryEntryForPrompt(entry, encodedPromptId));
+  return entries.filter((entry) => isHistoryEntryForPrompt(entry, promptId));
+}
+
+async function readPromptFile(
+  repository: FileRepository,
+  workspace: WorkspaceRef,
+  entry: FileEntry
+): Promise<ParsedPromptFile> {
+  const raw = await repository.readText(workspace, entry.path);
+  const { metadata, content } = parseMarkdown(raw);
+
+  return {
+    entry,
+    metadata,
+    content: content.replace(/^\r?\n/, ''),
+    raw,
+  };
+}
+
+function buildPromptFromParsed(
+  parsed: ParsedPromptFile,
+  effectiveStableId: string,
+  isTemporaryLegacyId = false
+): Prompt {
+  const { entry, metadata, content, raw } = parsed;
+  const fileTitle = idFromFilename(entry.name);
+  const tags = metadata.tags && metadata.tags.length > 0
+    ? metadata.tags
+    : extractFrontmatterBlockTags(raw) ?? [];
+
+  return {
+    id: effectiveStableId,
+    title: metadata.title || extractTitle(content) || fileTitle,
+    content,
+    tags,
+    createdAt: metadata.created ? new Date(metadata.created) : entry.modifiedAt,
+    updatedAt: metadata.modified ? new Date(metadata.modified) : entry.modifiedAt,
+    copyCount: metadata.copyCount ?? 0,
+    pinned: metadata.pinned ?? false,
+    pinnedAt: metadata.pinnedAt ? new Date(metadata.pinnedAt) : undefined,
+    filePath: entry.path,
+    ...(isTemporaryLegacyId && { isTemporaryLegacyId }),
+  };
+}
+
+function assignEffectiveStableIds(parsedFiles: ParsedPromptFile[]): Map<string, string> {
+  const assignments = new Map<string, string>();
+  const usedStableIds = new Set<string>();
+  const validIdGroups = new Map<string, ParsedPromptFile[]>();
+
+  for (const parsed of parsedFiles) {
+    if (!isStableId(parsed.metadata.id)) {
+      continue;
+    }
+
+    const group = validIdGroups.get(parsed.metadata.id) ?? [];
+    group.push(parsed);
+    validIdGroups.set(parsed.metadata.id, group);
+  }
+
+  for (const [stableId, group] of validIdGroups) {
+    const canonical = chooseCanonicalDuplicate(group);
+    assignments.set(canonical.entry.path, stableId);
+    usedStableIds.add(stableId);
+
+    for (const parsed of group) {
+      if (parsed === canonical) {
+        continue;
+      }
+      assignments.set(parsed.entry.path, generateUniqueStableId(usedStableIds));
+    }
+  }
+
+  for (const parsed of parsedFiles) {
+    if (assignments.has(parsed.entry.path)) {
+      continue;
+    }
+
+    assignments.set(parsed.entry.path, generateUniqueStableId(usedStableIds));
+  }
+
+  return assignments;
+}
+
+function getAssignedStableId(assignments: Map<string, string>, filePath: string): string {
+  const stableId = assignments.get(filePath);
+
+  if (!stableId) {
+    throw new Error(`Missing assigned stable id for file: ${filePath}`);
+  }
+
+  return stableId;
+}
+
+function chooseCanonicalDuplicate(group: ParsedPromptFile[]): ParsedPromptFile {
+  return [...group].sort(compareDuplicateCandidates)[0];
+}
+
+function compareDuplicateCandidates(left: ParsedPromptFile, right: ParsedPromptFile): number {
+  const leftTitleMatch = basenameWithoutMarkdownExtension(left.entry.name) === left.metadata.title;
+  const rightTitleMatch =
+    basenameWithoutMarkdownExtension(right.entry.name) === right.metadata.title;
+
+  if (leftTitleMatch !== rightTitleMatch) {
+    return leftTitleMatch ? -1 : 1;
+  }
+
+  const modifiedAtDifference = left.entry.modifiedAt.getTime() - right.entry.modifiedAt.getTime();
+  if (modifiedAtDifference !== 0) {
+    return modifiedAtDifference;
+  }
+
+  return left.entry.path.localeCompare(right.entry.path);
+}
+
+function basenameWithoutMarkdownExtension(filename: string): string {
+  return filename.replace(/\.md$/i, '');
+}
+
+function basenameFromPath(path: string): string {
+  const lastSeparatorIndex = path.lastIndexOf('/');
+  return lastSeparatorIndex === -1 ? path : path.slice(lastSeparatorIndex + 1);
+}
+
+async function writePromptFileWithId(
+  repository: FileRepository,
+  workspace: WorkspaceRef,
+  parsed: ParsedPromptFile,
+  stableId: string
+): Promise<void> {
+  await repository.writeText(
+    workspace,
+    parsed.entry.path,
+    serializeMarkdown(parsed.content, {
+      ...parsed.metadata,
+      id: stableId,
+    })
+  );
+}
+
+function shouldWritePromptFileWithId(parsed: ParsedPromptFile, stableId: string): boolean {
+  return parsed.metadata.id !== stableId || !hasDoubleQuotedStableId(parsed.raw, stableId);
+}
+
+function hasDoubleQuotedStableId(content: string, stableId: string): boolean {
+  const match = content
+    .replace(/^\uFEFF/, '')
+    .match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+
+  if (!match) {
+    return false;
+  }
+
+  return new RegExp(`^\\s*id:\\s*"${stableId}"\\s*$`, 'm').test(match[1]);
+}
+
+function hasPersistedStableId(prompt: Prompt): boolean {
+  return isStableId(prompt.id) && prompt.isTemporaryLegacyId !== true;
+}
+
+async function collectExistingStableIds(
+  repository: FileRepository,
+  workspace: WorkspaceRef
+): Promise<Set<string>> {
+  const entries = await repository.listFiles(
+    workspace,
+    [...CONFIG.FILE_SYSTEM.SUPPORTED_EXTENSIONS]
+  );
+  const stableIds = new Set<string>();
+
+  for (const entry of entries) {
+    try {
+      const content = await repository.readText(workspace, entry.path);
+      const { metadata } = parseMarkdown(content);
+      if (isStableId(metadata.id)) {
+        stableIds.add(metadata.id);
+      }
+    } catch (error) {
+      console.error(`Failed to read prompt id for file: ${entry.path}`, error);
+    }
+  }
+
+  return stableIds;
+}
+
+function generateUniqueStableId(usedStableIds: Set<string>): string {
+  let stableId = generateStableId();
+
+  while (usedStableIds.has(stableId)) {
+    stableId = generateStableId();
+  }
+
+  usedStableIds.add(stableId);
+  return stableId;
 }
 
 function pathInSameDirectory(currentPath: string, filename: string): string {
@@ -353,16 +584,16 @@ function pathInSameDirectory(currentPath: string, filename: string): string {
   return joinPath(currentPath.slice(0, lastSeparatorIndex), filename);
 }
 
-function encodeHistoryPromptId(promptId: string): string {
-  return encodeURIComponent(promptId).replace(/\./g, '%2E');
-}
+function isHistoryEntryForPrompt(entry: FileEntry, stableId: string): boolean {
+  if (!isStableId(stableId)) {
+    return false;
+  }
 
-function isHistoryEntryForPrompt(entry: FileEntry, encodedPromptId: string): boolean {
   if (!entry.path.startsWith(HISTORY_PATH_PREFIX)) {
     return false;
   }
 
-  const escapedPromptId = encodedPromptId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const escapedPromptId = stableId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const filenamePattern = new RegExp(
     `^${escapedPromptId}\\.\\d{4}-\\d{2}-\\d{2}-\\d{6}\\.md$`
   );

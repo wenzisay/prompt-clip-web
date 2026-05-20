@@ -20,6 +20,7 @@ export function parseMarkdown(content: string): {
 
   return {
     metadata: {
+      id: normalizeString(data.id),
       title: data.title as string | undefined,
       tags: normalizeTags(data.tags),
       created: data.created as string | undefined,
@@ -43,6 +44,7 @@ export function serializeMarkdown(
 ): string {
   const frontmatter: Record<string, unknown> = {};
 
+  if (metadata.id) frontmatter.id = metadata.id;
   if (metadata.title) frontmatter.title = metadata.title;
   if (metadata.tags && metadata.tags.length > 0) frontmatter.tags = metadata.tags;
   if (metadata.created) frontmatter.created = metadata.created;
@@ -92,7 +94,7 @@ function parseSimpleYaml(yaml: string): Record<string, unknown> {
 
     const key = line.slice(0, separatorIndex).trim();
     const value = line.slice(separatorIndex + 1).trim();
-    data[key] = parseYamlValue(value);
+    data[key] = key === 'id' ? unquoteYamlString(value) : parseYamlValue(value);
   }
 
   return data;
@@ -193,6 +195,14 @@ function normalizeNumber(value: unknown): number | undefined {
     return Number.isFinite(parsed) ? parsed : undefined;
   }
   return undefined;
+}
+
+function normalizeString(value: unknown): string | undefined {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  return String(value);
 }
 
 /**

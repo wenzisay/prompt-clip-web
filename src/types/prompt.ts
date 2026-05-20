@@ -23,6 +23,8 @@ export interface Prompt {
   pinnedAt?: Date;
   /** 相对工作区根目录的 Markdown 文件路径 */
   filePath: string;
+  /** 是否为迁移失败时临时使用的旧路径 ID */
+  isTemporaryLegacyId?: boolean;
 }
 
 /**
@@ -61,6 +63,7 @@ export interface PromptFilter {
  * Prompt 元数据（从 frontmatter 解析）
  */
 export interface PromptMetadata {
+  id?: string;
   title?: string;
   tags?: string[];
   created?: string;
