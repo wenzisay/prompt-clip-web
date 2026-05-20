@@ -29,12 +29,29 @@ const RESERVED_WINDOWS_NAMES = new Set([
 
 const INVALID_FILENAME_CHARS = /[<>:"/\\|?*]/;
 const MAX_FILENAME_BASENAME_LENGTH = 120;
+const STABLE_ID_PATTERN = /^\d{17}$/;
 
 /**
  * 生成短 ID（用于 URL 或显示）
  */
 export function generateShortId(): string {
   return Math.random().toString(36).substring(2, 8);
+}
+
+/**
+ * 生成稳定 ID 候选值
+ */
+export function generateStableId(): string {
+  const timestamp = Date.now();
+  const randomSuffix = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+  return `${timestamp}${randomSuffix}`;
+}
+
+/**
+ * 校验是否为稳定 ID
+ */
+export function isStableId(value: unknown): value is string {
+  return typeof value === 'string' && STABLE_ID_PATTERN.test(value);
 }
 
 /**

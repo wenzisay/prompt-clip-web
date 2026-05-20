@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { Prompt } from '@/types/prompt';
 import { createFakeFileRepository, createFakeWorkspace } from './fileRepository';
 import { PromptService } from './promptService';
 
@@ -7,13 +8,15 @@ const workspace = createFakeWorkspace();
 describe('PromptService repository integration', () => {
   afterEach(() => {
     vi.useRealTimers();
+    vi.restoreAllMocks();
   });
 
-  it('loads prompts from markdown files with file paths', async () => {
+  it('loads prompts from markdown files using frontmatter stable ids', async () => {
     const repository = createFakeFileRepository({
       files: {
         'hello.md': [
           '---',
+          'id: "11111111111111111"',
           'title: Hello',
           'tags:',
           '  - test',
@@ -30,7 +33,7 @@ describe('PromptService repository integration', () => {
 
     expect(prompts).toHaveLength(1);
     expect(prompts[0]).toMatchObject({
-      id: 'hello',
+      id: '11111111111111111',
       title: 'Hello',
       content: 'Body',
       tags: ['test'],
@@ -40,33 +43,398 @@ describe('PromptService repository integration', () => {
     });
   });
 
-  it('creates, updates with history, and deletes via repository paths', async () => {
-    const repository = createFakeFileRepository();
+  it('loads a single prompt with caller-provided effective stable id', async () => {
+    const repository = createFakeFileRepository({
+      files: {
+        'legacy.md': [
+          '---',
+          'title: Legacy',
+          '---',
+          '',
+          'Body',
+        ].join('\n'),
+      },
+    });
+    const [entry] = await repository.listFiles(workspace, ['.md']);
+
+    const prompt = await PromptService.loadPrompt(
+      repository,
+      workspace,
+      entry,
+      '11111111111111111'
+    );
+
+    expect(prompt).toMatchObject({
+      id: '11111111111111111',
+      title: 'Legacy',
+      filePath: 'legacy.md',
+    });
+  });
+
+  it('rejects non-stable ids for single prompt loading', async () => {
+    const repository = createFakeFileRepository({
+      files: {
+        'legacy.md': 'Body',
+      },
+    });
+    const [entry] = await repository.listFiles(workspace, ['.md']);
+
+    await expect(
+      PromptService.loadPrompt(repository, workspace, entry, 'legacy')
+    ).rejects.toThrow('Prompt stable id is invalid');
+  });
+
+  it('creates prompts with quoted stable ids in frontmatter', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-17T00:00:00.000Z'));
+    vi.spyOn(Math, 'random').mockReturnValue(0.1234);
+    const repository = createFakeFileRepository({ now: () => new Date() });
 
     const created = await PromptService.createPrompt(repository, workspace, {
       title: 'My Prompt',
       content: 'First',
       tags: ['work'],
     });
-    expect(created.filePath).toBe('My Prompt.md');
 
-    const updated = await PromptService.updatePrompt(repository, workspace, created, {
-      id: created.id,
-      title: 'My Prompt Renamed',
-      content: 'Second',
-      tags: ['work', 'done'],
+    expect(created.id).toBe('17789760000001234');
+    expect(created.filePath).toBe('My Prompt.md');
+    expect(repository.dumpFiles()['My Prompt.md']).toContain('id: "17789760000001234"');
+  });
+
+  it('migrates prompts without ids by writing generated stable ids to frontmatter', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-17T00:00:00.000Z'));
+    vi.spyOn(Math, 'random').mockReturnValue(0.2222);
+    const repository = createFakeFileRepository({
+      now: () => new Date(),
+      files: {
+        'legacy.md': [
+          '---',
+          'title: Legacy',
+          '---',
+          '',
+          'Body',
+        ].join('\n'),
+      },
     });
 
-    expect(updated.filePath).toBe('My Prompt Renamed.md');
-    expect(await repository.exists(workspace, 'My Prompt.md')).toBe(false);
-    expect(await repository.exists(workspace, 'My Prompt Renamed.md')).toBe(true);
+    const [prompt] = await PromptService.loadPrompts(repository, workspace);
 
-    await PromptService.deletePrompt(repository, workspace, updated);
-    expect(await repository.exists(workspace, 'My Prompt Renamed.md')).toBe(false);
+    expect(prompt.id).toBe('17789760000002222');
+    expect(repository.dumpFiles()['legacy.md']).toContain('id: "17789760000002222"');
+  });
+
+  it('rewrites unquoted stable ids as quoted frontmatter strings', async () => {
+    const repository = createFakeFileRepository({
+      files: {
+        'unquoted.md': [
+          '---',
+          'id: 11111111111111111',
+          'title: Unquoted',
+          '---',
+          '',
+          'Body',
+        ].join('\n'),
+      },
+    });
+
+    const [prompt] = await PromptService.loadPrompts(repository, workspace);
+
+    expect(prompt.id).toBe('11111111111111111');
+    expect(repository.dumpFiles()['unquoted.md']).toContain('id: "11111111111111111"');
+    expect(repository.dumpFiles()['unquoted.md']).not.toContain('id: 11111111111111111');
+  });
+
+  it('regenerates invalid frontmatter ids during load migration', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-17T00:00:00.000Z'));
+    vi.spyOn(Math, 'random').mockReturnValue(0.3333);
+    const repository = createFakeFileRepository({
+      now: () => new Date(),
+      files: {
+        'invalid.md': [
+          '---',
+          'id: "old-path-id"',
+          'title: Invalid',
+          '---',
+          '',
+          'Body',
+        ].join('\n'),
+      },
+    });
+
+    const [prompt] = await PromptService.loadPrompts(repository, workspace);
+
+    expect(prompt.id).toBe('17789760000003333');
+    expect(repository.dumpFiles()['invalid.md']).toContain('id: "17789760000003333"');
+    expect(repository.dumpFiles()['invalid.md']).not.toContain('old-path-id');
+  });
+
+  it('keeps the canonical duplicate stable id and rewrites the rest', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-17T00:00:00.000Z'));
+    vi.spyOn(Math, 'random').mockReturnValueOnce(0.4444).mockReturnValueOnce(0.5555);
+    let modifiedAt = new Date('2026-05-17T00:00:00.000Z').getTime();
+    const repository = createFakeFileRepository({
+      now: () => new Date(modifiedAt += 1000),
+      files: {
+        'z/Alpha.md': [
+          '---',
+          'id: "11111111111111111"',
+          'title: Alpha',
+          '---',
+          '',
+          'Earliest canonical duplicate',
+        ].join('\n'),
+        'a/Alpha.md': [
+          '---',
+          'id: "11111111111111111"',
+          'title: Alpha',
+          '---',
+          '',
+          'Later duplicate',
+        ].join('\n'),
+        'b/Other.md': [
+          '---',
+          'id: "11111111111111111"',
+          'title: Alpha',
+          '---',
+          '',
+          'Basename mismatch',
+        ].join('\n'),
+      },
+    });
+
+    const prompts = await PromptService.loadPrompts(repository, workspace);
+    const byPath = new Map(prompts.map((prompt) => [prompt.filePath, prompt.id]));
+
+    expect(byPath.get('z/Alpha.md')).toBe('11111111111111111');
+    expect(byPath.get('a/Alpha.md')).toBe('17789760000004444');
+    expect(byPath.get('b/Other.md')).toBe('17789760000005555');
+    expect(repository.dumpFiles()['z/Alpha.md']).toContain('id: "11111111111111111"');
+    expect(repository.dumpFiles()['a/Alpha.md']).toContain('id: "17789760000004444"');
+    expect(repository.dumpFiles()['b/Other.md']).toContain('id: "17789760000005555"');
+  });
+
+  it('uses legacy path ids temporarily when migration writeback fails', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-17T00:00:00.000Z'));
+    vi.spyOn(Math, 'random').mockReturnValue(0.6666);
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const repository = createFakeFileRepository({
+      now: () => new Date(),
+      files: {
+        'legacy.md': [
+          '---',
+          'title: Legacy',
+          '---',
+          '',
+          'Body',
+        ].join('\n'),
+      },
+    });
+    const writeText = repository.writeText.bind(repository);
+    vi.spyOn(repository, 'writeText').mockImplementation(
+      async (currentWorkspace, path, content) => {
+        if (path === 'legacy.md') {
+          throw new Error('write denied');
+        }
+        return writeText(currentWorkspace, path, content);
+      }
+    );
+
+    const [prompt] = await PromptService.loadPrompts(repository, workspace);
+
+    expect(prompt.id).toBe('legacy');
+    expect(prompt.isTemporaryLegacyId).toBe(true);
+    expect(repository.dumpFiles()['legacy.md']).not.toContain('17789760000006666');
+    expect(consoleError).toHaveBeenCalledWith(
+      expect.stringContaining('Failed to migrate prompt id for file: legacy.md'),
+      expect.any(Error)
+    );
+  });
+
+  it('does not treat numeric temporary legacy ids as persisted stable ids', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 4, 17, 3, 0, 0));
+    vi.spyOn(Math, 'random').mockReturnValue(0.6666);
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const repository = createFakeFileRepository({
+      now: () => new Date(),
+      files: {
+        '11111111111111111.md': [
+          '---',
+          'title: Numeric Legacy',
+          '---',
+          '',
+          'Body',
+        ].join('\n'),
+      },
+    });
+    const writeText = repository.writeText.bind(repository);
+    let shouldFailMigration = true;
+    vi.spyOn(repository, 'writeText').mockImplementation(
+      async (currentWorkspace, path, content) => {
+        if (path === '11111111111111111.md' && shouldFailMigration) {
+          shouldFailMigration = false;
+          throw new Error('write denied');
+        }
+        return writeText(currentWorkspace, path, content);
+      }
+    );
+
+    const [prompt] = await PromptService.loadPrompts(repository, workspace);
+
+    expect(prompt).toMatchObject({
+      id: '11111111111111111',
+      isTemporaryLegacyId: true,
+    });
+
+    await PromptService.updatePrompt(repository, workspace, prompt, {
+      id: prompt.id,
+      content: 'Changed',
+    });
+    await PromptService.createHistoryVersion(repository, workspace, prompt);
+    await PromptService.deletePrompt(repository, workspace, prompt);
 
     const files = repository.dumpFiles();
-    expect(Object.keys(files).some((path) => path.startsWith('.history/'))).toBe(true);
-    expect(Object.keys(files).some((path) => path.startsWith('.trash/'))).toBe(true);
+    expect(files['11111111111111111.md']).toBeUndefined();
+    expect(Object.keys(files)).toContain('.trash/11111111111111111.2026-05-17-030000.md');
+    expect(Object.keys(files).some((path) => path.startsWith('.history/'))).toBe(false);
+    expect(Object.values(files).join('\n')).not.toContain('id: "11111111111111111"');
+    expect(consoleError).toHaveBeenCalledWith(
+      expect.stringContaining('Cannot create history for non-persisted prompt id: 11111111111111111')
+    );
+  });
+
+  it(
+    'updates, preserves stable id, writes stable history, and deletes to stable trash',
+    async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date(2026, 4, 17, 1, 0, 0));
+      vi.spyOn(Math, 'random').mockReturnValue(0.1234);
+      const repository = createFakeFileRepository({ now: () => new Date() });
+
+      const created = await PromptService.createPrompt(repository, workspace, {
+        title: 'My Prompt',
+        content: 'First',
+        tags: ['work'],
+      });
+
+      vi.setSystemTime(new Date(2026, 4, 17, 2, 0, 0));
+      const updated = await PromptService.updatePrompt(repository, workspace, created, {
+        id: created.id,
+        title: 'My Prompt Renamed',
+        content: 'Second',
+        tags: ['work', 'done'],
+      });
+
+      expect(updated.id).toBe(created.id);
+      expect(updated.filePath).toBe('My Prompt Renamed.md');
+      expect(await repository.exists(workspace, 'My Prompt.md')).toBe(false);
+      expect(await repository.exists(workspace, 'My Prompt Renamed.md')).toBe(true);
+      expect(repository.dumpFiles()['My Prompt Renamed.md']).toContain(`id: "${created.id}"`);
+
+      const historyVersions = await PromptService.getHistoryVersions(
+        repository,
+        workspace,
+        created.id
+      );
+      expect(historyVersions).toHaveLength(1);
+      expect(historyVersions[0].filename).toBe(`${created.id}.2026-05-17-010000.md`);
+
+      vi.setSystemTime(new Date(2026, 4, 17, 3, 0, 0));
+      await PromptService.deletePrompt(repository, workspace, updated);
+
+      expect(await repository.exists(workspace, 'My Prompt Renamed.md')).toBe(false);
+      expect(Object.keys(repository.dumpFiles())).toContain(
+        `.history/${created.id}.2026-05-17-010000.md`
+      );
+      expect(Object.keys(repository.dumpFiles())).toContain(
+        `.trash/${created.id}.2026-05-17-030000.md`
+      );
+    }
+  );
+
+  it('does not persist temporary legacy ids or create legacy history on update', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const repository = createFakeFileRepository({
+      files: {
+        'legacy.md': [
+          '---',
+          'title: Legacy',
+          '---',
+          '',
+          'Body',
+        ].join('\n'),
+      },
+    });
+
+    const updated = await PromptService.updatePrompt(
+      repository,
+      workspace,
+      createPromptFixture({ id: 'legacy', filePath: 'legacy.md' }),
+      {
+        id: 'legacy',
+        content: 'Changed',
+      }
+    );
+
+    expect(updated.id).toBe('legacy');
+    expect(repository.dumpFiles()['legacy.md']).not.toContain('id: "legacy"');
+    expect(Object.keys(repository.dumpFiles()).some((path) => path.startsWith('.history/'))).toBe(
+      false
+    );
+    expect(consoleError).toHaveBeenCalledWith(
+      expect.stringContaining('Cannot create history for non-persisted prompt id: legacy')
+    );
+  });
+
+  it('does not create history versions for temporary legacy ids', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const repository = createFakeFileRepository({
+      files: {
+        'legacy.md': 'Body',
+      },
+    });
+
+    await PromptService.createHistoryVersion(
+      repository,
+      workspace,
+      createPromptFixture({ id: 'legacy', filePath: 'legacy.md' })
+    );
+
+    expect(Object.keys(repository.dumpFiles()).some((path) => path.startsWith('.history/'))).toBe(
+      false
+    );
+    expect(consoleError).toHaveBeenCalledWith(
+      expect.stringContaining('Cannot create history for non-persisted prompt id: legacy')
+    );
+  });
+
+  it('uses a current filename fallback when deleting temporary legacy ids', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 4, 17, 3, 0, 0));
+    const repository = createFakeFileRepository({
+      files: {
+        'folder/Legacy Title.md': 'Body',
+      },
+    });
+
+    await PromptService.deletePrompt(
+      repository,
+      workspace,
+      createPromptFixture({
+        id: 'legacy',
+        title: 'Legacy Title',
+        filePath: 'folder/Legacy Title.md',
+      })
+    );
+
+    expect(Object.keys(repository.dumpFiles())).toContain(
+      '.trash/Legacy Title.2026-05-17-030000.md'
+    );
+    expect(Object.keys(repository.dumpFiles())).not.toContain('.trash/legacy.2026-05-17-030000.md');
   });
 
   it('does not create history for copy count and pinned updates', async () => {
@@ -80,7 +448,9 @@ describe('PromptService repository integration', () => {
     await PromptService.incrementCopyCount(repository, workspace, created);
     await PromptService.togglePinned(repository, workspace, created);
 
-    expect(Object.keys(repository.dumpFiles()).some((path) => path.startsWith('.history/'))).toBe(false);
+    expect(Object.keys(repository.dumpFiles()).some((path) => path.startsWith('.history/'))).toBe(
+      false
+    );
   });
 
   it('records pinned time when favoriting and clears it when unfavoriting', async () => {
@@ -111,6 +481,7 @@ describe('PromptService repository integration', () => {
       files: {
         'folder/Foo.md': [
           '---',
+          'id: "11111111111111111"',
           'title: Foo',
           '---',
           '',
@@ -131,7 +502,7 @@ describe('PromptService repository integration', () => {
     });
 
     expect(renamed).toMatchObject({
-      id: 'folder/Bar',
+      id: '11111111111111111',
       filePath: 'folder/Bar.md',
     });
     expect(await repository.exists(workspace, 'folder/Foo.md')).toBe(false);
@@ -144,6 +515,7 @@ describe('PromptService repository integration', () => {
       files: {
         'draft.md': [
           '---',
+          'id: "11111111111111111"',
           'title: Final',
           '---',
           '',
@@ -168,6 +540,7 @@ describe('PromptService repository integration', () => {
       files: {
         'foo.md': [
           '---',
+          'id: "11111111111111111"',
           'title: foo',
           '---',
           '',
@@ -193,6 +566,7 @@ describe('PromptService repository integration', () => {
       files: {
         'foo.md': [
           '---',
+          'id: "11111111111111111"',
           'title: foo',
           '---',
           '',
@@ -200,6 +574,7 @@ describe('PromptService repository integration', () => {
         ].join('\n'),
         'Foo.md': [
           '---',
+          'id: "22222222222222222"',
           'title: Foo',
           '---',
           '',
@@ -221,46 +596,90 @@ describe('PromptService repository integration', () => {
     expect(repository.dumpFiles()['Foo.md']).toContain('Upper');
   });
 
-  it('uses relative file paths as ids for duplicate nested basenames', async () => {
+  it(
+    'generates unique stable ids for duplicate nested basenames without frontmatter ids',
+    async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-05-17T00:00:00.000Z'));
+      vi.spyOn(Math, 'random').mockReturnValueOnce(0.7778).mockReturnValueOnce(0.8888);
+      const repository = createFakeFileRepository({
+        now: () => new Date(),
+        files: {
+          'a/foo.md': 'A',
+          'b/foo.md': 'B',
+        },
+      });
+
+      const prompts = await PromptService.loadPrompts(repository, workspace);
+
+      expect(prompts.map((prompt) => prompt.id).sort()).toEqual([
+        '17789760000007778',
+        '17789760000008888',
+      ]);
+    }
+  );
+
+  it('matches history versions by exact stable id filename pattern', async () => {
     const repository = createFakeFileRepository({
       files: {
-        'a/foo.md': 'A',
-        'b/foo.md': 'B',
+        '.history/11111111111111111.2026-05-17-010000.md': 'Stable',
+        '.history/11111111111111111.extra.2026-05-17-010000.md': 'Extra delimiter',
+        '.history/x11111111111111111.2026-05-17-010000.md': 'Prefix',
+        '.history/11111111111111111.2026-05-17-0100.md': 'Bad timestamp',
       },
     });
 
-    const prompts = await PromptService.loadPrompts(repository, workspace);
+    const versions = await PromptService.getHistoryVersions(
+      repository,
+      workspace,
+      '11111111111111111'
+    );
 
-    expect(prompts.map((prompt) => prompt.id).sort()).toEqual(['a/foo', 'b/foo']);
+    expect(versions).toHaveLength(1);
+    expect(versions[0].filename).toBe('11111111111111111.2026-05-17-010000.md');
   });
 
-  it('matches history versions by exact prompt id delimiter', async () => {
+  it('does not match old path-based history files for stable id queries', async () => {
     const repository = createFakeFileRepository({
       files: {
-        '.history/foo.2026-05-17-010000.md': 'Foo',
-        '.history/foo.bar.2026-05-17-010000.md': 'Foo dot bar',
-        '.history/foobar.2026-05-17-010000.md': 'Foobar',
+        '.history/foo.2026-05-17-010000.md': 'Old path history',
+        '.history/foo%2Ebar.2026-05-17-010000.md': 'Old encoded history',
+      },
+    });
+
+    const versions = await PromptService.getHistoryVersions(
+      repository,
+      workspace,
+      '11111111111111111'
+    );
+
+    expect(versions).toHaveLength(0);
+  });
+
+  it('does not match history files when queried with non-stable ids', async () => {
+    const repository = createFakeFileRepository({
+      files: {
+        '.history/foo.2026-05-17-010000.md': 'Old path history',
       },
     });
 
     const versions = await PromptService.getHistoryVersions(repository, workspace, 'foo');
 
-    expect(versions).toHaveLength(1);
-    expect(versions[0].filename).toBe('foo.2026-05-17-010000.md');
-  });
-
-  it('encodes dotted prompt ids for history matching', async () => {
-    const repository = createFakeFileRepository({
-      files: {
-        '.history/foo.2026-05-17-010000.md': 'Foo',
-        '.history/foo.bar.2026-05-17-010000.md': 'Legacy ambiguous',
-        '.history/foo%2Ebar.2026-05-17-010000.md': 'Foo dot bar',
-      },
-    });
-
-    const versions = await PromptService.getHistoryVersions(repository, workspace, 'foo.bar');
-
-    expect(versions).toHaveLength(1);
-    expect(versions[0].filename).toBe('foo%2Ebar.2026-05-17-010000.md');
+    expect(versions).toHaveLength(0);
   });
 });
+
+function createPromptFixture(overrides: Partial<Prompt>): Prompt {
+  return {
+    id: '11111111111111111',
+    title: 'Legacy',
+    content: 'Body',
+    tags: [],
+    createdAt: new Date('2026-05-17T00:00:00.000Z'),
+    updatedAt: new Date('2026-05-17T00:00:00.000Z'),
+    copyCount: 0,
+    pinned: false,
+    filePath: 'legacy.md',
+    ...overrides,
+  };
+}

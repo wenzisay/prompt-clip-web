@@ -5,7 +5,7 @@
 import JSZip from 'jszip';
 import type { Prompt } from '@/types/prompt';
 import { serializeMarkdown } from '@/utils/markdown';
-import { filenameFromId } from '@/utils/id';
+import { filenameFromTitle } from '@/utils/id';
 import { ExportTargetService } from './exportTargetService';
 
 export type ExportFormat = 'json' | 'csv' | 'markdown';
@@ -42,9 +42,11 @@ export async function exportCSV(prompts: Prompt[]): Promise<boolean> {
 
 export async function exportMDArchive(prompts: Prompt[]): Promise<boolean> {
   const zip = new JSZip();
+  const usedFilenames = new Set<string>();
 
   for (const prompt of prompts) {
     const markdown = serializeMarkdown(prompt.content, {
+      id: prompt.id,
       title: prompt.title,
       tags: prompt.tags,
       created: prompt.createdAt.toISOString(),
@@ -52,7 +54,7 @@ export async function exportMDArchive(prompts: Prompt[]): Promise<boolean> {
       copyCount: prompt.copyCount,
       pinned: prompt.pinned,
     });
-    zip.file(filenameFromId(prompt.id), markdown);
+    zip.file(uniqueMarkdownFilename(markdownFilenameForPrompt(prompt), usedFilenames), markdown);
   }
 
   const blob = await zip.generateAsync({ type: 'blob' });
@@ -99,6 +101,44 @@ function formatExportDate(): string {
     pad(date.getMinutes()),
     pad(date.getSeconds()),
   ].join('');
+}
+
+function markdownFilenameForPrompt(prompt: Prompt): string {
+  if (prompt.filePath) {
+    const pathParts = prompt.filePath.split(/[\\/]/);
+    const basename = pathParts[pathParts.length - 1];
+    if (basename) return basename;
+  }
+
+  return filenameFromTitle(prompt.title);
+}
+
+function uniqueMarkdownFilename(filename: string, usedFilenames: Set<string>): string {
+  let candidate = filename;
+  let count = 2;
+
+  while (usedFilenames.has(normalizeZipFilenameKey(candidate))) {
+    candidate = withMarkdownSuffix(filename, count);
+    count += 1;
+  }
+
+  usedFilenames.add(normalizeZipFilenameKey(candidate));
+  return candidate;
+}
+
+function withMarkdownSuffix(filename: string, count: number): string {
+  const markdownExtensionMatch = /(\.md)$/i.exec(filename);
+
+  if (!markdownExtensionMatch) {
+    return `${filename}-${count}`;
+  }
+
+  const extension = markdownExtensionMatch[1];
+  return `${filename.slice(0, -extension.length)}-${count}${extension}`;
+}
+
+function normalizeZipFilenameKey(filename: string): string {
+  return filename.toLowerCase();
 }
 
 export const ExportService = {
