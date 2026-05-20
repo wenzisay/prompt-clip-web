@@ -57,14 +57,13 @@ export function WelcomeScreen() {
               你的个人 Prompt 管理工具
             </p>
             <p className="mb-9 max-w-[485px] text-[1.06rem] leading-8 text-[#6a779c]">
-              集中管理你的灵感与提示词，结构化组织、快速检索，
-              让创作与效率触手可及。
+              集中管理你的灵感与提示词，结构化组织、快速检索。
             </p>
 
             {!isSupported && (
               <div className="mb-4 max-w-[425px] rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                <strong>浏览器不支持</strong> 文件系统 API。请使用
-                Chrome 86+ 或 Edge 86+ 访问。
+                <strong>当前浏览器不支持</strong> 读写本地文件。请使用
+                Chrome 或 Edge 86+ 访问。
               </div>
             )}
 
