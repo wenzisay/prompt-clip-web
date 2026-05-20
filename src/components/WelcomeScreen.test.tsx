@@ -44,13 +44,21 @@ describe('WelcomeScreen', () => {
     expect(markup).toContain('h-16 w-16');
   });
 
-  it('renders an unsupported browser message when file access is unavailable', () => {
+  it('renders an unsupported browser warning above the button when file access is unavailable', () => {
     directoryPickerState.isSupported = false;
+    directoryPickerState.isLoading = false;
+    directoryPickerState.error = null;
 
     const markup = renderToStaticMarkup(<WelcomeScreen />);
 
+    // Landing page content is still shown
+    expect(markup).toContain('选择数据目录');
+    expect(markup).toContain('高效管理');
+
+    // Warning banner appears
     expect(markup).toContain('浏览器不支持');
-    expect(markup).toContain('Chrome 86+');
-    expect(markup).toContain('Edge 86+');
+
+    // Button is disabled
+    expect(markup).toContain('disabled');
   });
 });

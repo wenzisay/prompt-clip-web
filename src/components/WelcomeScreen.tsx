@@ -30,39 +30,6 @@ const featureCards = [
 export function WelcomeScreen() {
   const { isSupported, isLoading, error, openDirectory } = useDirectoryPicker();
 
-  // 浏览器不支持的情况
-  if (!isSupported) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-bg">
-        <div className="max-w-md p-8 bg-surface rounded-card shadow-card">
-          <div className="flex justify-center mb-6">
-            <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-accent to-secondary flex items-center justify-center">
-              <span className="material-symbols-outlined text-white text-3xl">
-                auto_awesome
-              </span>
-            </div>
-          </div>
-          <h1 className="text-2xl font-bold text-center mb-2">PromptClip</h1>
-          <p className="text-center text-muted mb-6">
-            个人 Prompt 管理工具
-          </p>
-          <div className="bg-surface-container rounded-lg p-4 border border-border">
-            <p className="text-sm text-fg mb-2">
-              <strong>浏览器不支持</strong>
-            </p>
-            <p className="text-sm text-muted">
-              当前浏览器不支持文件系统 API，请使用以下浏览器之一：
-            </p>
-            <ul className="text-sm text-muted mt-2 list-disc list-inside">
-              <li>Chrome 86+</li>
-              <li>Edge 86+</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="relative min-h-screen w-screen overflow-hidden bg-[#f7f9ff] text-[#090f32]">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(225,239,255,0.95),transparent_34%),radial-gradient(circle_at_86%_10%,rgba(239,218,255,0.86),transparent_35%),radial-gradient(circle_at_88%_88%,rgba(232,224,255,0.75),transparent_34%)]" />
@@ -94,6 +61,13 @@ export function WelcomeScreen() {
               让创作与效率触手可及。
             </p>
 
+            {!isSupported && (
+              <div className="mb-4 max-w-[425px] rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                <strong>浏览器不支持</strong> 文件系统 API。请使用
+                Chrome 86+ 或 Edge 86+ 访问。
+              </div>
+            )}
+
             {error && (
               <div className="mb-4 max-w-[425px] rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                 {error}
@@ -102,7 +76,7 @@ export function WelcomeScreen() {
 
             <button
               onClick={() => openDirectory()}
-              disabled={isLoading}
+              disabled={isLoading || !isSupported}
               className="group flex h-[74px] w-full max-w-[425px] items-center justify-between rounded-[10px] bg-[#293cf4] px-8 text-[1.16rem] font-semibold text-white shadow-[0_20px_42px_rgba(41,60,244,0.25)] transition hover:-translate-y-0.5 hover:bg-[#2134e7] focus:outline-none focus:ring-2 focus:ring-[#3147ff] focus:ring-offset-4 disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-55"
             >
               <span className="flex items-center gap-3">
