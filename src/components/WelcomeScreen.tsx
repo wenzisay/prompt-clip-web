@@ -123,7 +123,7 @@ export function WelcomeScreen() {
           </div>
         </section>
 
-        <div className="grid items-start gap-6 pb-8 md:grid-cols-3">
+        <div className="hidden items-start gap-6 pb-8 lg:grid lg:grid-cols-3">
           {featureCards.map((feature) => (
             <article
               key={feature.title}
