@@ -3,7 +3,7 @@ import { useUIStore } from '@/stores/uiStore';
 import { usePromptStore } from '@/stores/promptStore';
 import { useFileStore } from '@/stores/fileStore';
 import { SideDrawer } from '@/components/common';
-import { PromptContent } from '@/components/prompt';
+import { HistoryModal, PromptContent } from '@/components/prompt';
 import { countChars } from '@/utils/markdown';
 import { PromptService } from '@/services/promptService';
 import { fileRepository } from '@/services/fileRepository';
@@ -13,6 +13,7 @@ export function DetailPanel() {
   const { prompts, updatePrompt } = usePromptStore();
   const { workspace } = useFileStore();
   const [copied, setCopied] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
   // 获取选中的 Prompt
   const selectedPrompt = prompts.find((p) => p.id === selectedPromptId);
@@ -147,6 +148,16 @@ export function DetailPanel() {
             </span>
             {selectedPrompt.pinned ? '已收藏' : '未收藏'}
           </button>
+          <button
+            type="button"
+            onClick={() => setIsHistoryOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-md transition-colors hover:text-fg"
+            aria-label="查看历史版本"
+            title="查看历史版本"
+          >
+            <span className="material-symbols-outlined text-lg">history</span>
+            历史版本
+          </button>
         </div>
 
         {/* Markdown 内容 */}
@@ -155,6 +166,12 @@ export function DetailPanel() {
           className="prompt-detail-content"
         />
       </article>
+
+      <HistoryModal
+        isOpen={isHistoryOpen}
+        prompt={selectedPrompt}
+        onClose={() => setIsHistoryOpen(false)}
+      />
     </SideDrawer>
   );
 }

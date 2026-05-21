@@ -28,6 +28,32 @@ export interface Prompt {
 }
 
 /**
+ * Prompt 历史版本
+ */
+export interface HistoryVersion {
+  /** 历史文件名 */
+  filename: string;
+  /** 兼容旧调用方的历史文件时间 */
+  date: Date;
+  /** 历史版本编辑时间 */
+  editedAt: Date;
+  /** 历史版本标题 */
+  title: string;
+  /** 历史版本正文 */
+  content: string;
+  /** 历史版本标签 */
+  tags: string[];
+  /** 历史版本创建时间 */
+  createdAt?: Date;
+  /** 历史版本复制次数 */
+  copyCount: number;
+  /** 历史版本是否收藏 */
+  pinned: boolean;
+  /** 历史版本收藏时间 */
+  pinnedAt?: Date;
+}
+
+/**
  * Prompt 创建参数
  */
 export interface CreatePromptInput {
@@ -41,8 +67,10 @@ export interface CreatePromptInput {
  */
 export interface UpdatePromptInput extends Partial<CreatePromptInput> {
   id: string;
+  createdAt?: Date;
   copyCount?: number;
   pinned?: boolean;
+  pinnedAt?: Date;
 }
 
 /**

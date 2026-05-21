@@ -7,6 +7,7 @@
 import type { FileEntry, WorkspaceRef } from '@/types/file';
 import type {
   CreatePromptInput,
+  HistoryVersion,
   Prompt,
   PromptMetadata,
   UpdatePromptInput,
@@ -159,15 +160,15 @@ export async function updatePrompt(
 
   const now = new Date();
   const updatedTitle = updates.title?.trim();
-  const pinnedAt = getNextPinnedAt(prompt, updates.pinned, now);
   const updatedPrompt: Prompt = {
     ...prompt,
     ...(updatedTitle !== undefined && { title: updatedTitle }),
     ...(updates.content !== undefined && { content: updates.content }),
     ...(updates.tags !== undefined && { tags: updates.tags }),
+    ...(updates.createdAt !== undefined && { createdAt: updates.createdAt }),
     ...(updates.copyCount !== undefined && { copyCount: updates.copyCount }),
     ...(updates.pinned !== undefined && { pinned: updates.pinned }),
-    pinnedAt,
+    pinnedAt: getNextPinnedAt(prompt, updates.pinned, updates.pinnedAt, now),
     updatedAt: now,
   };
 
@@ -257,8 +258,13 @@ export async function togglePinned(
 function getNextPinnedAt(
   prompt: Prompt,
   pinned: boolean | undefined,
+  explicitPinnedAt: Date | undefined,
   now: Date
 ): Date | undefined {
+  if (explicitPinnedAt !== undefined) {
+    return explicitPinnedAt;
+  }
+
   if (pinned === undefined) {
     return prompt.pinnedAt;
   }
@@ -352,15 +358,61 @@ export async function getHistoryVersions(
   repository: FileRepository,
   workspace: WorkspaceRef,
   promptId: string
-): Promise<Array<{ filename: string; date: Date }>> {
+): Promise<HistoryVersion[]> {
   const versions = await listHistoryEntries(repository, workspace, promptId);
 
-  return versions
-    .map((entry) => ({
-      filename: entry.name,
-      date: entry.modifiedAt,
-    }))
-    .sort((a, b) => b.date.getTime() - a.date.getTime());
+  return Promise.all(
+    versions.map((entry) => loadHistoryVersionFromEntry(repository, workspace, entry))
+  ).then((items) =>
+    items.sort((a, b) => b.editedAt.getTime() - a.editedAt.getTime())
+  );
+}
+
+/**
+ * 读取指定历史版本
+ */
+export async function loadHistoryVersion(
+  repository: FileRepository,
+  workspace: WorkspaceRef,
+  promptId: string,
+  filename: string
+): Promise<HistoryVersion> {
+  if (!isStableId(promptId)) {
+    throw new Error('Prompt stable id is invalid');
+  }
+
+  const entry = (await listHistoryEntries(repository, workspace, promptId))
+    .find((item) => item.name === filename);
+
+  if (!entry) {
+    throw new Error('历史版本不存在');
+  }
+
+  return loadHistoryVersionFromEntry(repository, workspace, entry);
+}
+
+/**
+ * 恢复指定历史版本
+ */
+export async function restoreHistoryVersion(
+  repository: FileRepository,
+  workspace: WorkspaceRef,
+  prompt: Prompt,
+  filename: string
+): Promise<Prompt> {
+  const version = await loadHistoryVersion(repository, workspace, prompt.id, filename);
+  await createHistoryVersion(repository, workspace, prompt);
+
+  return updatePrompt(repository, workspace, prompt, {
+    id: prompt.id,
+    title: version.title,
+    content: version.content,
+    tags: version.tags,
+    ...(version.createdAt && { createdAt: version.createdAt }),
+    copyCount: version.copyCount,
+    pinned: version.pinned,
+    ...(version.pinnedAt && { pinnedAt: version.pinnedAt }),
+  }, { createHistory: false });
 }
 
 async function listHistoryEntries(
@@ -379,6 +431,15 @@ async function listHistoryEntries(
   );
 
   return entries.filter((entry) => isHistoryEntryForPrompt(entry, promptId));
+}
+
+async function loadHistoryVersionFromEntry(
+  repository: FileRepository,
+  workspace: WorkspaceRef,
+  entry: FileEntry
+): Promise<HistoryVersion> {
+  const parsed = await readPromptFile(repository, workspace, entry);
+  return buildHistoryVersionFromParsed(parsed);
 }
 
 async function readPromptFile(
@@ -420,6 +481,27 @@ function buildPromptFromParsed(
     pinnedAt: metadata.pinnedAt ? new Date(metadata.pinnedAt) : undefined,
     filePath: entry.path,
     ...(isTemporaryLegacyId && { isTemporaryLegacyId }),
+  };
+}
+
+function buildHistoryVersionFromParsed(parsed: ParsedPromptFile): HistoryVersion {
+  const { entry, metadata, content, raw } = parsed;
+  const tags = metadata.tags && metadata.tags.length > 0
+    ? metadata.tags
+    : extractFrontmatterBlockTags(raw) ?? [];
+  const editedAt = metadata.modified ? new Date(metadata.modified) : entry.modifiedAt;
+
+  return {
+    filename: entry.name,
+    date: entry.modifiedAt,
+    editedAt,
+    title: metadata.title || extractTitle(content) || basenameWithoutMarkdownExtension(entry.name),
+    content,
+    tags,
+    createdAt: metadata.created ? new Date(metadata.created) : undefined,
+    copyCount: metadata.copyCount ?? 0,
+    pinned: metadata.pinned ?? false,
+    pinnedAt: metadata.pinnedAt ? new Date(metadata.pinnedAt) : undefined,
   };
 }
 
@@ -648,4 +730,6 @@ export const PromptService = {
   validatePromptTitle,
   createHistoryVersion,
   getHistoryVersions,
+  loadHistoryVersion,
+  restoreHistoryVersion,
 } as const;

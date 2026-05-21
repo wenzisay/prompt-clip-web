@@ -48,7 +48,7 @@ export function CreateModal({ editingPromptId }: CreateModalProps) {
       setTags(filter.tag ? [filter.tag] : []);
     }
     setError(null);
-  }, [editingPromptId, modalType, isOpen, prompts]);
+  }, [editingPromptId, modalType, isOpen, prompts, filter.tag]);
 
   // 关闭模态框
   const handleClose = () => {

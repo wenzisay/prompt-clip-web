@@ -667,6 +667,121 @@ describe('PromptService repository integration', () => {
 
     expect(versions).toHaveLength(0);
   });
+
+  it('loads history versions with parsed content and edited times', async () => {
+    const repository = createFakeFileRepository({
+      files: {
+        '.history/11111111111111111.2026-05-17-010000.md': [
+          '---',
+          'id: "11111111111111111"',
+          'title: First History',
+          'tags: ["work"]',
+          'modified: "2026-05-17T01:00:00.000Z"',
+          'copy_count: 3',
+          'pinned: true',
+          '---',
+          '',
+          'First body',
+        ].join('\n'),
+        '.history/11111111111111111.2026-05-17-020000.md': [
+          '---',
+          'id: "11111111111111111"',
+          'title: Latest History',
+          'tags: ["done"]',
+          'modified: "2026-05-17T02:00:00.000Z"',
+          '---',
+          '',
+          'Latest body',
+        ].join('\n'),
+      },
+    });
+
+    const versions = await PromptService.getHistoryVersions(
+      repository,
+      workspace,
+      '11111111111111111'
+    );
+
+    expect(versions.map((version) => version.title)).toEqual([
+      'Latest History',
+      'First History',
+    ]);
+    expect(versions[0]).toMatchObject({
+      filename: '11111111111111111.2026-05-17-020000.md',
+      content: 'Latest body',
+      tags: ['done'],
+    });
+    expect(versions[0].editedAt.toISOString()).toBe('2026-05-17T02:00:00.000Z');
+    expect(versions[1]).toMatchObject({
+      content: 'First body',
+      copyCount: 3,
+      pinned: true,
+    });
+  });
+
+  it('restores a history version after saving the current prompt as history', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 4, 17, 3, 0, 0));
+    const repository = createFakeFileRepository({
+      now: () => new Date(),
+      files: {
+        'Current.md': [
+          '---',
+          'id: "11111111111111111"',
+          'title: Current',
+          'tags: ["current"]',
+          'modified: "2026-05-17T03:00:00.000"',
+          'copy_count: 7',
+          'pinned: false',
+          '---',
+          '',
+          'Current body',
+        ].join('\n'),
+        '.history/11111111111111111.2026-05-17-010000.md': [
+          '---',
+          'id: "11111111111111111"',
+          'title: Restored',
+          'tags: ["restored"]',
+          'created: "2026-05-16T00:00:00.000Z"',
+          'modified: "2026-05-17T01:00:00.000Z"',
+          'copy_count: 2',
+          'pinned: true',
+          'pinned_at: "2026-05-17T00:30:00.000Z"',
+          '---',
+          '',
+          'Restored body',
+        ].join('\n'),
+      },
+    });
+    const [prompt] = await PromptService.loadPrompts(repository, workspace);
+
+    const restored = await PromptService.restoreHistoryVersion(
+      repository,
+      workspace,
+      prompt,
+      '11111111111111111.2026-05-17-010000.md'
+    );
+
+    expect(restored).toMatchObject({
+      id: '11111111111111111',
+      title: 'Restored',
+      content: 'Restored body',
+      tags: ['restored'],
+      copyCount: 2,
+      pinned: true,
+      filePath: 'Restored.md',
+    });
+    expect(restored.pinnedAt?.toISOString()).toBe('2026-05-17T00:30:00.000Z');
+    expect(repository.dumpFiles()['Restored.md']).toContain('Restored body');
+    expect(repository.dumpFiles()['Restored.md']).toContain('id: "11111111111111111"');
+    expect(repository.dumpFiles()['Current.md']).toBeUndefined();
+    expect(Object.keys(repository.dumpFiles())).toContain(
+      '.history/11111111111111111.2026-05-17-030000.md'
+    );
+    expect(repository.dumpFiles()['.history/11111111111111111.2026-05-17-030000.md']).toContain(
+      'Current body'
+    );
+  });
 });
 
 function createPromptFixture(overrides: Partial<Prompt>): Prompt {

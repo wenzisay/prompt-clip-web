@@ -7,3 +7,4 @@ export { PromptGrid } from './PromptGrid';
 export { PromptContent } from './PromptContent';
 export { CreateModal } from './CreateModal';
 export { DeleteConfirm } from './DeleteConfirm';
+export { HistoryModal } from './HistoryModal';
