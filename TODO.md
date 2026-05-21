@@ -11,3 +11,6 @@
   - 页面可见性变化时刷新（`visibilitychange`，成本最低）
   - 定时轮询文件 `lastModified`（有性能开销）
   - `FileSystemObserver` API（Chrome 129+ 实验性支持，尚未普及）
+
+## 遗留问题
+- [ ] web端与桌面端同时打开一个文件夹时，会导致文件锁定，无法同时编辑。
