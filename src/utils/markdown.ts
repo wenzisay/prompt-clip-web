@@ -7,6 +7,12 @@
 import { marked } from 'marked';
 import type { PromptMetadata } from '@/types/prompt';
 
+export type FrontmatterTagStyle = 'inline' | 'block';
+
+export interface SerializeMarkdownOptions {
+  tagStyle?: FrontmatterTagStyle;
+}
+
 /**
  * 解析 Markdown 文件
  * 提取 frontmatter 和内容
@@ -40,7 +46,8 @@ export function parseMarkdown(content: string): {
  */
 export function serializeMarkdown(
   content: string,
-  metadata: PromptMetadata = {}
+  metadata: PromptMetadata = {},
+  options: SerializeMarkdownOptions = {}
 ): string {
   const frontmatter: Record<string, unknown> = {};
 
@@ -58,7 +65,7 @@ export function serializeMarkdown(
     return content;
   }
 
-  return `---\n${stringifyFrontmatter(frontmatter)}---\n\n${content}`;
+  return `---\n${stringifyFrontmatter(frontmatter, options)}---\n\n${content}`;
 }
 
 function parseFrontmatter(content: string): {
@@ -84,8 +91,10 @@ function parseFrontmatter(content: string): {
 
 function parseSimpleYaml(yaml: string): Record<string, unknown> {
   const data: Record<string, unknown> = {};
+  const lines = yaml.split(/\r?\n/);
 
-  for (const rawLine of yaml.split(/\r?\n/)) {
+  for (let index = 0; index < lines.length; index += 1) {
+    const rawLine = lines[index];
     const line = rawLine.trim();
     if (!line || line.startsWith('#')) continue;
 
@@ -94,10 +103,39 @@ function parseSimpleYaml(yaml: string): Record<string, unknown> {
 
     const key = line.slice(0, separatorIndex).trim();
     const value = line.slice(separatorIndex + 1).trim();
+    if (!value) {
+      const blockItems = parseYamlBlockArray(lines, index + 1);
+      if (blockItems.items.length > 0) {
+        data[key] = blockItems.items;
+        index = blockItems.lastIndex;
+        continue;
+      }
+    }
+
     data[key] = key === 'id' ? unquoteYamlString(value) : parseYamlValue(value);
   }
 
   return data;
+}
+
+function parseYamlBlockArray(
+  lines: string[],
+  startIndex: number
+): { items: string[]; lastIndex: number } {
+  const items: string[] = [];
+  let lastIndex = startIndex - 1;
+
+  for (let index = startIndex; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (!/^\s+-\s+/.test(line)) {
+      break;
+    }
+
+    items.push(unquoteYamlString(line.replace(/^\s+-\s+/, '').trim()));
+    lastIndex = index;
+  }
+
+  return { items, lastIndex };
 }
 
 function parseYamlValue(value: string): unknown {
@@ -150,11 +188,37 @@ function unquoteYamlString(value: string): string {
   return value;
 }
 
-function stringifyFrontmatter(frontmatter: Record<string, unknown>): string {
+function stringifyFrontmatter(
+  frontmatter: Record<string, unknown>,
+  options: SerializeMarkdownOptions
+): string {
   return Object.entries(frontmatter)
-    .map(([key, value]) => `${key}: ${stringifyYamlValue(value)}`)
+    .map(([key, value]) => stringifyYamlEntry(key, value, options))
     .join('\n')
     .concat('\n');
+}
+
+function stringifyYamlEntry(
+  key: string,
+  value: unknown,
+  options: SerializeMarkdownOptions
+): string {
+  if (key === 'tags' && options.tagStyle === 'block' && Array.isArray(value)) {
+    return stringifyYamlBlockArray(key, value);
+  }
+
+  return `${key}: ${stringifyYamlValue(value)}`;
+}
+
+function stringifyYamlBlockArray(key: string, value: unknown[]): string {
+  if (value.length === 0) {
+    return `${key}: []`;
+  }
+
+  return [
+    `${key}:`,
+    ...value.map((item) => `  - ${quoteYamlString(String(item))}`),
+  ].join('\n');
 }
 
 function stringifyYamlValue(value: unknown): string {
@@ -203,6 +267,37 @@ function normalizeString(value: unknown): string | undefined {
   }
 
   return String(value);
+}
+
+/**
+ * 检测 frontmatter 中 tags 的写法。
+ */
+export function detectFrontmatterTagStyle(content: string): FrontmatterTagStyle | null {
+  const match = content
+    .replace(/^\uFEFF/, '')
+    .match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+
+  if (!match) {
+    return null;
+  }
+
+  const lines = match[1].split(/\r?\n/);
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (!/^\s*tags:/.test(line)) {
+      continue;
+    }
+
+    const value = line.slice(line.indexOf(':') + 1).trim();
+    if (value) {
+      return 'inline';
+    }
+
+    const nextLine = lines[index + 1];
+    return nextLine && /^\s+-\s+/.test(nextLine) ? 'block' : 'inline';
+  }
+
+  return null;
 }
 
 /**

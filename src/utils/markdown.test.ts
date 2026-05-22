@@ -49,4 +49,45 @@ describe('markdown utilities', () => {
       ].join('\n')
     );
   });
+
+  it('parses Obsidian block tags from frontmatter', () => {
+    const result = parseMarkdown(
+      [
+        '---',
+        'title: "标题"',
+        'tags:',
+        '  - 工具盒/AI工具',
+        '  - Coding',
+        '---',
+        '',
+        '正文',
+      ].join('\n')
+    );
+
+    expect(result.metadata.tags).toEqual(['工具盒/AI工具', 'Coding']);
+  });
+
+  it('serializes tags using block style when requested', () => {
+    const result = serializeMarkdown(
+      '正文',
+      {
+        title: '标题',
+        tags: ['工具盒/AI工具', 'Coding'],
+      },
+      { tagStyle: 'block' }
+    );
+
+    expect(result).toBe(
+      [
+        '---',
+        'title: "标题"',
+        'tags:',
+        '  - "工具盒/AI工具"',
+        '  - "Coding"',
+        '---',
+        '',
+        '正文',
+      ].join('\n')
+    );
+  });
 });

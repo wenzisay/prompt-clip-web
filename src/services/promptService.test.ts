@@ -124,6 +124,36 @@ describe('PromptService repository integration', () => {
     expect(repository.dumpFiles()['legacy.md']).toContain('id: "17789760000002222"');
   });
 
+  it('preserves Obsidian block tags when migrating prompts without ids', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-17T00:00:00.000Z'));
+    vi.spyOn(Math, 'random').mockReturnValue(0.2525);
+    const repository = createFakeFileRepository({
+      now: () => new Date(),
+      files: {
+        'obsidian.md': [
+          '---',
+          'created: 2026-02-10',
+          'tags:',
+          '  - 工具盒/AI工具',
+          '---',
+          '# 使用XML构建提示词（Prompt）',
+          '',
+          'Body',
+        ].join('\n'),
+      },
+    });
+
+    const [prompt] = await PromptService.loadPrompts(repository, workspace);
+    const saved = repository.dumpFiles()['obsidian.md'];
+
+    expect(prompt.tags).toEqual(['工具盒/AI工具']);
+    expect(saved).toContain('id: "17789760000002525"');
+    expect(saved).toContain('created: "2026-02-10"');
+    expect(saved).toContain('tags:\n  - "工具盒/AI工具"');
+    expect(saved).not.toContain('tags: []');
+  });
+
   it('rewrites unquoted stable ids as quoted frontmatter strings', async () => {
     const repository = createFakeFileRepository({
       files: {
@@ -594,6 +624,37 @@ describe('PromptService repository integration', () => {
     expect(updated.filePath).toBe('draft.md');
     expect(await repository.exists(workspace, 'draft.md')).toBe(true);
     expect(await repository.exists(workspace, 'Final.md')).toBe(false);
+  });
+
+  it('preserves Obsidian block tag format when updating an existing prompt', async () => {
+    const repository = createFakeFileRepository({
+      files: {
+        'obsidian.md': [
+          '---',
+          'id: "11111111111111111"',
+          'title: Obsidian',
+          'tags:',
+          '  - 工具盒/AI工具',
+          'created: "2026-05-17T00:00:00.000Z"',
+          'modified: "2026-05-17T00:00:00.000Z"',
+          'copy_count: 0',
+          'pinned: false',
+          '---',
+          '',
+          'Body',
+        ].join('\n'),
+      },
+    });
+    const [prompt] = await PromptService.loadPrompts(repository, workspace);
+
+    await PromptService.updatePrompt(repository, workspace, prompt, {
+      id: prompt.id,
+      tags: ['工具盒/AI工具', '写作'],
+    });
+
+    const saved = repository.dumpFiles()['obsidian.md'];
+    expect(saved).toContain('tags:\n  - "工具盒/AI工具"\n  - "写作"');
+    expect(saved).not.toContain('tags: ["工具盒/AI工具", "写作"]');
   });
 
   it('does not delete the prompt during case-only title renames', async () => {

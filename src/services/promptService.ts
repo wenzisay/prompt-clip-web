@@ -23,7 +23,12 @@ import {
   validatePromptTitleForFilename,
 } from '@/utils/id';
 import { joinPath } from '@/utils/path';
-import { parseMarkdown, serializeMarkdown, extractTitle } from '@/utils/markdown';
+import {
+  detectFrontmatterTagStyle,
+  parseMarkdown,
+  serializeMarkdown,
+  extractTitle,
+} from '@/utils/markdown';
 import { CONFIG } from '@/constants/config';
 import { FolderConfigService } from './folderConfigService';
 
@@ -184,8 +189,11 @@ export async function updatePrompt(
     pinnedAt: updatedPrompt.pinnedAt?.toISOString(),
   };
 
-  const content = serializeMarkdown(updatedPrompt.content, metadata);
   const oldFilename = prompt.filePath || filenameFromId(prompt.id);
+  const tagStyle = await readPromptTagStyle(repository, workspace, oldFilename);
+  const content = serializeMarkdown(updatedPrompt.content, metadata, {
+    ...(tagStyle && { tagStyle }),
+  });
   const nextFilename = updates.title === undefined
     ? oldFilename
     : pathInSameDirectory(oldFilename, filenameFromTitle(updatedPrompt.title));
@@ -596,14 +604,30 @@ async function writePromptFileWithId(
   parsed: ParsedPromptFile,
   stableId: string
 ): Promise<void> {
+  const tagStyle = detectFrontmatterTagStyle(parsed.raw);
+
   await repository.writeText(
     workspace,
     parsed.entry.path,
     serializeMarkdown(parsed.content, {
       ...parsed.metadata,
       id: stableId,
+    }, {
+      ...(tagStyle && { tagStyle }),
     })
   );
+}
+
+async function readPromptTagStyle(
+  repository: FileRepository,
+  workspace: WorkspaceRef,
+  path: string
+) {
+  try {
+    return detectFrontmatterTagStyle(await repository.readText(workspace, path));
+  } catch {
+    return null;
+  }
 }
 
 function shouldWritePromptFileWithId(parsed: ParsedPromptFile, stableId: string): boolean {
