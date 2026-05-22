@@ -9,3 +9,4 @@ export * from './searchService';
 export * from './exportService';
 export * from './exportTargetService';
 export * from './folderConfigService';
+export * from './metadataRepairService';
