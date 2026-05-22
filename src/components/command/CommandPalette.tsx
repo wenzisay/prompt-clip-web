@@ -73,7 +73,7 @@ export function CommandPalette() {
         icon: 'settings',
         action: () => {
           closeCommandPalette();
-          window.alert('设置功能将在后续版本提供');
+          openModal('settings');
         },
         category: 'action',
       },

@@ -11,6 +11,10 @@ describe('FolderConfigService', () => {
 
     try {
       await expect(FolderConfigService.readFolderConfig(repository, workspace)).resolves.toEqual({
+        historyVersions: {
+          enabled: false,
+          retentionDays: 30,
+        },
         pinnedTags: [],
       });
       expect(warnSpy).not.toHaveBeenCalled();
@@ -29,7 +33,32 @@ describe('FolderConfigService', () => {
     });
 
     await expect(FolderConfigService.readFolderConfig(repository, workspace)).resolves.toEqual({
+      historyVersions: {
+        enabled: false,
+        retentionDays: 30,
+      },
       pinnedTags: ['ai', 'work'],
+    });
+  });
+
+  it('normalizes history version settings', async () => {
+    const repository = createFakeFileRepository({
+      files: {
+        '.promptclip.json': JSON.stringify({
+          historyVersions: {
+            enabled: true,
+            retentionDays: 365,
+          },
+        }),
+      },
+    });
+
+    await expect(FolderConfigService.readFolderConfig(repository, workspace)).resolves.toEqual({
+      historyVersions: {
+        enabled: true,
+        retentionDays: 365,
+      },
+      pinnedTags: [],
     });
   });
 
@@ -37,6 +66,36 @@ describe('FolderConfigService', () => {
     const repository = createFakeFileRepository();
     await FolderConfigService.updatePinnedTags(repository, workspace, ['ai', 'work']);
     const content = await repository.readText(workspace, '.promptclip.json');
-    expect(JSON.parse(content)).toEqual({ pinnedTags: ['ai', 'work'] });
+    expect(JSON.parse(content)).toEqual({
+      historyVersions: {
+        enabled: false,
+        retentionDays: 30,
+      },
+      pinnedTags: ['ai', 'work'],
+    });
+  });
+
+  it('updates history version settings while keeping pinned tags', async () => {
+    const repository = createFakeFileRepository({
+      files: {
+        '.promptclip.json': JSON.stringify({
+          pinnedTags: ['ai'],
+        }),
+      },
+    });
+
+    await FolderConfigService.updateHistoryVersionSettings(repository, workspace, {
+      enabled: true,
+      retentionDays: 90,
+    });
+
+    const content = await repository.readText(workspace, '.promptclip.json');
+    expect(JSON.parse(content)).toEqual({
+      historyVersions: {
+        enabled: true,
+        retentionDays: 90,
+      },
+      pinnedTags: ['ai'],
+    });
   });
 });

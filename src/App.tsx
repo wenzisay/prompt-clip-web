@@ -7,6 +7,7 @@ import { Sidebar, TopBar, DetailPanel } from '@/components/layout';
 import { PromptGrid, CreateModal, DeleteConfirm } from '@/components/prompt';
 import { CommandPalette } from '@/components/command';
 import { ExportModal } from '@/components/export/ExportModal';
+import { SettingsModal } from '@/components/settings';
 import { useFileStore } from '@/stores/fileStore';
 import { useUIStore } from '@/stores/uiStore';
 import { usePromptStore } from '@/stores/promptStore';
@@ -86,6 +87,9 @@ function AppContent() {
 
       {/* 导出对话框 */}
       <ExportModal />
+
+      {/* 设置对话框 */}
+      <SettingsModal />
     </div>
   );
 }

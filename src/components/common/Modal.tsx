@@ -16,7 +16,7 @@ export interface ModalProps {
   /** 子元素 */
   children: React.ReactNode;
   /** 最大宽度 */
-  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
+  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl';
   /** 是否显示关闭按钮 */
   showCloseButton?: boolean;
   /** 自定义类名 */
@@ -33,6 +33,7 @@ const maxWidthClasses: Record<NonNullable<ModalProps['maxWidth']>, string> = {
   lg: 'max-w-lg',
   xl: 'max-w-xl',
   '2xl': 'max-w-2xl',
+  '3xl': 'max-w-3xl',
 };
 
 export function Modal({

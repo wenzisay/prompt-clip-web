@@ -6,6 +6,7 @@ import { TagTree } from '@/components/tag/TagTree';
 import { useFileStore } from '@/stores/fileStore';
 import { usePromptStore } from '@/stores/promptStore';
 import { useTagStore } from '@/stores/tagStore';
+import { useUIStore } from '@/stores/uiStore';
 import { useState } from 'react';
 
 export function Sidebar() {
@@ -15,6 +16,7 @@ export function Sidebar() {
   const { workspaceName, clearWorkspace } = useFileStore();
   const { clearPrompts } = usePromptStore();
   const { clearTags } = useTagStore();
+  const { openModal } = useUIStore();
 
   const handleSwitchDirectory = () => {
     clearPrompts();
@@ -70,17 +72,28 @@ export function Sidebar() {
           <div className="rounded-lg border border-border bg-surface-dim px-3 py-2">
             <div className="flex items-center justify-between gap-2">
               <p className="text-xs text-muted">数据存储在本地</p>
-              <button
-                type="button"
-                onClick={() => setIsStorageExpanded((expanded) => !expanded)}
-                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface-high hover:text-fg"
-                aria-label={isStorageExpanded ? '收起数据文件夹信息' : '展开数据文件夹信息'}
-                aria-expanded={isStorageExpanded}
-              >
-                <span className="material-symbols-outlined text-[18px]">
-                  {isStorageExpanded ? 'expand_more' : 'chevron_right'}
-                </span>
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setIsStorageExpanded((expanded) => !expanded)}
+                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface-high hover:text-fg"
+                  aria-label={isStorageExpanded ? '收起数据文件夹信息' : '展开数据文件夹信息'}
+                  aria-expanded={isStorageExpanded}
+                >
+                  <span className="material-symbols-outlined text-[18px]">
+                    {isStorageExpanded ? 'expand_more' : 'chevron_right'}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => openModal('settings')}
+                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface-high hover:text-fg"
+                  aria-label="打开设置"
+                  title="设置"
+                >
+                  <span className="material-symbols-outlined text-[18px]">settings</span>
+                </button>
+              </div>
             </div>
 
             {isStorageExpanded && (
