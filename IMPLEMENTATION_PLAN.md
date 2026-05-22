@@ -60,3 +60,38 @@
 **成功标准**: `npm run test`、`npm run type-check`、`npm run lint`、`npm run build` 全部通过。
 **测试**: 全量验证命令。
 **状态**: 已完成
+
+## 阶段 10: Obsidian 元数据维护服务
+
+**目标**: 增加扫描当前 Markdown 文件夹并补全 PromptClip 必要 frontmatter 的服务。
+**成功标准**: 能识别缺少或无效 metadata 的 `.md` 文件；修复时只补缺失字段，保留正文和已有字段。
+**测试**: 覆盖无 frontmatter、已有 Obsidian frontmatter、完整文件无需修复。
+**状态**: 已完成
+
+## 阶段 11: 设置页维护入口
+
+**目标**: 在设置页增加“文件夹维护”入口，支持扫描、显示结果和确认补全。
+**成功标准**: 用户可在设置页查看需修复数量，确认后批量补全并刷新当前 Prompt 列表。
+**测试**: 覆盖设置页维护入口渲染和扫描结果展示。
+**状态**: 已完成
+
+## 阶段 12: 验证与收尾
+
+**目标**: 运行测试、类型检查、lint 和构建，确认无回归。
+**成功标准**: `npm run test`、`npm run type-check`、`npm run lint`、`npm run build` 全部通过。
+**测试**: 全量验证命令。
+**状态**: 已完成
+
+## 阶段 13: Tags 格式兼容读写
+
+**目标**: 支持 `tags: ["Coding"]` 与 Obsidian 块状 tags 两种格式，并在保存时沿用当前文件格式。
+**成功标准**: 解析两种格式；创建新文件仍使用当前默认行内格式；编辑已有块状 tags 文件时继续写回块状格式。
+**测试**: 覆盖 Markdown 工具解析/序列化和 PromptService 更新写回。
+**状态**: 已完成
+
+## 阶段 14: Tags 格式验证收尾
+
+**目标**: 运行相关测试、类型检查、lint 和构建，确认无回归。
+**成功标准**: `npm run test`、`npm run type-check`、`npm run lint`、`npm run build` 全部通过。
+**测试**: 全量验证命令。
+**状态**: 已完成
