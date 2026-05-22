@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useUIStore } from '@/stores/uiStore';
 import { usePromptStore } from '@/stores/promptStore';
 import { useFileStore } from '@/stores/fileStore';
+import { useSettingsStore } from '@/stores/settingsStore';
 import { SideDrawer } from '@/components/common';
 import { HistoryModal, PromptContent } from '@/components/prompt';
 import { countChars } from '@/utils/markdown';
@@ -12,6 +13,7 @@ export function DetailPanel() {
   const { isDetailOpen, selectedPromptId, toggleDetail, openModal } = useUIStore();
   const { prompts, updatePrompt } = usePromptStore();
   const { workspace } = useFileStore();
+  const isHistoryEnabled = useSettingsStore((state) => state.historySettings.enabled);
   const [copied, setCopied] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
@@ -149,16 +151,10 @@ export function DetailPanel() {
               </span>
               {selectedPrompt.pinned ? '已收藏' : '未收藏'}
             </button>
-            <button
-              type="button"
-              onClick={() => setIsHistoryOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-md transition-colors hover:text-fg"
-              aria-label="查看历史版本"
-              title="查看历史版本"
-            >
-              <span className="material-symbols-outlined text-lg">history</span>
-              历史版本
-            </button>
+            <HistoryAction
+              isHistoryEnabled={isHistoryEnabled}
+              onOpen={() => setIsHistoryOpen(true)}
+            />
           </div>
 
           {/* Markdown 内容 */}
@@ -175,5 +171,29 @@ export function DetailPanel() {
         onClose={() => setIsHistoryOpen(false)}
       />
     </>
+  );
+}
+
+interface HistoryActionProps {
+  isHistoryEnabled: boolean;
+  onOpen: () => void;
+}
+
+export function HistoryAction({ isHistoryEnabled, onOpen }: HistoryActionProps) {
+  if (!isHistoryEnabled) {
+    return null;
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="inline-flex items-center gap-1.5 rounded-md transition-colors hover:text-fg"
+      aria-label="查看历史版本"
+      title="查看历史版本"
+    >
+      <span className="material-symbols-outlined text-lg">history</span>
+      历史版本
+    </button>
   );
 }

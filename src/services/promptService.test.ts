@@ -308,12 +308,55 @@ describe('PromptService repository integration', () => {
   });
 
   it(
-    'updates, preserves stable id, writes stable history, and deletes to stable trash',
+    'updates and does not write history when history versions are disabled',
     async () => {
       vi.useFakeTimers();
       vi.setSystemTime(new Date(2026, 4, 17, 1, 0, 0));
       vi.spyOn(Math, 'random').mockReturnValue(0.1234);
       const repository = createFakeFileRepository({ now: () => new Date() });
+
+      const created = await PromptService.createPrompt(repository, workspace, {
+        title: 'My Prompt',
+        content: 'First',
+        tags: ['work'],
+      });
+
+      vi.setSystemTime(new Date(2026, 4, 17, 2, 0, 0));
+      const updated = await PromptService.updatePrompt(repository, workspace, created, {
+        id: created.id,
+        title: 'My Prompt Renamed',
+        content: 'Second',
+        tags: ['work', 'done'],
+      });
+
+      expect(updated.id).toBe(created.id);
+      expect(updated.filePath).toBe('My Prompt Renamed.md');
+      expect(await repository.exists(workspace, 'My Prompt.md')).toBe(false);
+      expect(await repository.exists(workspace, 'My Prompt Renamed.md')).toBe(true);
+      expect(Object.keys(repository.dumpFiles()).some((path) => path.startsWith('.history/'))).toBe(
+        false
+      );
+    }
+  );
+
+  it(
+    'updates, preserves stable id, writes stable history when enabled, and deletes to stable trash',
+    async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date(2026, 4, 17, 1, 0, 0));
+      vi.spyOn(Math, 'random').mockReturnValue(0.1234);
+      const repository = createFakeFileRepository({
+        now: () => new Date(),
+        files: {
+          '.promptclip.json': JSON.stringify({
+            historyVersions: {
+              enabled: true,
+              retentionDays: 30,
+            },
+            pinnedTags: [],
+          }),
+        },
+      });
 
       const created = await PromptService.createPrompt(repository, workspace, {
         title: 'My Prompt',
@@ -409,6 +452,24 @@ describe('PromptService repository integration', () => {
     );
     expect(consoleError).toHaveBeenCalledWith(
       expect.stringContaining('Cannot create history for non-persisted prompt id: legacy')
+    );
+  });
+
+  it('does not create history versions for stable ids when history versions are disabled', async () => {
+    const repository = createFakeFileRepository({
+      files: {
+        'Stable.md': 'Body',
+      },
+    });
+
+    await PromptService.createHistoryVersion(
+      repository,
+      workspace,
+      createPromptFixture({ filePath: 'Stable.md' })
+    );
+
+    expect(Object.keys(repository.dumpFiles()).some((path) => path.startsWith('.history/'))).toBe(
+      false
     );
   });
 
@@ -725,6 +786,13 @@ describe('PromptService repository integration', () => {
     const repository = createFakeFileRepository({
       now: () => new Date(),
       files: {
+        '.promptclip.json': JSON.stringify({
+          historyVersions: {
+            enabled: true,
+            retentionDays: 30,
+          },
+          pinnedTags: [],
+        }),
         'Current.md': [
           '---',
           'id: "11111111111111111"',

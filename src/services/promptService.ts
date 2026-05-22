@@ -25,6 +25,7 @@ import {
 import { joinPath } from '@/utils/path';
 import { parseMarkdown, serializeMarkdown, extractTitle } from '@/utils/markdown';
 import { CONFIG } from '@/constants/config';
+import { FolderConfigService } from './folderConfigService';
 
 const HISTORY_PATH_PREFIX = `${CONFIG.FILE_SYSTEM.HISTORY_DIR}/`;
 
@@ -286,6 +287,11 @@ export async function createHistoryVersion(
 ): Promise<void> {
   if (!hasPersistedStableId(prompt)) {
     console.error(`Cannot create history for non-persisted prompt id: ${prompt.id}`);
+    return;
+  }
+
+  const config = await FolderConfigService.readFolderConfig(repository, workspace);
+  if (!config.historyVersions.enabled) {
     return;
   }
 

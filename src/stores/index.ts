@@ -4,5 +4,6 @@
 
 export * from './fileStore';
 export * from './promptStore';
+export * from './settingsStore';
 export * from './tagStore';
 export * from './uiStore';

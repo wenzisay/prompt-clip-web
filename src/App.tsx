@@ -11,7 +11,10 @@ import { SettingsModal } from '@/components/settings';
 import { useFileStore } from '@/stores/fileStore';
 import { useUIStore } from '@/stores/uiStore';
 import { usePromptStore } from '@/stores/promptStore';
+import { useSettingsStore } from '@/stores/settingsStore';
 import { useTagStore } from '@/stores/tagStore';
+import { FolderConfigService } from '@/services/folderConfigService';
+import { fileRepository } from '@/services/fileRepository';
 import { usePromptLoader } from '@/hooks/usePromptLoader';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useEffect } from 'react';
@@ -20,6 +23,7 @@ function AppContent() {
   const { isAuthorized, workspace, initialize } = useFileStore();
   const { modalType, selectedPromptId } = useUIStore();
   const { prompts } = usePromptStore();
+  const { resetSettings, setHistorySettings } = useSettingsStore();
   const { setTags } = useTagStore();
 
   useEffect(() => {
@@ -29,6 +33,32 @@ function AppContent() {
   useEffect(() => {
     setTags(prompts.flatMap((prompt) => prompt.tags));
   }, [prompts, setTags]);
+
+  useEffect(() => {
+    if (!workspace) {
+      resetSettings();
+      return;
+    }
+
+    let isCurrent = true;
+    const currentWorkspace = workspace;
+
+    async function loadSettings() {
+      const config = await FolderConfigService.readFolderConfig(
+        fileRepository,
+        currentWorkspace
+      );
+      if (isCurrent) {
+        setHistorySettings(config.historyVersions);
+      }
+    }
+
+    void loadSettings();
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [workspace, resetSettings, setHistorySettings]);
 
   // 自动加载 Prompts
   usePromptLoader();

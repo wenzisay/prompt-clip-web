@@ -10,20 +10,17 @@ import {
   type HistoryVersionSettings,
 } from '@/services/folderConfigService';
 import { useFileStore } from '@/stores/fileStore';
+import { DEFAULT_HISTORY_SETTINGS, useSettingsStore } from '@/stores/settingsStore';
 import { useUIStore } from '@/stores/uiStore';
 
 type SettingsTab = 'general' | 'about';
-
-const DEFAULT_HISTORY_SETTINGS: HistoryVersionSettings = {
-  enabled: false,
-  retentionDays: 30,
-};
 
 const RETENTION_DAY_OPTIONS = [7, 30, 90, 180, 365];
 
 export function SettingsModal() {
   const { modalType, closeModal, addToast } = useUIStore();
   const { workspace } = useFileStore();
+  const setStoredHistorySettings = useSettingsStore((state) => state.setHistorySettings);
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
   const [historySettings, setHistorySettings] = useState<HistoryVersionSettings>(
     DEFAULT_HISTORY_SETTINGS
@@ -46,6 +43,7 @@ export function SettingsModal() {
         );
         if (isCurrent) {
           setHistorySettings(config.historyVersions);
+          setStoredHistorySettings(config.historyVersions);
         }
       } catch (error) {
         console.warn('Failed to load settings:', error);
@@ -58,7 +56,7 @@ export function SettingsModal() {
     return () => {
       isCurrent = false;
     };
-  }, [isOpen, workspace]);
+  }, [isOpen, setStoredHistorySettings, workspace]);
 
   const handleSave = async () => {
     if (!workspace) return;
@@ -70,6 +68,7 @@ export function SettingsModal() {
         workspace,
         historySettings
       );
+      setStoredHistorySettings(historySettings);
       addToast({
         type: 'success',
         message: '设置已保存',
@@ -254,7 +253,7 @@ function GeneralSettings({ historySettings, onChange }: GeneralSettingsProps) {
         </div>
 
         <div className="mt-4 rounded-lg bg-accent-soft px-4 py-3 text-sm text-accent">
-          当前仅保存配置开关；历史版本的实际记录、清理和恢复能力会在后续接入。
+          关闭后不会自动创建历史目录和历史快照；保留天数目前仅保存配置，暂不自动清理。
         </div>
 
         <div className="mt-4 flex items-center justify-between gap-4 border-t border-border pt-4">
