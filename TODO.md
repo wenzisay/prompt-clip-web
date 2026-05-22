@@ -12,5 +12,8 @@
   - 定时轮询文件 `lastModified`（有性能开销）
   - `FileSystemObserver` API（Chrome 129+ 实验性支持，尚未普及）
 
+## 同步机制
+- docs/promptclip-sync-design.md
+
 ## 遗留问题
 - [ ] web端与桌面端同时打开一个文件夹时，会导致文件锁定，无法同时编辑。
