@@ -33,6 +33,7 @@ import { CONFIG } from '@/constants/config';
 import { FolderConfigService } from './folderConfigService';
 
 const HISTORY_PATH_PREFIX = `${CONFIG.FILE_SYSTEM.HISTORY_DIR}/`;
+const MAX_CONCURRENT_PROMPT_READS = 20;
 
 interface ParsedPromptFile {
   entry: FileEntry;
@@ -69,15 +70,21 @@ export async function loadPrompts(
     workspace,
     [...CONFIG.FILE_SYSTEM.SUPPORTED_EXTENSIONS]
   );
-  const parsedFiles: ParsedPromptFile[] = [];
-
-  for (const entry of entries) {
-    try {
-      parsedFiles.push(await readPromptFile(repository, workspace, entry));
-    } catch (error) {
-      console.error(`Failed to load prompt: ${entry.path}`, error);
+  const parsedFileResults = await mapWithConcurrency(
+    entries,
+    MAX_CONCURRENT_PROMPT_READS,
+    async (entry) => {
+      try {
+        return await readPromptFile(repository, workspace, entry);
+      } catch (error) {
+        console.error(`Failed to load prompt: ${entry.path}`, error);
+        return null;
+      }
     }
-  }
+  );
+  const parsedFiles = parsedFileResults.filter((parsed): parsed is ParsedPromptFile =>
+    parsed !== null
+  );
 
   const idAssignments = assignEffectiveStableIds(parsedFiles);
   const prompts = await Promise.all(
@@ -596,6 +603,28 @@ function basenameWithoutMarkdownExtension(filename: string): string {
 function basenameFromPath(path: string): string {
   const lastSeparatorIndex = path.lastIndexOf('/');
   return lastSeparatorIndex === -1 ? path : path.slice(lastSeparatorIndex + 1);
+}
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  mapper: (item: T) => Promise<R>
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+
+  async function worker(): Promise<void> {
+    while (nextIndex < items.length) {
+      const currentIndex = nextIndex;
+      nextIndex += 1;
+      results[currentIndex] = await mapper(items[currentIndex]);
+    }
+  }
+
+  const workerCount = Math.min(concurrency, items.length);
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
+
+  return results;
 }
 
 async function writePromptFileWithId(

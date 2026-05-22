@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Prompt } from '@/types/prompt';
-import { getPromptCardDate } from './PromptCard';
+import { getPromptCardDate, getPromptPreview } from './PromptCard';
 
 const prompt: Prompt = {
   id: 'date-card',
@@ -50,5 +50,23 @@ describe('PromptCard date display', () => {
     });
 
     expect(date).toBe(prompt.updatedAt);
+  });
+});
+
+describe('PromptCard preview text', () => {
+  it('uses the first two lines joined by a space', () => {
+    const preview = getPromptPreview('第一行\n第二行\n第三行不应该进入预览');
+
+    expect(preview).toEqual({
+      text: '第一行 第二行',
+      isTruncated: true,
+    });
+  });
+
+  it('limits preview text to 120 characters', () => {
+    const preview = getPromptPreview(`${'a'.repeat(130)}\n第二行`);
+
+    expect(preview.text).toHaveLength(120);
+    expect(preview.isTruncated).toBe(true);
   });
 });

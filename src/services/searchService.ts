@@ -20,6 +20,7 @@ let titleIndex: SearchIndex | null = null;
 let contentIndex: SearchIndex | null = null;
 let tagsIndex: SearchIndex | null = null;
 let indexedPrompts: Map<string, Prompt> = new Map();
+const MAX_CONCURRENT_INDEX_ADDS = 20;
 
 /**
  * 初始化搜索索引
@@ -42,15 +43,9 @@ export function initSearchIndex(): void {
  * 构建搜索索引
  */
 export async function buildSearchIndex(prompts: Prompt[]): Promise<void> {
-  if (!titleIndex) {
-    initSearchIndex();
-  }
+  initSearchIndex();
 
-  indexedPrompts.clear();
-
-  for (const prompt of prompts) {
-    await addToIndex(prompt);
-  }
+  await mapWithConcurrency(prompts, MAX_CONCURRENT_INDEX_ADDS, addToIndex);
 }
 
 /**
@@ -64,9 +59,11 @@ export async function addToIndex(prompt: Prompt): Promise<void> {
 
   indexedPrompts.set(prompt.id, prompt);
 
-  await titleIndex.addAsync(prompt.id, prompt.title);
-  await contentIndex.addAsync(prompt.id, prompt.content);
-  await tagsIndex.addAsync(prompt.id, prompt.tags.join(' '));
+  await Promise.all([
+    titleIndex.addAsync(prompt.id, prompt.title),
+    contentIndex.addAsync(prompt.id, prompt.content),
+    tagsIndex.addAsync(prompt.id, prompt.tags.join(' ')),
+  ]);
 }
 
 /**
@@ -173,6 +170,25 @@ export function clearSearchIndex(): void {
  */
 export function getIndexedCount(): number {
   return indexedPrompts.size;
+}
+
+async function mapWithConcurrency<T>(
+  items: T[],
+  concurrency: number,
+  mapper: (item: T) => Promise<unknown>
+): Promise<void> {
+  let nextIndex = 0;
+
+  async function worker(): Promise<void> {
+    while (nextIndex < items.length) {
+      const currentIndex = nextIndex;
+      nextIndex += 1;
+      await mapper(items[currentIndex]);
+    }
+  }
+
+  const workerCount = Math.min(concurrency, items.length);
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
 }
 
 /**

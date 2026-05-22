@@ -39,8 +39,10 @@ interface PromptState {
   /** 设置错误信息 */
   setError: (error: string | null) => void;
   /** 应用筛选（内部方法） */
-  applyFilter: () => void;
+  applyFilter: () => Promise<void>;
 }
+
+let filterGeneration = 0;
 
 export const usePromptStore = create<PromptState>((set, get) => ({
   prompts: [],
@@ -148,16 +150,17 @@ export const usePromptStore = create<PromptState>((set, get) => ({
   // 应用当前筛选条件
   applyFilter: async () => {
     const { prompts, filter } = get();
-    let result = [...prompts];
+    const currentGeneration = filterGeneration + 1;
+    filterGeneration = currentGeneration;
+    const searchQuery = filter.searchQuery?.trim() ?? '';
+    let result = searchQuery
+      ? await SearchService.search(searchQuery)
+      : [...prompts];
 
-    // 搜索筛选
-    if (filter.searchQuery) {
-      const searchResults = await SearchService.search(filter.searchQuery);
-      const searchIds = new Set(searchResults.map((p) => p.id));
-      result = result.filter((p) => searchIds.has(p.id));
+    if (currentGeneration !== filterGeneration) {
+      return;
     }
 
-    // 标签筛选
     if (filter.tag) {
       result = result.filter((p) =>
         p.tags.some((t) => t === filter.tag || t.startsWith(`${filter.tag}/`))
@@ -169,7 +172,9 @@ export const usePromptStore = create<PromptState>((set, get) => ({
       result = result.filter((p) => p.pinned);
     }
 
-    result = sortPromptsForFilter(result, filter);
+    if (!searchQuery) {
+      result = sortPromptsForFilter(result, filter);
+    }
 
     set({ filteredPrompts: result });
   },

@@ -8,9 +8,12 @@ import { usePromptStore } from '@/stores/promptStore';
 import { useFileStore } from '@/stores/fileStore';
 import { IconButton } from '@/components/common';
 import { formatDate } from '@/utils/date';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { PromptService } from '@/services/promptService';
 import { fileRepository } from '@/services/fileRepository';
+
+const PREVIEW_LINE_LIMIT = 2;
+const PREVIEW_CHARACTER_LIMIT = 120;
 
 interface PromptCardProps {
   /** Prompt 数据 */
@@ -27,12 +30,7 @@ export function PromptCard({ prompt }: PromptCardProps) {
   const isSelected = selectedPromptIds.includes(prompt.id);
   const isSelectionMode = selectedPromptIds.length > 0;
 
-  // 获取预览文本（前两行）
-  const previewText = prompt.content
-    .split('\n')
-    .slice(0, 2)
-    .join(' ')
-    .slice(0, 120);
+  const preview = useMemo(() => getPromptPreview(prompt.content), [prompt.content]);
 
   // 格式化当前分类对应的日期
   const relativeDate = formatDate(getPromptCardDate(prompt, filter));
@@ -212,8 +210,8 @@ export function PromptCard({ prompt }: PromptCardProps) {
 
       {/* 预览文本 */}
       <p className="text-sm text-muted line-clamp-2 mb-3 min-h-[2.5rem]">
-        {previewText}
-        {previewText.length >= 120 && '...'}
+        {preview.text}
+        {preview.isTruncated && '...'}
       </p>
 
       {/* 标签 */}
@@ -275,4 +273,47 @@ export function getPromptCardDate(
   }
 
   return prompt.createdAt;
+}
+
+export function getPromptPreview(content: string): { text: string; isTruncated: boolean } {
+  let text = '';
+  let lineCount = 1;
+
+  for (let index = 0; index < content.length; index += 1) {
+    const char = content[index];
+    const isLineBreak = char === '\n' || char === '\r';
+
+    if (isLineBreak) {
+      if (char === '\r' && content[index + 1] === '\n') {
+        index += 1;
+      }
+
+      if (lineCount >= PREVIEW_LINE_LIMIT) {
+        return {
+          text,
+          isTruncated: index < content.length - 1,
+        };
+      }
+
+      lineCount += 1;
+      if (text.length < PREVIEW_CHARACTER_LIMIT) {
+        text += ' ';
+      }
+      continue;
+    }
+
+    if (text.length >= PREVIEW_CHARACTER_LIMIT) {
+      return {
+        text,
+        isTruncated: true,
+      };
+    }
+
+    text += char;
+  }
+
+  return {
+    text,
+    isTruncated: false,
+  };
 }

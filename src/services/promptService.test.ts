@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { FileRepository } from './fileRepository';
 import type { Prompt } from '@/types/prompt';
 import { createFakeFileRepository, createFakeWorkspace } from './fileRepository';
 import { PromptService } from './promptService';
@@ -41,6 +42,46 @@ describe('PromptService repository integration', () => {
       pinned: true,
       filePath: 'hello.md',
     });
+  });
+
+  it('reads prompt files with bounded concurrency', async () => {
+    const files = Object.fromEntries(
+      Array.from({ length: 25 }, (_, index) => [
+        `prompt-${index}.md`,
+        [
+          '---',
+          `id: "${String(index + 1).padStart(17, '1')}"`,
+          `title: Prompt ${index}`,
+          '---',
+          '',
+          `Body ${index}`,
+        ].join('\n'),
+      ])
+    );
+    const repository = createFakeFileRepository({ files });
+    let activeReads = 0;
+    let maxActiveReads = 0;
+    const originalReadText = repository.readText;
+    const delayedRepository: FileRepository = {
+      ...repository,
+      readText: async (currentWorkspace, path) => {
+        activeReads += 1;
+        maxActiveReads = Math.max(maxActiveReads, activeReads);
+        await new Promise((resolve) => setTimeout(resolve, 1));
+
+        try {
+          return await originalReadText(currentWorkspace, path);
+        } finally {
+          activeReads -= 1;
+        }
+      },
+    };
+
+    const prompts = await PromptService.loadPrompts(delayedRepository, workspace);
+
+    expect(prompts).toHaveLength(25);
+    expect(maxActiveReads).toBeGreaterThan(1);
+    expect(maxActiveReads).toBeLessThanOrEqual(20);
   });
 
   it('loads a single prompt with caller-provided effective stable id', async () => {

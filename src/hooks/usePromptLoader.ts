@@ -14,7 +14,7 @@ import { fileRepository } from '@/services/fileRepository';
 export function usePromptLoader() {
   const { workspace, isAuthorized } = useFileStore();
   const { setPrompts, setLoading: setPromptLoading, setError, clearPrompts } = usePromptStore();
-  const { loadPinnedTags, setTags, clearTags } = useTagStore();
+  const { loadPinnedTags, clearTags } = useTagStore();
 
   useEffect(() => {
     // 如果未授权或没有工作区，不加载
@@ -42,9 +42,6 @@ export function usePromptLoader() {
 
         await setPrompts(prompts);
         if (!isActive) return;
-
-        // 更新标签存储，保留重复项用于统计每个标签的 Prompt 数量
-        setTags(prompts.flatMap((prompt) => prompt.tags));
       } catch (error) {
         if (!isActive) return;
 
@@ -71,6 +68,5 @@ export function usePromptLoader() {
     setError,
     setPromptLoading,
     setPrompts,
-    setTags,
   ]);
 }
