@@ -13,6 +13,7 @@ import { PromptMarkdownEditorField } from './PromptMarkdownEditorField';
 import { PromptService } from '@/services/promptService';
 import { fileRepository } from '@/services/fileRepository';
 import { validatePromptTitleForFilename } from '@/utils/id';
+import { formatSaveErrorMessage } from '@/utils/errorMessage';
 
 interface CreateModalProps {
   /** 编辑模式下的 Prompt ID */
@@ -126,8 +127,7 @@ export function CreateModal({ editingPromptId }: CreateModalProps) {
 
       closeModal();
     } catch (err) {
-      const message = err instanceof Error ? err.message : '保存失败';
-      setError(message);
+      setError(formatSaveErrorMessage(err));
     } finally {
       setIsSaving(false);
     }
