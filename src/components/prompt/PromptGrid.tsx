@@ -103,7 +103,7 @@ export function PromptGrid({ isLoading = false }: PromptGridProps) {
         </div>
       )}
 
-      <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(min(360px,100%),1fr))]">
+      <div className="prompt-card-grid grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(min(360px,100%),1fr))]">
         {filteredPrompts.map((prompt) => (
           <PromptCard key={prompt.id} prompt={prompt} />
         ))}

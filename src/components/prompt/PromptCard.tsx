@@ -12,7 +12,7 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { PromptService } from '@/services/promptService';
 import { fileRepository } from '@/services/fileRepository';
 
-const PREVIEW_LINE_LIMIT = 2;
+const PREVIEW_LINE_LIMIT = 4;
 const PREVIEW_CHARACTER_LIMIT = 120;
 
 interface PromptCardProps {
@@ -119,7 +119,7 @@ export function PromptCard({ prompt }: PromptCardProps) {
     <div
       onClick={handleClick}
       className={`
-        bg-surface rounded-card p-4 border
+        prompt-card bg-surface rounded-card p-4 border
         hover:border-border hover:shadow-card-hover
         cursor-pointer transition-all duration-200
         group
@@ -209,7 +209,7 @@ export function PromptCard({ prompt }: PromptCardProps) {
       </div>
 
       {/* 预览文本 */}
-      <p className="text-sm text-muted line-clamp-2 mb-3 min-h-[2.5rem]">
+      <p className="prompt-card-preview text-sm text-muted line-clamp-4 mb-3">
         {preview.text}
         {preview.isTruncated && '...'}
       </p>

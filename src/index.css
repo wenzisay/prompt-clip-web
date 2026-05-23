@@ -211,6 +211,28 @@
   border-radius: 0.5em;
 }
 
+.prompt-card-grid {
+  container-type: inline-size;
+}
+
+.prompt-card {
+  height: 14rem;
+}
+
+.prompt-card-preview {
+  min-height: 5rem;
+}
+
+@container (max-width: 735px) {
+  .prompt-card {
+    height: auto;
+  }
+
+  .prompt-card-preview {
+    min-height: 1.25rem;
+  }
+}
+
 .prompt-detail-content {
   font-size: 14px;
   line-height: 1.65;

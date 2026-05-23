@@ -54,11 +54,11 @@ describe('PromptCard date display', () => {
 });
 
 describe('PromptCard preview text', () => {
-  it('uses the first two lines joined by a space', () => {
-    const preview = getPromptPreview('第一行\n第二行\n第三行不应该进入预览');
+  it('uses the first four lines joined by a space', () => {
+    const preview = getPromptPreview('第一行\n第二行\n第三行\n第四行\n第五行不应该进入预览');
 
     expect(preview).toEqual({
-      text: '第一行 第二行',
+      text: '第一行 第二行 第三行 第四行',
       isTruncated: true,
     });
   });
