@@ -152,14 +152,18 @@
   background: var(--surface-dim);
   padding: 1em;
   border-radius: 0.5em;
-  overflow-x: auto;
+  overflow-x: hidden;
   margin-bottom: 1em;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .prose pre code {
   background: transparent;
   padding: 0;
   color: var(--fg);
+  white-space: inherit;
+  overflow-wrap: inherit;
 }
 
 .prose a {
