@@ -16,6 +16,55 @@ interface Command {
   category?: 'action' | 'prompt' | 'search';
 }
 
+export function createBaseCommands(
+  closeCommandPalette: () => void,
+  openModal: ReturnType<typeof useUIStore.getState>['openModal']
+): Command[] {
+  return [
+    {
+      id: 'new-prompt',
+      label: '新建 Prompt',
+      icon: 'add',
+      action: () => {
+        closeCommandPalette();
+        openModal('create');
+      },
+      shortcut: 'Cmd+N',
+      category: 'action',
+    },
+    {
+      id: 'search',
+      label: '搜索 Prompts',
+      icon: 'search',
+      action: () => {
+        closeCommandPalette();
+      },
+      shortcut: 'Cmd+K',
+      category: 'action',
+    },
+    {
+      id: 'export',
+      label: '导出 Prompts',
+      icon: 'download',
+      action: () => {
+        closeCommandPalette();
+        openModal('export');
+      },
+      category: 'action',
+    },
+    {
+      id: 'settings',
+      label: '设置',
+      icon: 'settings',
+      action: () => {
+        closeCommandPalette();
+        openModal('settings');
+      },
+      category: 'action',
+    },
+  ];
+}
+
 export function CommandPalette() {
   const { isCommandPaletteOpen, closeCommandPalette, openModal } = useUIStore();
   const { prompts } = usePromptStore();
@@ -25,59 +74,7 @@ export function CommandPalette() {
 
   // 基础命令
   const baseCommands: Command[] = useMemo(
-    () => [
-      {
-        id: 'new-prompt',
-        label: '新建 Prompt',
-        icon: 'add',
-        action: () => {
-          closeCommandPalette();
-          openModal('create');
-        },
-        shortcut: 'Cmd+N',
-        category: 'action',
-      },
-      {
-        id: 'search',
-        label: '搜索 Prompts',
-        icon: 'search',
-        action: () => {
-          closeCommandPalette();
-        },
-        shortcut: 'Cmd+K',
-        category: 'action',
-      },
-      {
-        id: 'export',
-        label: '导出 Prompts',
-        icon: 'download',
-        action: () => {
-          closeCommandPalette();
-          openModal('export');
-        },
-        category: 'action',
-      },
-      {
-        id: 'import',
-        label: '导入 Prompts',
-        icon: 'upload',
-        action: () => {
-          closeCommandPalette();
-          window.alert('导入功能将在后续版本提供');
-        },
-        category: 'action',
-      },
-      {
-        id: 'settings',
-        label: '设置',
-        icon: 'settings',
-        action: () => {
-          closeCommandPalette();
-          openModal('settings');
-        },
-        category: 'action',
-      },
-    ],
+    () => createBaseCommands(closeCommandPalette, openModal),
     [closeCommandPalette, openModal]
   );
 
