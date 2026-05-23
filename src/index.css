@@ -230,3 +230,22 @@
 .prompt-detail-content ol {
   margin-bottom: 1em;
 }
+
+.prompt-markdown-preview-editor {
+  border: 1px solid var(--border-strong);
+  border-radius: 0.5rem;
+  background: var(--surface);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.03);
+  color: var(--fg);
+  overflow: auto;
+  min-height: 320px;
+  padding: 1rem;
+  font-size: 0.9375rem;
+  line-height: 1.65;
+}
+
+.prompt-markdown-preview-editor--fullscreen {
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+}

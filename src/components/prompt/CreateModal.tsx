@@ -8,9 +8,10 @@ import { usePromptStore } from '@/stores/promptStore';
 import { useFileStore } from '@/stores/fileStore';
 import { SideDrawer } from '@/components/common';
 import { TagSelect } from '@/components/tag';
+import { type MarkdownViewMode } from './MarkdownModeToggle';
+import { PromptMarkdownEditorField } from './PromptMarkdownEditorField';
 import { PromptService } from '@/services/promptService';
 import { fileRepository } from '@/services/fileRepository';
-import { countChars } from '@/utils/markdown';
 import { validatePromptTitleForFilename } from '@/utils/id';
 
 interface CreateModalProps {
@@ -31,6 +32,7 @@ export function CreateModal({ editingPromptId }: CreateModalProps) {
   const [tags, setTags] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [editorMode, setEditorMode] = useState<MarkdownViewMode>('text');
 
   // 编辑模式：加载现有数据
   useEffect(() => {
@@ -47,6 +49,7 @@ export function CreateModal({ editingPromptId }: CreateModalProps) {
       setContent('');
       setTags(filter.tag ? [filter.tag] : []);
     }
+    setEditorMode('text');
     setError(null);
   }, [editingPromptId, modalType, isOpen, prompts, filter.tag]);
 
@@ -203,23 +206,16 @@ export function CreateModal({ editingPromptId }: CreateModalProps) {
           <TagSelect selectedTags={tags} onChange={setTags} />
         </div>
 
-        {/* 内容 */}
-        <div className="flex min-h-[360px] flex-1 flex-col">
-          <label htmlFor="prompt-content" className="block text-sm font-medium text-fg mb-1">
-            内容 <span className="text-red-500">*</span>
-          </label>
-          <textarea
-            id="prompt-content"
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            placeholder="输入 Prompt 内容..."
-            className="min-h-[320px] flex-1 w-full px-3 py-2 bg-surface-container rounded-lg text-sm text-fg placeholder:text-muted border border-[var(--border-strong)] shadow-inner focus:border-accent focus:bg-surface focus:ring-2 focus:ring-accent-soft transition-colors focus:outline-none resize-none font-mono"
-            disabled={isSaving}
-          />
-          <div className="flex justify-end mt-1">
-            <span className="text-xs text-muted">{countChars(content)} 字符</span>
-          </div>
-        </div>
+        <PromptMarkdownEditorField
+          value={content}
+          onChange={(value) => {
+            setContent(value);
+            if (error) setError(null);
+          }}
+          mode={editorMode}
+          onModeChange={setEditorMode}
+          disabled={isSaving}
+        />
       </div>
     </SideDrawer>
   );

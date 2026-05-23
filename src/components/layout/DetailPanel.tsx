@@ -4,7 +4,13 @@ import { usePromptStore } from '@/stores/promptStore';
 import { useFileStore } from '@/stores/fileStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { SideDrawer } from '@/components/common';
-import { HistoryModal, PromptContent } from '@/components/prompt';
+import {
+  HistoryModal,
+  MarkdownModeToggle,
+  MarkdownTextView,
+  PromptContent,
+  type MarkdownViewMode,
+} from '@/components/prompt';
 import { countChars } from '@/utils/markdown';
 import { PromptService } from '@/services/promptService';
 import { fileRepository } from '@/services/fileRepository';
@@ -16,6 +22,7 @@ export function DetailPanel() {
   const isHistoryEnabled = useSettingsStore((state) => state.historySettings.enabled);
   const [copied, setCopied] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [contentMode, setContentMode] = useState<MarkdownViewMode>('preview');
 
   // 获取选中的 Prompt
   const selectedPrompt = prompts.find((p) => p.id === selectedPromptId);
@@ -157,10 +164,10 @@ export function DetailPanel() {
             />
           </div>
 
-          {/* Markdown 内容 */}
-          <PromptContent
+          <PromptContentView
             content={selectedPrompt.content}
-            className="prompt-detail-content"
+            mode={contentMode}
+            onModeChange={setContentMode}
           />
         </article>
       </SideDrawer>
@@ -195,5 +202,28 @@ export function HistoryAction({ isHistoryEnabled, onOpen }: HistoryActionProps) 
       <span className="material-symbols-outlined text-lg">history</span>
       历史版本
     </button>
+  );
+}
+
+interface PromptContentViewProps {
+  content: string;
+  mode: MarkdownViewMode;
+  onModeChange: (mode: MarkdownViewMode) => void;
+}
+
+export function PromptContentView({ content, mode, onModeChange }: PromptContentViewProps) {
+  return (
+    <>
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h2 className="text-sm font-medium text-fg">内容</h2>
+        <MarkdownModeToggle mode={mode} onModeChange={onModeChange} />
+      </div>
+
+      {mode === 'text' ? (
+        <MarkdownTextView content={content} />
+      ) : (
+        <PromptContent content={content} className="prompt-detail-content" />
+      )}
+    </>
   );
 }
