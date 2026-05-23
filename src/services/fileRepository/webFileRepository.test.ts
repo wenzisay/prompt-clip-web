@@ -120,7 +120,7 @@ class FakeDirectoryHandle implements FileSystemDirectoryHandle {
 
 class FakeIndexedDB {
   private readonly data = new Map<IDBValidKey, unknown>();
-  private pendingComplete: (() => void) | null = null;
+  private readonly pendingCompletes: Array<() => void> = [];
 
   constructor(private readonly autoComplete: boolean) {}
 
@@ -142,8 +142,11 @@ class FakeIndexedDB {
   }
 
   completePendingTransaction(): void {
-    this.pendingComplete?.();
-    this.pendingComplete = null;
+    this.pendingCompletes.shift()?.();
+  }
+
+  getPendingTransactionCount(): number {
+    return this.pendingCompletes.length;
   }
 
   private createTransaction(): IDBTransaction {
@@ -163,7 +166,7 @@ class FakeIndexedDB {
     if (this.autoComplete) {
       queueMicrotask(complete);
     } else {
-      this.pendingComplete = complete;
+      this.pendingCompletes.push(complete);
     }
 
     return transaction;
@@ -211,18 +214,34 @@ class FakeIndexedDB {
   }
 }
 
-function installWindow(directory: FileSystemDirectoryHandle, indexedDB: FakeIndexedDB): void {
+function installWindow(
+  directory: FileSystemDirectoryHandle,
+  indexedDB: FakeIndexedDB,
+  onShowDirectoryPicker?: (options?: ShowDirectoryPickerOptions) => void
+): void {
   Object.defineProperty(globalThis, 'window', {
     configurable: true,
     value: {
       indexedDB,
-      showDirectoryPicker: async () => directory,
+      showDirectoryPicker: async (options?: ShowDirectoryPickerOptions) => {
+        onShowDirectoryPicker?.(options);
+        return directory;
+      },
     },
   });
 }
 
 function waitForMicrotasks(): Promise<void> {
   return new Promise((resolve) => queueMicrotask(resolve));
+}
+
+async function waitForPendingTransaction(indexedDB: FakeIndexedDB): Promise<void> {
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    if (indexedDB.getPendingTransactionCount() > 0) {
+      return;
+    }
+    await waitForMicrotasks();
+  }
 }
 
 afterEach(() => {
@@ -266,8 +285,11 @@ describe('webFileRepository', () => {
       return workspace;
     });
 
-    await waitForMicrotasks();
-    await waitForMicrotasks();
+    await waitForPendingTransaction(indexedDB);
+    expect(resolved).toBe(false);
+
+    indexedDB.completePendingTransaction();
+    await waitForPendingTransaction(indexedDB);
     expect(resolved).toBe(false);
 
     indexedDB.completePendingTransaction();
@@ -277,5 +299,32 @@ describe('webFileRepository', () => {
       handleKey: 'directory',
     });
     expect(resolved).toBe(true);
+  });
+
+  it('starts the directory picker in the previously saved directory when available', async () => {
+    const firstDirectory = new FakeDirectoryHandle('First');
+    const secondDirectory = new FakeDirectoryHandle('Second');
+    const indexedDB = new FakeIndexedDB(true);
+    const pickerOptions: ShowDirectoryPickerOptions[] = [];
+
+    installWindow(firstDirectory, indexedDB, (options) => {
+      if (options) {
+        pickerOptions.push(options);
+      }
+    });
+    await webFileRepository.selectDirectory();
+
+    installWindow(secondDirectory, indexedDB, (options) => {
+      if (options) {
+        pickerOptions.push(options);
+      }
+    });
+    await webFileRepository.selectDirectory();
+
+    expect(pickerOptions[1]).toMatchObject({
+      mode: 'readwrite',
+      startIn: firstDirectory,
+      id: 'promptclip-workspace',
+    });
   });
 });

@@ -46,7 +46,15 @@ interface FileSystemWritableFileStream extends WritableStream {
 
 interface ShowDirectoryPickerOptions {
   mode?: 'read' | 'readwrite';
-  startIn?: 'desktop' | 'documents' | 'downloads' | 'music' | 'pictures' | 'videos';
+  id?: string;
+  startIn?:
+    | FileSystemHandle
+    | 'desktop'
+    | 'documents'
+    | 'downloads'
+    | 'music'
+    | 'pictures'
+    | 'videos';
 }
 
 interface Window {

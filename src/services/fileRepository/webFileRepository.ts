@@ -6,6 +6,7 @@ import type { FileRepository } from './types';
 const DB_NAME = 'promptclip-file-handles';
 const STORE_NAME = 'handles';
 const DIRECTORY_KEY = 'directory';
+const DIRECTORY_PICKER_ID = 'promptclip-workspace';
 const PERMISSION: FileSystemHandlePermissionDescriptor = { mode: 'readwrite' };
 
 function workspaceFromHandle(handle: FileSystemDirectoryHandle): WorkspaceRef {
@@ -177,9 +178,11 @@ async function selectDirectory(): Promise<WorkspaceRef | null> {
   }
 
   try {
+    const previousHandle = await getSavedDirectoryHandle();
     const handle = await window.showDirectoryPicker({
       mode: 'readwrite',
-      startIn: 'documents',
+      startIn: previousHandle ?? 'documents',
+      id: DIRECTORY_PICKER_ID,
     });
     await saveDirectoryHandle(handle);
     return workspaceFromHandle(handle);
