@@ -369,7 +369,7 @@ function GeneralSettings({
             >
               {LOCALE_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
-                  {t.settings[option.labelKey]}
+                  {option.label}
                 </option>
               ))}
             </select>

@@ -3,9 +3,9 @@ import type { Locale } from './types';
 
 export const DEFAULT_LOCALE: Locale = 'en-US';
 
-export const LOCALE_OPTIONS: Array<{ value: Locale; labelKey: 'chinese' | 'english' }> = [
-  { value: 'zh-CN', labelKey: 'chinese' },
-  { value: 'en-US', labelKey: 'english' },
+export const LOCALE_OPTIONS: Array<{ value: Locale; label: string }> = [
+  { value: 'zh-CN', label: '中文' },
+  { value: 'en-US', label: 'English' },
 ];
 
 export const messages = {

@@ -32,6 +32,8 @@ describe('SettingsModal', () => {
     expect(markup).toContain('语言');
     expect(markup).toContain('value="zh-CN" selected=""');
     expect(markup).toContain('value="en-US"');
+    expect(markup).toContain('中文');
+    expect(markup).toContain('English');
     expect(markup).toContain('扫描元数据');
     expect(markup).toContain('默认关闭');
     expect(markup).toContain('role="switch"');
@@ -180,6 +182,9 @@ describe('SettingsModal', () => {
     expect(markup).toContain('Folder maintenance');
     expect(markup).toContain('Scan metadata');
     expect(markup).toContain('Save settings');
+    expect(markup).toContain('中文');
+    expect(markup).toContain('English');
+    expect(markup).not.toContain('Chinese');
     expect(markup).not.toContain('通用设置');
   });
 });
