@@ -12,10 +12,10 @@ describe('messages', () => {
     expect(app.searchPlaceholder).toBe('Quick search');
     expect(app.quickSwitch).toBe('Quick switch');
     expect(app.all).toBe('All');
-    expect(app.recent).toBe('Recently modified');
+    expect(app.recent).toBe('Recent');
     expect(app.favorites).toBe('Favorites');
     expect(app.select).toBe('Select');
-    expect(app.unfavorite).toBe('Remove favorite');
+    expect(app.unfavorite).toBe('Unfavorite');
     expect(app.edit).toBe('Edit');
     expect(app.delete).toBe('Delete');
     expect(app.editPrompt).toBe('Edit prompt');
