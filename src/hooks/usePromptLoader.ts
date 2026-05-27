@@ -5,6 +5,7 @@
  */
 
 import { useEffect } from 'react';
+import { useTranslation } from '@/i18n';
 import { useFileStore } from '@/stores/fileStore';
 import { usePromptStore } from '@/stores/promptStore';
 import { useTagStore } from '@/stores/tagStore';
@@ -12,6 +13,7 @@ import { PromptService } from '@/services/promptService';
 import { fileRepository } from '@/services/fileRepository';
 
 export function usePromptLoader() {
+  const { t } = useTranslation();
   const { workspace, isAuthorized } = useFileStore();
   const { setPrompts, setLoading: setPromptLoading, setError, clearPrompts } = usePromptStore();
   const { loadPinnedTags, clearTags } = useTagStore();
@@ -45,7 +47,7 @@ export function usePromptLoader() {
       } catch (error) {
         if (!isActive) return;
 
-        const message = error instanceof Error ? error.message : '加载 Prompts 失败';
+        const message = error instanceof Error ? error.message : t.app.loadPromptsFailed;
         setError(message);
         console.error('Failed to load prompts:', error);
       } finally {
@@ -68,5 +70,6 @@ export function usePromptLoader() {
     setError,
     setPromptLoading,
     setPrompts,
+    t.app.loadPromptsFailed,
   ]);
 }

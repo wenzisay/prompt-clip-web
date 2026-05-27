@@ -3,6 +3,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import { DEFAULT_LOCALE, messages } from '@/i18n';
 import { Overlay } from './Overlay';
 import { IconButton } from './IconButton';
 
@@ -42,6 +43,9 @@ export interface SideDrawerProps {
   headerActions?: React.ReactNode;
   footer?: React.ReactNode;
   closeOnOverlayClick?: boolean;
+  closeLabel?: string;
+  resizeLabel?: string;
+  resizeTitle?: string;
   panelClassName?: string;
   bodyClassName?: string;
 }
@@ -55,6 +59,9 @@ export function SideDrawer({
   headerActions,
   footer,
   closeOnOverlayClick = true,
+  closeLabel = messages[DEFAULT_LOCALE].app.close,
+  resizeLabel = messages[DEFAULT_LOCALE].app.resizeDrawer,
+  resizeTitle = messages[DEFAULT_LOCALE].app.dragResize,
   panelClassName = '',
   bodyClassName = '',
 }: SideDrawerProps) {
@@ -159,9 +166,9 @@ export function SideDrawer({
             setDrawerWidth(nextWidth);
             window.localStorage.setItem(DRAWER_WIDTH_STORAGE_KEY, String(nextWidth));
           }}
-          aria-label="调整抽屉宽度"
+          aria-label={resizeLabel}
           role="separator"
-          title="拖动调整宽度"
+          title={resizeTitle}
         />
 
         {header ?? (
@@ -171,7 +178,7 @@ export function SideDrawer({
               {headerActions}
               <IconButton
                 icon="close"
-                label="关闭"
+                label={closeLabel}
                 onClick={onClose}
                 size="sm"
                 variant="ghost"

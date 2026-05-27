@@ -27,12 +27,12 @@ describe('WelcomeScreen', () => {
 
     const markup = renderToStaticMarkup(<WelcomeScreen />);
 
-    expect(markup).toContain('高效管理');
-    expect(markup).toContain('你的个人 Prompt 管理工具');
-    expect(markup).toContain('选择数据目录');
-    expect(markup).toContain('本地存储');
-    expect(markup).toContain('快速访问');
-    expect(markup).toContain('Markdown 支持');
+    expect(markup).toContain('Manage faster');
+    expect(markup).toContain('Your personal prompt manager');
+    expect(markup).toContain('Choose data folder');
+    expect(markup).toContain('Local storage');
+    expect(markup).toContain('Fast access');
+    expect(markup).toContain('Markdown support');
   });
 
   it('uses compact feature cards on the landing page', () => {
@@ -52,11 +52,11 @@ describe('WelcomeScreen', () => {
     const markup = renderToStaticMarkup(<WelcomeScreen />);
 
     // Landing page content is still shown
-    expect(markup).toContain('选择数据目录');
-    expect(markup).toContain('高效管理');
+    expect(markup).toContain('Choose data folder');
+    expect(markup).toContain('Manage faster');
 
     // Warning banner appears
-    expect(markup).toContain('浏览器不支持');
+    expect(markup).toContain('browser is not supported');
 
     // Button is disabled
     expect(markup).toContain('disabled');

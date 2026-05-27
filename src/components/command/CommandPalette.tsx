@@ -3,6 +3,7 @@
  */
 
 import { useState, useEffect, useRef, useMemo } from 'react';
+import { messages, useTranslation, type Locale } from '@/i18n';
 import { useUIStore } from '@/stores/uiStore';
 import { usePromptStore } from '@/stores/promptStore';
 import { Overlay } from '@/components/common';
@@ -18,12 +19,15 @@ interface Command {
 
 export function createBaseCommands(
   closeCommandPalette: () => void,
-  openModal: ReturnType<typeof useUIStore.getState>['openModal']
+  openModal: ReturnType<typeof useUIStore.getState>['openModal'],
+  locale: Locale = 'zh-CN'
 ): Command[] {
+  const t = messages[locale];
+
   return [
     {
       id: 'new-prompt',
-      label: '新建 Prompt',
+      label: t.app.commandNewPrompt,
       icon: 'add',
       action: () => {
         closeCommandPalette();
@@ -34,7 +38,7 @@ export function createBaseCommands(
     },
     {
       id: 'search',
-      label: '搜索 Prompts',
+      label: t.app.commandSearchPrompts,
       icon: 'search',
       action: () => {
         closeCommandPalette();
@@ -44,7 +48,7 @@ export function createBaseCommands(
     },
     {
       id: 'export',
-      label: '导出 Prompts',
+      label: t.app.exportTitle,
       icon: 'download',
       action: () => {
         closeCommandPalette();
@@ -54,7 +58,7 @@ export function createBaseCommands(
     },
     {
       id: 'settings',
-      label: '设置',
+      label: t.settings.title,
       icon: 'settings',
       action: () => {
         closeCommandPalette();
@@ -66,6 +70,7 @@ export function createBaseCommands(
 }
 
 export function CommandPalette() {
+  const { locale, t } = useTranslation();
   const { isCommandPaletteOpen, closeCommandPalette, openModal } = useUIStore();
   const { prompts } = usePromptStore();
   const [query, setQuery] = useState('');
@@ -74,8 +79,8 @@ export function CommandPalette() {
 
   // 基础命令
   const baseCommands: Command[] = useMemo(
-    () => createBaseCommands(closeCommandPalette, openModal),
-    [closeCommandPalette, openModal]
+    () => createBaseCommands(closeCommandPalette, openModal, locale),
+    [closeCommandPalette, locale, openModal]
   );
 
   const promptCommands = useMemo(() => {
@@ -116,7 +121,7 @@ export function CommandPalette() {
 
     return {
       id: 'full-text-search',
-      label: `全文搜索「${trimmedQuery}」`,
+      label: t.app.fullTextSearch(trimmedQuery),
       icon: 'manage_search',
       action: () => {
         closeCommandPalette();
@@ -124,7 +129,7 @@ export function CommandPalette() {
       },
       category: 'search',
     };
-  }, [closeCommandPalette, filteredCommands.length, trimmedQuery]);
+  }, [closeCommandPalette, filteredCommands.length, t.app, trimmedQuery]);
 
   const visibleCommands = useMemo(
     () => (fullTextSearchCommand ? [fullTextSearchCommand] : filteredCommands),
@@ -216,7 +221,7 @@ export function CommandPalette() {
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="输入命令或搜索..."
+              placeholder={t.app.commandInputPlaceholder}
               className="flex-1 py-4 text-sm text-fg placeholder:text-muted focus:outline-none"
             />
             {query && (
@@ -235,7 +240,7 @@ export function CommandPalette() {
           <div className="max-h-80 overflow-y-auto py-2">
             {visibleCommands.length === 0 ? (
               <div className="px-4 py-8 text-center text-muted">
-                未找到匹配的命令
+                {t.app.commandNoMatches}
               </div>
             ) : (
               <>
@@ -243,7 +248,7 @@ export function CommandPalette() {
                 {actionCommands.length > 0 && (
                   <div className="mb-2">
                     <div className="px-4 py-1 text-xs font-semibold text-muted uppercase">
-                      操作
+                      {t.app.commandActionGroup}
                     </div>
                     {actionCommands.map((cmd, index) => (
                       <button
@@ -278,7 +283,7 @@ export function CommandPalette() {
                 {titleCommands.length > 0 && (
                   <div>
                     <div className="px-4 py-1 text-xs font-semibold text-muted uppercase">
-                      {query.trim() ? '标题' : '最近使用'}
+                      {query.trim() ? t.app.commandTitleGroup : t.app.commandRecentGroup}
                     </div>
                     {titleCommands.map((cmd, index) => (
                       <button
@@ -310,7 +315,7 @@ export function CommandPalette() {
                 {searchCommands.length > 0 && (
                   <div>
                     <div className="px-4 py-1 text-xs font-semibold text-muted uppercase">
-                      搜索
+                      {t.app.commandSearchGroup}
                     </div>
                     {searchCommands.map((cmd, index) => (
                       <button
@@ -343,15 +348,15 @@ export function CommandPalette() {
           <div className="px-4 py-2 border-t border-border flex items-center gap-4 text-xs text-muted">
             <span className="flex items-center gap-1">
               <kbd className="px-1.5 py-0.5 bg-surface-dim rounded">↑↓</kbd>
-              导航
+              {t.app.navigate}
             </span>
             <span className="flex items-center gap-1">
               <kbd className="px-1.5 py-0.5 bg-surface-dim rounded">Enter</kbd>
-              选择
+              {t.app.selectCommand}
             </span>
             <span className="flex items-center gap-1">
               <kbd className="px-1.5 py-0.5 bg-surface-dim rounded">Esc</kbd>
-              关闭
+              {t.app.closeCommand}
             </span>
           </div>
         </div>

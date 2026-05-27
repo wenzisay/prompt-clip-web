@@ -3,6 +3,7 @@
  */
 
 import { useTagStore } from '@/stores/tagStore';
+import { useTranslation } from '@/i18n';
 import { usePromptStore } from '@/stores/promptStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useFileStore } from '@/stores/fileStore';
@@ -33,6 +34,7 @@ function TreeNode({
   onSetActiveScope,
   onToggleExpand,
 }: TreeNodeProps) {
+  const { t } = useTranslation();
   const {
     pinnedTags,
     togglePin,
@@ -77,7 +79,7 @@ function TreeNode({
     event.stopPropagation();
     if (!workspace || isBusy) return;
 
-    const input = window.prompt('输入新的标签路径', `#${node.name}`);
+    const input = window.prompt(t.app.renameTagPrompt, `#${node.name}`);
     const nextTag = TagService.normalizeTagPath(input || '');
     if (!nextTag || nextTag === node.name) {
       setIsMenuOpen(false);
@@ -117,7 +119,7 @@ function TreeNode({
     event.stopPropagation();
     if (!workspace || isBusy) return;
 
-    const confirmed = window.confirm(`确定要从相关 Prompt 中移除标签 #${node.name} 吗？`);
+    const confirmed = window.confirm(t.app.removeTagConfirm(node.name));
     if (!confirmed) {
       setIsMenuOpen(false);
       return;
@@ -243,8 +245,8 @@ function TreeNode({
             }}
             disabled={isBusy}
             className="w-6 h-6 inline-flex items-center justify-center rounded-md text-muted opacity-0 group-hover:opacity-100 hover:bg-surface-high transition disabled:opacity-40"
-            aria-label="标签操作"
-            title="标签操作"
+            aria-label={t.app.tagActions}
+            title={t.app.tagActions}
           >
             <span className="material-symbols-outlined text-base">
               more_horiz
@@ -264,7 +266,7 @@ function TreeNode({
                 <span className="material-symbols-outlined text-lg">
                   {isPinned ? 'keep_off' : 'push_pin'}
                 </span>
-                {isPinned ? '取消置顶' : '置顶'}
+                {isPinned ? t.app.unpin : t.app.pin}
               </button>
               <button
                 type="button"
@@ -273,7 +275,7 @@ function TreeNode({
                 className="w-full px-3 py-2 text-left text-sm text-fg hover:bg-surface-dim transition-colors flex items-center gap-2 disabled:opacity-50"
               >
                 <span className="material-symbols-outlined text-lg">edit</span>
-                重命名
+                {t.app.rename}
               </button>
               <button
                 type="button"
@@ -282,7 +284,7 @@ function TreeNode({
                 className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2 disabled:opacity-50"
               >
                 <span className="material-symbols-outlined text-lg">delete</span>
-                删除标签
+                {t.app.deleteTag}
               </button>
             </div>
           )}
@@ -312,6 +314,7 @@ function TreeNode({
 }
 
 export function TagTree() {
+  const { t } = useTranslation();
   const { tagTree, pinnedTags } = useTagStore();
   const { filter } = usePromptStore();
   const [pinnedExpandedNames, setPinnedExpandedNames] = useState<Set<string>>(new Set());
@@ -351,7 +354,7 @@ export function TagTree() {
               push_pin
             </span>
             <span className="text-xs font-semibold text-muted uppercase">
-              置顶标签
+              {t.app.pinnedTags}
             </span>
           </div>
           {pinnedNodes.map((node) => (
@@ -379,7 +382,7 @@ export function TagTree() {
                 folder
               </span>
               <span className="text-xs font-semibold text-muted uppercase">
-                全部标签
+                {t.app.allTags}
               </span>
             </div>
           )}
@@ -401,7 +404,7 @@ export function TagTree() {
       {/* 空状态 */}
       {tagTree.length === 0 && (
         <div className="py-4 text-center text-muted text-sm">
-          暂无标签
+          {t.app.noTags}
         </div>
       )}
     </div>

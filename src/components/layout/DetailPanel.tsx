@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { messages, useTranslation, type Locale } from '@/i18n';
 import { useUIStore } from '@/stores/uiStore';
 import { usePromptStore } from '@/stores/promptStore';
 import { useFileStore } from '@/stores/fileStore';
@@ -16,6 +17,7 @@ import { PromptService } from '@/services/promptService';
 import { fileRepository } from '@/services/fileRepository';
 
 export function DetailPanel() {
+  const { locale, t } = useTranslation();
   const { isDetailOpen, selectedPromptId, toggleDetail, openModal } = useUIStore();
   const { prompts, updatePrompt } = usePromptStore();
   const { workspace } = useFileStore();
@@ -61,10 +63,13 @@ export function DetailPanel() {
     return (
       <SideDrawer
         isOpen={isDetailOpen}
-        title="详情面板"
+        title={t.app.detailPanel}
         onClose={() => toggleDetail(false)}
+        closeLabel={t.app.close}
+        resizeLabel={t.app.resizeDrawer}
+        resizeTitle={t.app.dragResize}
       >
-        <p className="text-muted">未选择 Prompt</p>
+        <p className="text-muted">{t.app.noPromptSelected}</p>
       </SideDrawer>
     );
   }
@@ -76,14 +81,17 @@ export function DetailPanel() {
         title={selectedPrompt.title}
         onClose={() => toggleDetail(false)}
         bodyClassName="p-0"
+        closeLabel={t.app.close}
+        resizeLabel={t.app.resizeDrawer}
+        resizeTitle={t.app.dragResize}
         header={
           <div className="h-14 shrink-0 flex items-center justify-between border-b border-border px-4">
             <button
               type="button"
               onClick={() => toggleDetail(false)}
               className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-dim hover:text-fg"
-              aria-label="关闭"
-              title="关闭"
+              aria-label={t.app.close}
+              title={t.app.close}
             >
               <span className="material-symbols-outlined text-2xl">close</span>
             </button>
@@ -94,7 +102,7 @@ export function DetailPanel() {
                 className="inline-flex h-9 items-center gap-2 rounded-lg border border-gray-200 bg-surface px-3 text-sm font-medium text-fg shadow-card transition-colors hover:bg-surface-dim"
               >
                 <span className="material-symbols-outlined text-xl">edit</span>
-                编辑
+                {t.app.edit}
               </button>
               <button
                 onClick={handleCopy}
@@ -103,7 +111,7 @@ export function DetailPanel() {
                 <span className="material-symbols-outlined text-xl">
                   {copied ? 'check' : 'content_copy'}
                 </span>
-                {copied ? '已复制' : '复制'}
+                {copied ? t.app.copied : t.app.copy}
               </button>
             </div>
           </div>
@@ -135,18 +143,18 @@ export function DetailPanel() {
           <div className="mb-6 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border pb-5 text-xs leading-none text-muted">
             <span className="inline-flex items-center gap-1.5">
               <span className="material-symbols-outlined text-lg">description</span>
-              {countChars(selectedPrompt.content)} 字符
+              {t.app.characterCount(countChars(selectedPrompt.content))}
             </span>
             <span className="inline-flex items-center gap-1.5">
               <span className="material-symbols-outlined text-lg">schedule</span>
-              使用 {selectedPrompt.copyCount} 次
+              {t.app.usageCount(selectedPrompt.copyCount)}
             </span>
             <button
               type="button"
               onClick={handleTogglePin}
               className="inline-flex items-center gap-1.5 rounded-md transition-colors hover:text-fg"
-              aria-label={selectedPrompt.pinned ? '取消收藏' : '收藏'}
-              title={selectedPrompt.pinned ? '取消收藏' : '收藏'}
+              aria-label={selectedPrompt.pinned ? t.app.unfavorite : t.app.favorite}
+              title={selectedPrompt.pinned ? t.app.unfavorite : t.app.favorite}
             >
               <span
                 className={`
@@ -156,16 +164,18 @@ export function DetailPanel() {
               >
                 {selectedPrompt.pinned ? 'star' : 'star_border'}
               </span>
-              {selectedPrompt.pinned ? '已收藏' : '未收藏'}
+              {selectedPrompt.pinned ? t.app.favorited : t.app.notFavorited}
             </button>
             <HistoryAction
               isHistoryEnabled={isHistoryEnabled}
+              locale={locale}
               onOpen={() => setIsHistoryOpen(true)}
             />
           </div>
 
           <PromptContentView
             content={selectedPrompt.content}
+            locale={locale}
             mode={contentMode}
             onModeChange={setContentMode}
           />
@@ -183,10 +193,17 @@ export function DetailPanel() {
 
 interface HistoryActionProps {
   isHistoryEnabled: boolean;
+  locale?: Locale;
   onOpen: () => void;
 }
 
-export function HistoryAction({ isHistoryEnabled, onOpen }: HistoryActionProps) {
+export function HistoryAction({
+  isHistoryEnabled,
+  locale = 'zh-CN',
+  onOpen,
+}: HistoryActionProps) {
+  const t = messages[locale];
+
   if (!isHistoryEnabled) {
     return null;
   }
@@ -196,27 +213,35 @@ export function HistoryAction({ isHistoryEnabled, onOpen }: HistoryActionProps) 
       type="button"
       onClick={onOpen}
       className="inline-flex items-center gap-1.5 rounded-md transition-colors hover:text-fg"
-      aria-label="查看历史版本"
-      title="查看历史版本"
+      aria-label={t.app.viewHistory}
+      title={t.app.viewHistory}
     >
       <span className="material-symbols-outlined text-lg">history</span>
-      历史版本
+      {t.app.historyVersions}
     </button>
   );
 }
 
 interface PromptContentViewProps {
   content: string;
+  locale?: Locale;
   mode: MarkdownViewMode;
   onModeChange: (mode: MarkdownViewMode) => void;
 }
 
-export function PromptContentView({ content, mode, onModeChange }: PromptContentViewProps) {
+export function PromptContentView({
+  content,
+  locale = 'zh-CN',
+  mode,
+  onModeChange,
+}: PromptContentViewProps) {
+  const t = messages[locale];
+
   return (
     <>
       <div className="mb-4 flex items-center justify-between gap-3">
-        <h2 className="text-sm font-medium text-fg">内容</h2>
-        <MarkdownModeToggle mode={mode} onModeChange={onModeChange} />
+        <h2 className="text-sm font-medium text-fg">{t.app.content}</h2>
+        <MarkdownModeToggle locale={locale} mode={mode} onModeChange={onModeChange} />
       </div>
 
       {mode === 'text' ? (

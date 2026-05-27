@@ -6,7 +6,7 @@ describe('TopBar command palette shortcut label', () => {
     expect(getCommandPaletteShortcutKeyParts('MacIntel')).toEqual({
       modifier: '⌘',
       key: 'K',
-      ariaLabel: '快速切换 Command K',
+      shortcut: 'Command K',
     });
   });
 
@@ -14,7 +14,7 @@ describe('TopBar command palette shortcut label', () => {
     expect(getCommandPaletteShortcutKeyParts('Win32')).toEqual({
       modifier: 'Ctrl',
       key: 'K',
-      ariaLabel: '快速切换 Ctrl K',
+      shortcut: 'Ctrl K',
     });
   });
 });

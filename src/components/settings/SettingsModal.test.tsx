@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
+import type { Locale } from '@/i18n';
 import { SettingsModalContent } from './SettingsModal';
 
 describe('SettingsModal', () => {
@@ -15,10 +16,12 @@ describe('SettingsModal', () => {
         isSaveDisabled={false}
         isSaving={false}
         onCancel={noop}
+        onChangeLocale={noop}
         onChangeHistorySettings={noop}
         onReset={noop}
         onSave={noop}
         onSelectTab={noop}
+        locale="zh-CN"
       />
     );
 
@@ -26,6 +29,9 @@ describe('SettingsModal', () => {
     expect(markup).toContain('关于');
     expect(markup).toContain('历史版本');
     expect(markup).toContain('文件夹维护');
+    expect(markup).toContain('语言');
+    expect(markup).toContain('value="zh-CN" selected=""');
+    expect(markup).toContain('value="en-US"');
     expect(markup).toContain('扫描元数据');
     expect(markup).toContain('默认关闭');
     expect(markup).toContain('role="switch"');
@@ -60,12 +66,14 @@ describe('SettingsModal', () => {
           ],
         }}
         onCancel={noop}
+        onChangeLocale={noop}
         onChangeHistorySettings={noop}
         onRepairMetadata={noop}
         onReset={noop}
         onSave={noop}
         onScanMetadata={noop}
         onSelectTab={noop}
+        locale="zh-CN"
       />
     );
 
@@ -101,12 +109,14 @@ describe('SettingsModal', () => {
           issues,
         }}
         onCancel={noop}
+        onChangeLocale={noop}
         onChangeHistorySettings={noop}
         onRepairMetadata={noop}
         onReset={noop}
         onSave={noop}
         onScanMetadata={noop}
         onSelectTab={noop}
+        locale="zh-CN"
       />
     );
 
@@ -128,15 +138,48 @@ describe('SettingsModal', () => {
         isSaveDisabled={false}
         isSaving={false}
         onCancel={noop}
+        onChangeLocale={noop}
         onChangeHistorySettings={noop}
         onReset={noop}
         onSave={noop}
         onSelectTab={noop}
+        locale="zh-CN"
       />
     );
 
     expect(markup).toContain('关于 PromptClip');
     expect(markup).toContain('本地优先');
     expect(markup).toContain('.promptclip.json');
+  });
+
+  it('renders settings in English', () => {
+    const noop = vi.fn();
+    const markup = renderToStaticMarkup(
+      <SettingsModalContent
+        activeTab="general"
+        historySettings={{
+          enabled: false,
+          retentionDays: 30,
+        }}
+        isSaveDisabled={false}
+        isSaving={false}
+        onCancel={noop}
+        onChangeLocale={noop}
+        onChangeHistorySettings={noop}
+        onReset={noop}
+        onSave={noop}
+        onSelectTab={noop}
+        locale={'en-US' satisfies Locale}
+      />
+    );
+
+    expect(markup).toContain('General');
+    expect(markup).toContain('About');
+    expect(markup).toContain('Language');
+    expect(markup).toContain('History versions');
+    expect(markup).toContain('Folder maintenance');
+    expect(markup).toContain('Scan metadata');
+    expect(markup).toContain('Save settings');
+    expect(markup).not.toContain('通用设置');
   });
 });

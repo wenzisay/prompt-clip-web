@@ -3,6 +3,7 @@
  */
 
 import { usePromptStore } from '@/stores/promptStore';
+import { useTranslation } from '@/i18n';
 import { useUIStore } from '@/stores/uiStore';
 import { useFileStore } from '@/stores/fileStore';
 import { PromptCard } from './PromptCard';
@@ -17,6 +18,7 @@ interface PromptGridProps {
 }
 
 export function PromptGrid({ isLoading = false }: PromptGridProps) {
+  const { t } = useTranslation();
   const { filteredPrompts, deletePrompt } = usePromptStore();
   const { selectedPromptIds, toggleSelectAll, clearSelection, openModal } = useUIStore();
   const { workspace } = useFileStore();
@@ -24,7 +26,7 @@ export function PromptGrid({ isLoading = false }: PromptGridProps) {
 
   const handleBatchDelete = async () => {
     if (!workspace || selectedPromptIds.length === 0) return;
-    const confirmed = window.confirm(`确定要将 ${selectedPromptIds.length} 个 Prompt 移动到 .trash 吗？`);
+    const confirmed = window.confirm(t.app.batchDeleteConfirm(selectedPromptIds.length));
     if (!confirmed) return;
 
     const selectedSet = new Set(selectedPromptIds);
@@ -56,9 +58,9 @@ export function PromptGrid({ isLoading = false }: PromptGridProps) {
           <span className="material-symbols-outlined text-6xl text-muted-light mb-4">
             search_off
           </span>
-          <h3 className="text-lg font-medium text-fg mb-2">没有找到 Prompts</h3>
+          <h3 className="text-lg font-medium text-fg mb-2">{t.app.noPromptsFound}</h3>
           <p className="text-muted text-sm max-w-md">
-            尝试调整搜索条件或创建一个新的 Prompt
+            {t.app.emptyPromptHint}
           </p>
         </div>
       </div>
@@ -73,15 +75,15 @@ export function PromptGrid({ isLoading = false }: PromptGridProps) {
       {selectedCount > 0 && (
         <div className="sticky top-0 z-10 bg-surface border border-border rounded-card shadow-card px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3 text-sm">
-            <span className="font-medium text-fg">已选择 {selectedCount} 个</span>
+            <span className="font-medium text-fg">{t.app.selectedCount(selectedCount)}</span>
             <button
               onClick={() => toggleSelectAll(filteredPrompts.map((prompt) => prompt.id))}
               className="text-accent hover:underline"
             >
-              全选/取消全选
+              {t.app.toggleSelectAll}
             </button>
             <button onClick={clearSelection} className="text-muted hover:text-fg">
-              清除
+              {t.app.clear}
             </button>
           </div>
           <div className="flex items-center gap-2">
@@ -90,14 +92,14 @@ export function PromptGrid({ isLoading = false }: PromptGridProps) {
               className="px-3 py-1.5 text-sm text-fg rounded-lg hover:bg-surface-dim transition-colors flex items-center gap-1"
             >
               <span className="material-symbols-outlined text-lg">download</span>
-              导出
+              {t.app.export}
             </button>
             <button
               onClick={handleBatchDelete}
               className="px-3 py-1.5 text-sm text-white bg-red-600 rounded-lg hover:opacity-90 transition-colors flex items-center gap-1"
             >
               <span className="material-symbols-outlined text-lg">delete</span>
-              删除
+              {t.app.delete}
             </button>
           </div>
         </div>

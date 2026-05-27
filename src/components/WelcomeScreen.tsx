@@ -5,30 +5,31 @@
  */
 
 import { useDirectoryPicker } from '@/hooks/useDirectoryPicker';
-
-const featureCards = [
-  {
-    icon: 'lock',
-    title: '本地存储',
-    description: ['数据完全存储在本地设备', '隐私安全，完全掌控'],
-    iconClass: 'bg-[#edf0ff] text-[#2f55f6]',
-  },
-  {
-    icon: 'bolt',
-    title: '快速访问',
-    description: ['高效搜索与快速切换', '让你的创作流程更顺畅'],
-    iconClass: 'bg-[#f3e4ff] text-[#8f39eb]',
-  },
-  {
-    icon: 'description',
-    title: 'Markdown 支持',
-    description: ['完美兼容 Markdown 格式', '编写与预览体验更佳'],
-    iconClass: 'bg-[#fff0e9] text-[#f36b18]',
-  },
-];
+import { useTranslation } from '@/i18n';
 
 export function WelcomeScreen() {
+  const { t } = useTranslation();
   const { isSupported, isLoading, error, openDirectory } = useDirectoryPicker();
+  const featureCards = [
+    {
+      icon: 'lock',
+      title: t.app.featureLocalTitle,
+      description: t.app.featureLocalDescription,
+      iconClass: 'bg-[#edf0ff] text-[#2f55f6]',
+    },
+    {
+      icon: 'bolt',
+      title: t.app.featureFastTitle,
+      description: t.app.featureFastDescription,
+      iconClass: 'bg-[#f3e4ff] text-[#8f39eb]',
+    },
+    {
+      icon: 'description',
+      title: t.app.featureMarkdownTitle,
+      description: t.app.featureMarkdownDescription,
+      iconClass: 'bg-[#fff0e9] text-[#f36b18]',
+    },
+  ];
 
   return (
     <div className="relative min-h-screen w-screen overflow-hidden bg-[#f7f9ff] text-[#090f32]">
@@ -43,27 +44,27 @@ export function WelcomeScreen() {
               <span className="material-symbols-outlined text-[21px]">
                 integration_instructions
               </span>
-              <span>高效管理</span>
+              <span>{t.app.welcomeBadgeOne}</span>
               <span className="text-[#4d6dff]">·</span>
-              <span>智能组织</span>
+              <span>{t.app.welcomeBadgeTwo}</span>
               <span className="text-[#4d6dff]">·</span>
-              <span>随时调用</span>
+              <span>{t.app.welcomeBadgeThree}</span>
             </div>
 
             <h1 className="mb-3 font-display text-[clamp(3.75rem,7vw,5.4rem)] font-black leading-[0.98] tracking-[0]">
               Prompt<span className="bg-gradient-to-r from-[#2554f4] via-[#5d69ff] to-[#a43cff] bg-clip-text text-transparent">Clip</span>
             </h1>
             <p className="mb-7 text-[clamp(1.7rem,3vw,2.25rem)] font-bold tracking-[0] text-[#617097]">
-              你的个人 Prompt 管理工具
+              {t.app.welcomeSubtitle}
             </p>
             <p className="mb-9 max-w-[485px] text-[1.06rem] leading-8 text-[#6a779c]">
-              集中管理你的灵感与提示词，结构化组织、快速检索。
+              {t.app.welcomeDescription}
             </p>
 
             {!isSupported && (
               <div className="mb-4 max-w-[425px] rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                <strong>当前浏览器不支持</strong> 读写本地文件。请使用
-                Chrome 或 Edge 86+ 访问。
+                <strong>{t.app.unsupportedBrowserTitle}</strong>{' '}
+                {t.app.unsupportedBrowserDescription}
               </div>
             )}
 
@@ -82,14 +83,14 @@ export function WelcomeScreen() {
                 <span className={`material-symbols-outlined text-[30px] ${isLoading ? 'animate-spin' : ''}`}>
                   {isLoading ? 'refresh' : 'folder_open'}
                 </span>
-                <span>{isLoading ? '加载中...' : '选择数据目录'}</span>
+                <span>{isLoading ? t.app.loading : t.app.chooseDataDirectory}</span>
               </span>
               <span className="material-symbols-outlined text-[28px] transition group-hover:translate-x-1">
                 arrow_forward
               </span>
             </button>
             <p className="mt-5 text-[0.96rem] font-medium text-[#6d789b]">
-              所有数据仅存储在本地，不会上传到任何服务器
+              {t.app.localOnlyNote}
             </p>
           </div>
 

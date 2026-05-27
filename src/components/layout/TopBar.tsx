@@ -6,12 +6,13 @@ import { useFileStore } from '@/stores/fileStore';
 import { useUIStore } from '@/stores/uiStore';
 import { usePromptStore } from '@/stores/promptStore';
 import { IconButton } from '@/components/common';
+import { useTranslation } from '@/i18n';
 import { useEffect, useState } from 'react';
 
 interface ShortcutKeyParts {
   modifier: string;
   key: string;
-  ariaLabel: string;
+  shortcut: string;
 }
 
 export function getCommandPaletteShortcutKeyParts(platform: string): ShortcutKeyParts {
@@ -21,11 +22,12 @@ export function getCommandPaletteShortcutKeyParts(platform: string): ShortcutKey
   return {
     modifier,
     key: 'K',
-    ariaLabel: isMac ? '快速切换 Command K' : '快速切换 Ctrl K',
+    shortcut: isMac ? 'Command K' : 'Ctrl K',
   };
 }
 
 export function TopBar() {
+  const { t } = useTranslation();
   const { workspaceName } = useFileStore();
   const { openCommandPalette, openModal } = useUIStore();
   const { filteredPrompts, filter } = usePromptStore();
@@ -54,14 +56,14 @@ export function TopBar() {
         <div className="flex items-center gap-2 text-muted">
           <span className="material-symbols-outlined text-lg">folder</span>
           <span className="text-sm truncate max-w-[200px]">
-            {workspaceName || '未选择目录'}
+            {workspaceName || t.app.noWorkspace}
           </span>
         </div>
 
         {/* 结果计数 */}
         {filter.searchQuery && (
           <span className="text-sm text-muted">
-            找到 {filteredPrompts.length} 个结果
+            {t.app.searchResultCount(filteredPrompts.length)}
           </span>
         )}
       </div>
@@ -76,16 +78,16 @@ export function TopBar() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="快速搜索"
+            placeholder={t.app.searchPlaceholder}
             className="h-full w-full rounded-xl bg-transparent pl-12 pr-12 text-sm text-fg outline-none placeholder:text-muted sm:pr-36"
           />
           <button
             type="button"
             onClick={openCommandPalette}
-            aria-label={shortcutKeyParts.ariaLabel}
+            aria-label={t.app.quickSwitchAria(shortcutKeyParts.shortcut)}
             className="absolute right-3 top-1/2 hidden -translate-y-1/2 rounded-lg border border-[rgba(113,119,134,0.12)] bg-surface-dim px-2 py-1 text-xs font-medium leading-none text-muted transition-colors hover:bg-surface-high hover:text-fg focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 sm:flex sm:items-center sm:gap-2"
           >
-            <span>快速切换</span>
+            <span>{t.app.quickSwitch}</span>
             <span className="flex items-center gap-1.5">
               <kbd className="min-w-6 rounded-md border border-[rgba(113,119,134,0.14)] bg-surface px-1.5 py-0.5 text-center font-mono text-[12px] font-medium leading-none">
                 {shortcutKeyParts.modifier}
@@ -102,7 +104,7 @@ export function TopBar() {
             <button
               onClick={() => setSearchQuery('')}
               className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 transition-colors hover:bg-surface-high sm:right-36"
-              aria-label="清空搜索"
+              aria-label={t.app.clearSearch}
             >
               <span className="material-symbols-outlined text-lg text-muted">
                 close
@@ -116,14 +118,14 @@ export function TopBar() {
       <div className="ml-auto flex items-center gap-2 shrink-0">
         <IconButton
           icon="download"
-          label="导出 Prompts"
+          label={t.app.exportPrompts}
           onClick={() => openModal('export')}
           variant="ghost"
           size="sm"
         />
         <IconButton
           icon="add"
-          label="新建 Prompt (Cmd+N)"
+          label={t.app.createPrompt}
           onClick={() => openModal('create')}
           variant="primary"
           size="sm"

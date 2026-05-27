@@ -3,6 +3,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { useTranslation } from '@/i18n';
 import { useUIStore } from '@/stores/uiStore';
 import { usePromptStore } from '@/stores/promptStore';
 import { useFileStore } from '@/stores/fileStore';
@@ -21,6 +22,7 @@ interface CreateModalProps {
 }
 
 export function CreateModal({ editingPromptId }: CreateModalProps) {
+  const { locale, t } = useTranslation();
   const { modalType, closeModal, setSelectedPrompt } = useUIStore();
   const { addPrompt, updatePrompt, deletePrompt, prompts, filter } = usePromptStore();
   const { workspace } = useFileStore();
@@ -67,7 +69,7 @@ export function CreateModal({ editingPromptId }: CreateModalProps) {
 
     // 验证
     if (!title.trim()) {
-      setError('请输入标题');
+      setError(t.app.enterTitle);
       return;
     }
 
@@ -78,12 +80,12 @@ export function CreateModal({ editingPromptId }: CreateModalProps) {
     }
 
     if (!content.trim()) {
-      setError('请输入内容');
+      setError(t.app.enterContent);
       return;
     }
 
     if (!workspace) {
-      setError('未选择目录');
+      setError(t.app.noWorkspace);
       return;
     }
 
@@ -137,8 +139,11 @@ export function CreateModal({ editingPromptId }: CreateModalProps) {
     <SideDrawer
       isOpen={isOpen}
       onClose={handleClose}
-      title={editingPromptId ? '编辑 Prompt' : '新建 Prompt'}
+      title={editingPromptId ? t.app.editPrompt : t.app.createPromptTitle}
       closeOnOverlayClick={!isSaving}
+      closeLabel={t.app.close}
+      resizeLabel={t.app.resizeDrawer}
+      resizeTitle={t.app.dragResize}
       footer={
         <>
           <button
@@ -146,7 +151,7 @@ export function CreateModal({ editingPromptId }: CreateModalProps) {
             disabled={isSaving}
             className="px-4 py-2 text-sm font-medium text-fg rounded-lg hover:bg-surface-dim transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            取消
+            {t.common.cancel}
           </button>
           <button
             onClick={handleSave}
@@ -158,10 +163,10 @@ export function CreateModal({ editingPromptId }: CreateModalProps) {
                 <span className="material-symbols-outlined text-lg animate-spin">
                   refresh
                 </span>
-                保存中...
+                {t.app.saving}
               </>
             ) : (
-              editingPromptId ? '保存' : '创建'
+              editingPromptId ? t.app.save : t.app.create
             )}
           </button>
         </>
@@ -179,7 +184,7 @@ export function CreateModal({ editingPromptId }: CreateModalProps) {
         {/* 标题 */}
         <div>
           <label htmlFor="prompt-title" className="block text-sm font-medium text-fg mb-1">
-            标题 <span className="text-red-500">*</span>
+            {t.app.title} <span className="text-red-500">*</span>
           </label>
           <input
             id="prompt-title"
@@ -189,7 +194,7 @@ export function CreateModal({ editingPromptId }: CreateModalProps) {
               setTitle(e.target.value);
               if (error) setError(null);
             }}
-            placeholder="输入 Prompt 标题..."
+            placeholder={t.app.titlePlaceholder}
             maxLength={120}
             className="w-full px-3 py-2 bg-surface-container rounded-lg text-sm text-fg placeholder:text-muted border border-[var(--border-strong)] shadow-inner focus:border-accent focus:bg-surface focus:ring-2 focus:ring-accent-soft transition-colors focus:outline-none"
             autoFocus
@@ -201,7 +206,7 @@ export function CreateModal({ editingPromptId }: CreateModalProps) {
         {/* 标签 */}
         <div>
           <label className="block text-sm font-medium text-fg mb-1">
-            标签
+            {t.app.tags}
           </label>
           <TagSelect selectedTags={tags} onChange={setTags} />
         </div>
@@ -215,6 +220,7 @@ export function CreateModal({ editingPromptId }: CreateModalProps) {
           mode={editorMode}
           onModeChange={setEditorMode}
           disabled={isSaving}
+          locale={locale}
         />
       </div>
     </SideDrawer>

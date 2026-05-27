@@ -1,11 +1,15 @@
+import { useTranslation } from '@/i18n';
+
 interface MarkdownTextViewProps {
   content: string;
   className?: string;
 }
 
 export function MarkdownTextView({ content, className = '' }: MarkdownTextViewProps) {
+  const { t } = useTranslation();
+
   if (!content) {
-    return <p className="text-muted">暂无内容</p>;
+    return <p className="text-muted">{t.app.noContent}</p>;
   }
 
   return (

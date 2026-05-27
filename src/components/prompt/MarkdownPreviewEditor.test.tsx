@@ -18,6 +18,6 @@ describe('MarkdownPreviewEditor', () => {
       <MarkdownPreviewEditor value="" ariaLabel="Prompt 内容" />
     );
 
-    expect(markup).toContain('暂无内容');
+    expect(markup).toContain('No content');
   });
 });

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from '@/i18n';
 import { useTagStore } from '@/stores/tagStore';
 
 interface TagSelectProps {
@@ -9,6 +10,7 @@ interface TagSelectProps {
 }
 
 export function TagSelect({ selectedTags, onChange }: TagSelectProps) {
+  const { t } = useTranslation();
   const [input, setInput] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -74,8 +76,8 @@ export function TagSelect({ selectedTags, onChange }: TagSelectProps) {
               type="button"
               onClick={() => handleRemoveTag(tag)}
               className="inline-flex h-4 w-4 items-center justify-center rounded-sm opacity-70 transition-opacity hover:opacity-100"
-              aria-label={`移除标签 ${tag}`}
-              title="移除标签"
+              aria-label={t.app.removeTagAria(tag)}
+              title={t.app.removeTag}
             >
               <span className="material-symbols-outlined text-sm">close</span>
             </button>
@@ -89,7 +91,7 @@ export function TagSelect({ selectedTags, onChange }: TagSelectProps) {
             className="inline-flex items-center gap-1 rounded-md border border-dashed border-[var(--border-strong)] px-2.5 py-1 text-sm font-medium text-muted transition-colors hover:border-accent hover:bg-accent-soft hover:text-accent"
           >
             <span className="material-symbols-outlined text-base">add</span>
-            添加
+            {t.app.add}
           </button>
         )}
 
@@ -107,7 +109,7 @@ export function TagSelect({ selectedTags, onChange }: TagSelectProps) {
                 setIsAdding(false);
               }
             }}
-            placeholder="标签名称"
+            placeholder={t.app.tagNamePlaceholder}
             className="h-7 min-w-[120px] flex-1 rounded-md border border-[var(--border-strong)] bg-surface-container px-2 text-sm text-fg placeholder:text-muted shadow-inner transition-colors focus:border-accent focus:bg-surface focus:outline-none focus:ring-2 focus:ring-accent-soft"
           />
         )}

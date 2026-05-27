@@ -4,6 +4,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Modal } from '@/components/common';
+import { useTranslation } from '@/i18n';
 import { usePromptStore } from '@/stores/promptStore';
 import { useUIStore } from '@/stores/uiStore';
 import { ExportService, type ExportFormat } from '@/services/exportService';
@@ -15,6 +16,7 @@ const FORMAT_OPTIONS: Array<{ value: ExportFormat; label: string; icon: string }
 ];
 
 export function ExportModal() {
+  const { t } = useTranslation();
   const { modalType, closeModal, selectedPromptIds } = useUIStore();
   const { prompts, filteredPrompts } = usePromptStore();
   const [format, setFormat] = useState<ExportFormat>('json');
@@ -46,7 +48,7 @@ export function ExportModal() {
     setError(null);
 
     if (exportPrompts.length === 0) {
-      setError('没有可导出的 Prompt');
+      setError(t.app.noExportablePrompts);
       return;
     }
 
@@ -57,14 +59,20 @@ export function ExportModal() {
         closeModal();
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : '导出失败');
+      setError(err instanceof Error ? err.message : t.app.exportFailed);
     } finally {
       setIsExporting(false);
     }
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={closeModal} title="导出 Prompts" maxWidth="md">
+    <Modal
+      isOpen={isOpen}
+      onClose={closeModal}
+      title={t.app.exportTitle}
+      maxWidth="md"
+      closeLabel={t.app.close}
+    >
       <div className="space-y-5">
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 text-sm">
@@ -73,29 +81,29 @@ export function ExportModal() {
         )}
 
         <div>
-          <label className="block text-sm font-medium text-fg mb-2">导出范围</label>
+          <label className="block text-sm font-medium text-fg mb-2">{t.app.exportScope}</label>
           <div className="grid grid-cols-3 gap-2">
             <ScopeButton
               active={scope === 'selected'}
               disabled={!hasSelection}
-              label={`选中 ${selectedPromptIds.length}`}
+              label={t.app.selectedScope(selectedPromptIds.length)}
               onClick={() => setScope('selected')}
             />
             <ScopeButton
               active={scope === 'filtered'}
-              label={`当前筛选 ${filteredPrompts.length}`}
+              label={t.app.filteredScope(filteredPrompts.length)}
               onClick={() => setScope('filtered')}
             />
             <ScopeButton
               active={scope === 'all'}
-              label={`全部 ${prompts.length}`}
+              label={t.app.allScope(prompts.length)}
               onClick={() => setScope('all')}
             />
           </div>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-fg mb-2">导出格式</label>
+          <label className="block text-sm font-medium text-fg mb-2">{t.app.exportFormat}</label>
           <div className="grid grid-cols-3 gap-2">
             {FORMAT_OPTIONS.map((option) => (
               <button
@@ -119,14 +127,14 @@ export function ExportModal() {
         </div>
 
         <div className="flex items-center justify-between pt-2">
-          <span className="text-sm text-muted">将导出 {exportPrompts.length} 个 Prompt</span>
+          <span className="text-sm text-muted">{t.app.exportCount(exportPrompts.length)}</span>
           <div className="flex items-center gap-3">
             <button
               onClick={closeModal}
               disabled={isExporting}
               className="px-4 py-2 text-sm font-medium text-fg rounded-lg hover:bg-surface-dim transition-colors disabled:opacity-50"
             >
-              取消
+              {t.common.cancel}
             </button>
             <button
               onClick={handleExport}
@@ -136,7 +144,7 @@ export function ExportModal() {
               <span className="material-symbols-outlined text-lg">
                 {isExporting ? 'refresh' : 'download'}
               </span>
-              {isExporting ? '导出中...' : '导出'}
+              {isExporting ? t.app.exporting : t.app.export}
             </button>
           </div>
         </div>

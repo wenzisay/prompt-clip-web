@@ -4,6 +4,7 @@
 
 import { useEffect, useState } from 'react';
 import { Button, Modal } from '@/components/common';
+import { LOCALE_OPTIONS, messages, useTranslation, type Locale } from '@/i18n';
 import { fileRepository } from '@/services/fileRepository';
 import {
   FolderConfigService,
@@ -29,8 +30,10 @@ const MAX_METADATA_ISSUE_PREVIEW_COUNT = 1000;
 export function SettingsModal() {
   const { modalType, closeModal, addToast } = useUIStore();
   const { workspace } = useFileStore();
+  const { locale, t } = useTranslation();
   const setPrompts = usePromptStore((state) => state.setPrompts);
   const setTags = useTagStore((state) => state.setTags);
+  const setLocale = useSettingsStore((state) => state.setLocale);
   const setStoredHistorySettings = useSettingsStore((state) => state.setHistorySettings);
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
   const [historySettings, setHistorySettings] = useState<HistoryVersionSettings>(
@@ -87,7 +90,7 @@ export function SettingsModal() {
       setStoredHistorySettings(historySettings);
       addToast({
         type: 'success',
-        message: '设置已保存',
+        message: t.settings.saved,
         duration: 2000,
       });
       closeModal();
@@ -95,7 +98,7 @@ export function SettingsModal() {
       console.warn('Failed to save settings:', error);
       addToast({
         type: 'error',
-        message: '保存设置失败',
+        message: t.settings.saveFailed,
         duration: 3000,
       });
     } finally {
@@ -114,7 +117,7 @@ export function SettingsModal() {
       console.warn('Failed to scan prompt metadata:', error);
       addToast({
         type: 'error',
-        message: '扫描元数据失败',
+        message: t.settings.scanFailed,
         duration: 3000,
       });
     } finally {
@@ -125,10 +128,7 @@ export function SettingsModal() {
   const handleRepairMetadata = async () => {
     if (!workspace || !metadataScanResult || metadataScanResult.repairableFiles === 0) return;
 
-    const confirmed = window.confirm(
-      `将补全 ${metadataScanResult.repairableFiles} 个文件的缺失元数据。` +
-        '已有字段和正文会保留，是否继续？'
-    );
+    const confirmed = window.confirm(t.settings.repairConfirm(metadataScanResult.repairableFiles));
     if (!confirmed) {
       return;
     }
@@ -147,14 +147,14 @@ export function SettingsModal() {
       });
       addToast({
         type: 'success',
-        message: `已补全 ${result.repairedFiles} 个文件`,
+        message: t.settings.repairSucceeded(result.repairedFiles),
         duration: 2500,
       });
     } catch (error) {
       console.warn('Failed to repair prompt metadata:', error);
       addToast({
         type: 'error',
-        message: '补全元数据失败',
+        message: t.settings.repairFailed,
         duration: 3000,
       });
     } finally {
@@ -166,8 +166,9 @@ export function SettingsModal() {
     <Modal
       isOpen={isOpen}
       onClose={closeModal}
-      title="设置"
+      title={t.settings.title}
       maxWidth="3xl"
+      closeLabel={t.app.close}
       className="overflow-hidden"
     >
       <SettingsModalContent
@@ -177,8 +178,10 @@ export function SettingsModal() {
         isSaveDisabled={isSaving || !workspace}
         isSaving={isSaving}
         isScanningMetadata={isScanningMetadata}
+        locale={locale}
         metadataScanResult={metadataScanResult}
         onCancel={closeModal}
+        onChangeLocale={setLocale}
         onChangeHistorySettings={setHistorySettings}
         onRepairMetadata={handleRepairMetadata}
         onReset={() => setHistorySettings(DEFAULT_HISTORY_SETTINGS)}
@@ -197,8 +200,10 @@ interface SettingsModalContentProps {
   isSaveDisabled: boolean;
   isSaving: boolean;
   isScanningMetadata?: boolean;
+  locale: Locale;
   metadataScanResult?: PromptMetadataScanResult | null;
   onCancel: () => void;
+  onChangeLocale: (locale: Locale) => void;
   onChangeHistorySettings: (settings: HistoryVersionSettings) => void;
   onRepairMetadata?: () => void;
   onReset: () => void;
@@ -214,8 +219,10 @@ export function SettingsModalContent({
   isSaveDisabled,
   isSaving,
   isScanningMetadata = false,
+  locale,
   metadataScanResult = null,
   onCancel,
+  onChangeLocale,
   onChangeHistorySettings,
   onRepairMetadata,
   onReset,
@@ -223,19 +230,21 @@ export function SettingsModalContent({
   onScanMetadata,
   onSelectTab,
 }: SettingsModalContentProps) {
+  const t = messages[locale];
+
   return (
     <div className="-mx-6 -my-4 flex min-h-[520px] flex-col">
       <div className="flex flex-1 overflow-hidden">
         <nav className="w-52 shrink-0 border-r border-border bg-surface-dim p-4">
           <SettingsTabButton
             icon="settings"
-            label="通用"
+            label={t.settings.generalTab}
             isActive={activeTab === 'general'}
             onClick={() => onSelectTab('general')}
           />
           <SettingsTabButton
             icon="info"
-            label="关于"
+            label={t.settings.aboutTab}
             isActive={activeTab === 'about'}
             onClick={() => onSelectTab('about')}
           />
@@ -247,27 +256,29 @@ export function SettingsModalContent({
               historySettings={historySettings}
               isRepairingMetadata={isRepairingMetadata}
               isScanningMetadata={isScanningMetadata}
+              locale={locale}
               metadataScanResult={metadataScanResult}
+              onChangeLocale={onChangeLocale}
               onChange={onChangeHistorySettings}
               onRepairMetadata={onRepairMetadata}
               onScanMetadata={onScanMetadata}
             />
           ) : (
-            <AboutSettings />
+            <AboutSettings locale={locale} />
           )}
         </section>
       </div>
 
       <div className="flex items-center justify-between border-t border-border px-6 py-4">
         <Button type="button" variant="secondary" onClick={onReset}>
-          恢复默认设置
+          {t.settings.reset}
         </Button>
         <div className="flex items-center gap-3">
           <Button type="button" variant="secondary" onClick={onCancel}>
-            取消
+            {t.common.cancel}
           </Button>
           <Button type="button" onClick={onSave} disabled={isSaveDisabled}>
-            {isSaving ? '保存中...' : '保存设置'}
+            {isSaving ? t.settings.saving : t.settings.save}
           </Button>
         </div>
       </div>
@@ -303,7 +314,9 @@ interface GeneralSettingsProps {
   historySettings: HistoryVersionSettings;
   isRepairingMetadata: boolean;
   isScanningMetadata: boolean;
+  locale: Locale;
   metadataScanResult: PromptMetadataScanResult | null;
+  onChangeLocale: (locale: Locale) => void;
   onChange: (settings: HistoryVersionSettings) => void;
   onRepairMetadata?: () => void;
   onScanMetadata?: () => void;
@@ -313,11 +326,14 @@ function GeneralSettings({
   historySettings,
   isRepairingMetadata,
   isScanningMetadata,
+  locale,
   metadataScanResult,
+  onChangeLocale,
   onChange,
   onRepairMetadata,
   onScanMetadata,
 }: GeneralSettingsProps) {
+  const t = messages[locale];
   const updateHistorySettings = (settings: Partial<HistoryVersionSettings>) => {
     onChange({
       ...historySettings,
@@ -328,24 +344,50 @@ function GeneralSettings({
   return (
     <div>
       <div className="mb-6">
-        <h3 className="text-lg font-semibold text-fg">通用设置</h3>
-        <p className="mt-1 text-sm text-muted">管理 PromptClip 的通用行为和偏好设置</p>
+        <h3 className="text-lg font-semibold text-fg">{t.settings.generalTitle}</h3>
+        <p className="mt-1 text-sm text-muted">{t.settings.generalDescription}</p>
       </div>
 
       <div className="space-y-4">
         <div className="rounded-lg border border-border bg-surface p-5 shadow-sm">
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0 flex-1">
+              <label className="text-sm font-semibold text-fg" htmlFor="settings-locale">
+                {t.settings.languageTitle}
+              </label>
+              <p className="mt-1 text-sm text-muted">{t.settings.languageDescription}</p>
+            </div>
+            <select
+              id="settings-locale"
+              value={locale}
+              onChange={(event) => onChangeLocale(event.target.value as Locale)}
+              className="
+                h-10 rounded-lg border border-border bg-surface px-3 text-sm text-fg
+                focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20
+              "
+            >
+              {LOCALE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {t.settings[option.labelKey]}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-border bg-surface p-5 shadow-sm">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0 flex-1">
-              <h4 className="text-sm font-semibold text-fg">历史版本</h4>
+              <h4 className="text-sm font-semibold text-fg">{t.settings.historyTitle}</h4>
               <p className="mt-1 text-sm text-muted">
-                默认关闭。启用后，后续版本会在编辑笔记时保留历史快照。
+                {t.settings.historyDescription}
               </p>
             </div>
             <button
               type="button"
               role="switch"
               aria-checked={historySettings.enabled}
-              aria-label="启用历史版本"
+              aria-label={t.settings.historyAriaLabel}
               onClick={() => updateHistorySettings({ enabled: !historySettings.enabled })}
               className={`
                 relative h-7 w-12 shrink-0 rounded-full border transition-colors
@@ -362,12 +404,12 @@ function GeneralSettings({
           </div>
 
           <div className="mt-4 rounded-lg bg-accent-soft px-4 py-3 text-sm text-accent">
-            关闭后不会自动创建历史目录和历史快照；保留天数目前仅保存配置，暂不自动清理。
+            {t.settings.historyNote}
           </div>
 
           <div className="mt-4 flex items-center justify-between gap-4 border-t border-border pt-4">
             <label className="text-sm font-medium text-fg" htmlFor="history-retention-days">
-              保留天数
+              {t.settings.retentionDays}
             </label>
             <select
               id="history-retention-days"
@@ -382,7 +424,7 @@ function GeneralSettings({
             >
               {RETENTION_DAY_OPTIONS.map((days) => (
                 <option key={days} value={days}>
-                  {days} 天
+                  {t.settings.days(days)}
                 </option>
               ))}
             </select>
@@ -392,6 +434,7 @@ function GeneralSettings({
         <MetadataMaintenance
           isRepairing={isRepairingMetadata}
           isScanning={isScanningMetadata}
+          locale={locale}
           result={metadataScanResult}
           onRepair={onRepairMetadata}
           onScan={onScanMetadata}
@@ -404,6 +447,7 @@ function GeneralSettings({
 interface MetadataMaintenanceProps {
   isRepairing: boolean;
   isScanning: boolean;
+  locale: Locale;
   result: PromptMetadataScanResult | null;
   onRepair?: () => void;
   onScan?: () => void;
@@ -412,10 +456,12 @@ interface MetadataMaintenanceProps {
 function MetadataMaintenance({
   isRepairing,
   isScanning,
+  locale,
   result,
   onRepair,
   onScan,
 }: MetadataMaintenanceProps) {
+  const t = messages[locale];
   const canRepair = Boolean(result && result.repairableFiles > 0 && !isRepairing);
   const displayedIssues = result?.issues.slice(0, MAX_METADATA_ISSUE_PREVIEW_COUNT) ?? [];
   const hiddenIssueCount = result
@@ -426,9 +472,9 @@ function MetadataMaintenance({
     <div className="rounded-lg border border-border bg-surface p-5 shadow-sm">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <h4 className="text-sm font-semibold text-fg">文件夹维护</h4>
+          <h4 className="text-sm font-semibold text-fg">{t.settings.maintenanceTitle}</h4>
           <p className="mt-1 text-sm text-muted">
-            扫描 Obsidian 创建的 Markdown，补全 PromptClip 需要的 frontmatter。
+            {t.settings.maintenanceDescription}
           </p>
         </div>
         <Button
@@ -439,11 +485,11 @@ function MetadataMaintenance({
           disabled={isScanning || isRepairing}
         >
           <span className="material-symbols-outlined text-[18px]">travel_explore</span>
-          {isScanning ? '扫描中...' : '扫描元数据'}
+          {isScanning ? t.settings.scanningMetadata : t.settings.scanMetadata}
         </Button>
       </div>
 
-      <MetadataScanSummary result={result} />
+      <MetadataScanSummary locale={locale} result={result} />
 
       {result && result.issues.length > 0 && (
         <div className="mt-4 max-h-40 overflow-y-auto rounded-lg border border-border">
@@ -454,17 +500,19 @@ function MetadataMaintenance({
             >
               <div className="truncate font-medium text-fg">{issue.path}</div>
               <div className="mt-1 text-xs text-muted">
-                缺失：{formatMetadataFields(issue.missingFields)}
+                {t.settings.missingFields}: {formatMetadataFields(locale, issue.missingFields)}
                 {issue.invalidFields.length > 0
-                  ? `；无效：${formatMetadataFields(issue.invalidFields)}`
+                  ? `; ${t.settings.invalidFields}: ${formatMetadataFields(
+                      locale,
+                      issue.invalidFields
+                    )}`
                   : ''}
               </div>
             </div>
           ))}
           {hiddenIssueCount > 0 && (
             <div className="px-3 py-2 text-xs text-muted">
-              还有 {hiddenIssueCount} 个文件未显示，列表最多显示前{' '}
-              {MAX_METADATA_ISSUE_PREVIEW_COUNT} 个。
+              {t.settings.hiddenIssues(hiddenIssueCount, MAX_METADATA_ISSUE_PREVIEW_COUNT)}
             </div>
           )}
         </div>
@@ -473,18 +521,26 @@ function MetadataMaintenance({
       <div className="mt-4 flex items-center justify-end border-t border-border pt-4">
         <Button type="button" onClick={onRepair} disabled={!canRepair}>
           <span className="material-symbols-outlined text-[18px]">auto_fix_high</span>
-          {isRepairing ? '补全中...' : '补全缺失元数据'}
+          {isRepairing ? t.settings.repairingMetadata : t.settings.repairMetadata}
         </Button>
       </div>
     </div>
   );
 }
 
-function MetadataScanSummary({ result }: { result: PromptMetadataScanResult | null }) {
+function MetadataScanSummary({
+  locale,
+  result,
+}: {
+  locale: Locale;
+  result: PromptMetadataScanResult | null;
+}) {
+  const t = messages[locale];
+
   if (!result) {
     return (
       <div className="mt-4 rounded-lg bg-surface-dim px-4 py-3 text-sm text-muted">
-        扫描后会列出缺少或无效的 PromptClip 元数据，不会立即修改文件。
+        {t.settings.scanEmpty}
       </div>
     );
   }
@@ -492,56 +548,46 @@ function MetadataScanSummary({ result }: { result: PromptMetadataScanResult | nu
   if (result.repairableFiles === 0) {
     return (
       <div className="mt-4 rounded-lg bg-accent-soft px-4 py-3 text-sm text-accent">
-        共扫描 {result.totalMarkdownFiles} 个 Markdown 文件，当前无需补全。
+        {t.settings.scanHealthy(result.totalMarkdownFiles)}
       </div>
     );
   }
 
   return (
     <div className="mt-4 rounded-lg bg-accent-soft px-4 py-3 text-sm text-accent">
-      共扫描 {result.totalMarkdownFiles} 个 Markdown 文件，{result.repairableFiles}{' '}
-      个文件需要补全。
+      {t.settings.scanRepairable(result.totalMarkdownFiles, result.repairableFiles)}
     </div>
   );
 }
 
-function formatMetadataFields(fields: PromptMetadataField[]): string {
+function formatMetadataFields(locale: Locale, fields: PromptMetadataField[]): string {
+  const t = messages[locale];
+
   if (fields.length === 0) {
-    return '无';
+    return t.settings.emptyField;
   }
 
-  return fields.map((field) => FIELD_LABELS[field]).join('、');
+  return fields.map((field) => t.metadataFields[field]).join(locale === 'zh-CN' ? '、' : ', ');
 }
 
-const FIELD_LABELS: Record<PromptMetadataField, string> = {
-  id: 'ID',
-  title: '标题',
-  tags: '标签',
-  created: '创建时间',
-  modified: '修改时间',
-  copy_count: '复制次数',
-  pinned: '收藏状态',
-};
+function AboutSettings({ locale }: { locale: Locale }) {
+  const t = messages[locale];
 
-function AboutSettings() {
   return (
     <div>
       <div className="mb-6">
-        <h3 className="text-lg font-semibold text-fg">关于 PromptClip</h3>
-        <p className="mt-1 text-sm text-muted">本地优先的 AI 提示词管理工具</p>
+        <h3 className="text-lg font-semibold text-fg">{t.settings.aboutTitle}</h3>
+        <p className="mt-1 text-sm text-muted">{t.settings.aboutDescription}</p>
       </div>
 
       <div className="space-y-4 text-sm leading-6 text-muted">
+        <p>{t.settings.aboutParagraphOne}</p>
         <p>
-          PromptClip 用于整理、检索和复用日常工作中的 Prompt。数据直接读写你选择的本地
-          Markdown 文件夹，不依赖后端服务或云端数据库。
-        </p>
-        <p>
-          笔记内容以 Markdown 保存，标签、收藏和设置等工作区配置保存在
+          {t.settings.aboutParagraphTwoPrefix}
           <span className="mx-1 rounded bg-surface-dim px-1.5 py-0.5 font-mono text-xs">
             .promptclip.json
           </span>
-          中，便于随文件夹一起备份、迁移和版本管理。
+          {t.settings.aboutParagraphTwoSuffix}
         </p>
       </div>
     </div>

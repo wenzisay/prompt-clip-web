@@ -23,7 +23,7 @@ function AppContent() {
   const { isAuthorized, workspace, initialize } = useFileStore();
   const { modalType, selectedPromptId } = useUIStore();
   const { prompts } = usePromptStore();
-  const { resetSettings, setHistorySettings } = useSettingsStore();
+  const { locale, resetSettings, setHistorySettings } = useSettingsStore();
   const { setTags } = useTagStore();
 
   useEffect(() => {
@@ -33,6 +33,10 @@ function AppContent() {
   useEffect(() => {
     setTags(prompts.flatMap((prompt) => prompt.tags));
   }, [prompts, setTags]);
+
+  useEffect(() => {
+    document.documentElement.lang = locale === 'zh-CN' ? 'zh-Hans' : 'en';
+  }, [locale]);
 
   useEffect(() => {
     if (!workspace) {

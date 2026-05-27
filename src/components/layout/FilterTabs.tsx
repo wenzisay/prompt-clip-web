@@ -5,16 +5,18 @@
 import { usePromptStore } from '@/stores/promptStore';
 import { useUIStore } from '@/stores/uiStore';
 import { TagService } from '@/services/tagService';
+import { useTranslation } from '@/i18n';
 
 type FilterTab = 'all' | 'recent' | 'favorites';
 
-const FILTER_TABS: Array<{ value: FilterTab; label: string }> = [
-  { value: 'all', label: '全部' },
-  { value: 'recent', label: '最近修改' },
-  { value: 'favorites', label: '收藏' },
+const FILTER_TABS: Array<{ value: FilterTab; labelKey: 'all' | 'recent' | 'favorites' }> = [
+  { value: 'all', labelKey: 'all' },
+  { value: 'recent', labelKey: 'recent' },
+  { value: 'favorites', labelKey: 'favorites' },
 ];
 
 export function FilterTabs() {
+  const { t } = useTranslation();
   const { filter, setFilter } = usePromptStore();
   const { clearSelection } = useUIStore();
   const selectedTag = filter.tag;
@@ -52,7 +54,7 @@ export function FilterTabs() {
               }
             `}
           >
-            {tab.label}
+            {t.app[tab.labelKey]}
           </button>
         );
       })}

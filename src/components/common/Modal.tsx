@@ -3,6 +3,7 @@
  */
 
 import { useEffect } from 'react';
+import { DEFAULT_LOCALE, messages } from '@/i18n';
 import { Overlay } from './Overlay';
 import { IconButton } from './IconButton';
 
@@ -21,6 +22,8 @@ export interface ModalProps {
   showCloseButton?: boolean;
   /** 自定义类名 */
   className?: string;
+  /** 关闭按钮标签 */
+  closeLabel?: string;
   /** 点击遮罩是否关闭 */
   closeOnOverlayClick?: boolean;
   /** 按 ESC 键是否关闭 */
@@ -44,6 +47,7 @@ export function Modal({
   maxWidth = 'md',
   showCloseButton = true,
   className = '',
+  closeLabel = messages[DEFAULT_LOCALE].app.close,
   closeOnOverlayClick = true,
   closeOnEscape = true,
 }: ModalProps) {
@@ -102,7 +106,7 @@ export function Modal({
               {showCloseButton && (
                 <IconButton
                   icon="close"
-                  label="关闭"
+                  label={closeLabel}
                   onClick={onClose}
                   variant="ghost"
                   size="sm"

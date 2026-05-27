@@ -5,6 +5,7 @@
  */
 
 import { useCallback, useEffect } from 'react';
+import { useTranslation } from '@/i18n';
 import type { WorkspaceRef } from '@/types/file';
 import { useFileStore } from '@/stores/fileStore';
 import { fileRepository } from '@/services/fileRepository';
@@ -25,6 +26,7 @@ interface UseDirectoryPickerReturn {
 }
 
 export function useDirectoryPicker(): UseDirectoryPickerReturn {
+  const { t } = useTranslation();
   const {
     isSupported,
     isAuthorized,
@@ -57,7 +59,7 @@ export function useDirectoryPicker(): UseDirectoryPickerReturn {
           return workspace;
         }
 
-        setError('未授予目录访问权限');
+        setError(t.app.permissionDenied);
         setWorkspace(null);
         return null;
       }
@@ -65,14 +67,14 @@ export function useDirectoryPicker(): UseDirectoryPickerReturn {
       setLoading(false);
       return null;
     } catch (err) {
-      const message = err instanceof Error ? err.message : '打开目录失败';
+      const message = err instanceof Error ? err.message : t.app.openDirectoryFailed;
       setError(message);
       setWorkspace(null);
       return null;
     } finally {
       setLoading(false);
     }
-  }, [setError, setLoading, setWorkspace]);
+  }, [setError, setLoading, setWorkspace, t.app.openDirectoryFailed, t.app.permissionDenied]);
 
   // 清除当前目录
   const clearDirectory = useCallback(async () => {

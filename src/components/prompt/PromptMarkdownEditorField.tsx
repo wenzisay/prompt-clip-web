@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { messages, type Locale } from '@/i18n';
 import { countChars } from '@/utils/markdown';
 import { MarkdownModeToggle, type MarkdownViewMode } from './MarkdownModeToggle';
 import { MarkdownPreviewEditor } from './MarkdownPreviewEditor';
@@ -10,6 +11,7 @@ interface PromptMarkdownEditorFieldProps {
   onModeChange: (mode: MarkdownViewMode) => void;
   disabled?: boolean;
   initialIsFullscreen?: boolean;
+  locale?: Locale;
 }
 
 export function PromptMarkdownEditorField({
@@ -19,7 +21,9 @@ export function PromptMarkdownEditorField({
   onModeChange,
   disabled = false,
   initialIsFullscreen = false,
+  locale = 'zh-CN',
 }: PromptMarkdownEditorFieldProps) {
+  const t = messages[locale];
   const [isFullscreen, setIsFullscreen] = useState(initialIsFullscreen);
 
   useEffect(() => {
@@ -35,7 +39,7 @@ export function PromptMarkdownEditorField({
     };
   }, [isFullscreen]);
 
-  const fullscreenLabel = isFullscreen ? '退出全屏' : '全屏编辑';
+  const fullscreenLabel = isFullscreen ? t.app.exitFullscreen : t.app.fullscreenEdit;
   const fullscreenIcon = isFullscreen ? 'close_fullscreen' : 'open_in_full';
   const editorClassName = isFullscreen
     ? 'h-full min-h-0 flex-1 overflow-auto'
@@ -54,10 +58,10 @@ export function PromptMarkdownEditorField({
     >
       <div className="mb-2 flex items-center justify-between gap-3">
         <label htmlFor="prompt-content" className="block text-sm font-medium text-fg">
-          内容 <span className="text-red-500">*</span>
+          {t.app.content} <span className="text-red-500">*</span>
         </label>
         <div className="flex items-center gap-2">
-          <MarkdownModeToggle mode={mode} onModeChange={onModeChange} />
+          <MarkdownModeToggle locale={locale} mode={mode} onModeChange={onModeChange} />
           <button
             type="button"
             aria-label={fullscreenLabel}
@@ -77,20 +81,20 @@ export function PromptMarkdownEditorField({
           id="prompt-content"
           value={value}
           onChange={(event) => onChange(event.target.value)}
-          placeholder="输入 Prompt 内容..."
+          placeholder={t.app.contentPlaceholder}
           className={`${editorClassName} resize-none rounded-lg border border-[var(--border-strong)] bg-surface-container px-4 py-3 font-mono text-sm leading-6 text-fg shadow-inner transition-colors placeholder:text-muted focus:border-accent focus:bg-surface focus:outline-none focus:ring-2 focus:ring-accent-soft disabled:cursor-not-allowed disabled:opacity-60`}
           disabled={disabled}
         />
       ) : (
         <MarkdownPreviewEditor
           value={value}
-          ariaLabel="Prompt 内容"
+          ariaLabel={t.app.promptContent}
           className={previewEditorClassName}
         />
       )}
 
       <div className="mt-1 flex justify-end">
-        <span className="text-xs text-muted">{countChars(value)} 字符</span>
+        <span className="text-xs text-muted">{t.app.characterCount(countChars(value))}</span>
       </div>
     </div>
   );

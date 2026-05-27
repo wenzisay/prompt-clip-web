@@ -3,6 +3,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import { useTranslation } from '@/i18n';
 import { renderMarkdown } from '@/utils/markdown';
 
 interface PromptContentProps {
@@ -15,6 +16,7 @@ interface PromptContentProps {
 }
 
 export function PromptContent({ content, isLoading = false, className = '' }: PromptContentProps) {
+  const { t } = useTranslation();
   const [html, setHtml] = useState<string>('');
 
   useEffect(() => {
@@ -29,12 +31,12 @@ export function PromptContent({ content, isLoading = false, className = '' }: Pr
         setHtml(rendered);
       } catch (error) {
         console.error('Markdown 渲染失败:', error);
-        setHtml(`<p class="text-error">渲染失败</p>`);
+        setHtml(`<p class="text-error">${t.app.renderFailed}</p>`);
       }
     };
 
     render();
-  }, [content]);
+  }, [content, t.app.renderFailed]);
 
   if (isLoading) {
     return (
@@ -47,7 +49,7 @@ export function PromptContent({ content, isLoading = false, className = '' }: Pr
   }
 
   if (!html) {
-    return <p className="text-muted">暂无内容</p>;
+    return <p className="text-muted">{t.app.noContent}</p>;
   }
 
   return (

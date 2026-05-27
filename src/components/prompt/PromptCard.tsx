@@ -3,6 +3,7 @@
  */
 
 import type { Prompt, PromptFilter } from '@/types/prompt';
+import { useTranslation } from '@/i18n';
 import { useUIStore } from '@/stores/uiStore';
 import { usePromptStore } from '@/stores/promptStore';
 import { useFileStore } from '@/stores/fileStore';
@@ -21,6 +22,7 @@ interface PromptCardProps {
 }
 
 export function PromptCard({ prompt }: PromptCardProps) {
+  const { t } = useTranslation();
   const { setSelectedPrompt, openModal, selectedPromptIds, toggleSelectPrompt } = useUIStore();
   const { filter, updatePrompt } = usePromptStore();
   const { workspace } = useFileStore();
@@ -140,8 +142,8 @@ export function PromptCard({ prompt }: PromptCardProps) {
                 w-8 h-8 inline-flex items-center justify-center rounded-lg transition-colors
                 ${isSelected ? 'text-accent bg-accent-soft' : 'text-muted hover:bg-surface-dim'}
               `}
-              aria-label={isSelected ? '取消选择' : '选择'}
-              title={isSelected ? '取消选择' : '选择'}
+              aria-label={isSelected ? t.app.deselect : t.app.select}
+              title={isSelected ? t.app.deselect : t.app.select}
             >
               <span className="material-symbols-outlined text-lg">
                 {isSelected ? 'check_box' : 'check_box_outline_blank'}
@@ -151,7 +153,7 @@ export function PromptCard({ prompt }: PromptCardProps) {
           {prompt.pinned && (
             <IconButton
               icon="star"
-              label="取消收藏"
+              label={t.app.unfavorite}
               onClick={handleTogglePin}
               size="sm"
               variant="ghost"
@@ -162,7 +164,7 @@ export function PromptCard({ prompt }: PromptCardProps) {
           <div className="relative" ref={menuRef}>
             <IconButton
               icon="more_vert"
-              label="更多操作"
+              label={t.app.moreActions}
               onClick={handleMenuClick}
               size="sm"
               variant="ghost"
@@ -177,7 +179,7 @@ export function PromptCard({ prompt }: PromptCardProps) {
                   <span className="material-symbols-outlined text-lg">
                     {isSelected ? 'check_box' : 'check_box_outline_blank'}
                   </span>
-                  {isSelected ? '取消选择' : '选择'}
+                  {isSelected ? t.app.deselect : t.app.select}
                 </button>
                 <button
                   onClick={handleMenuTogglePin}
@@ -186,21 +188,21 @@ export function PromptCard({ prompt }: PromptCardProps) {
                   <span className="material-symbols-outlined text-lg">
                     {prompt.pinned ? 'star' : 'star_border'}
                   </span>
-                  {prompt.pinned ? '取消收藏' : '收藏'}
+                  {prompt.pinned ? t.app.unfavorite : t.app.favorite}
                 </button>
                 <button
                   onClick={handleEdit}
                   className="w-full px-3 py-2 text-left text-sm text-fg hover:bg-surface-dim transition-colors flex items-center gap-2"
                 >
                   <span className="material-symbols-outlined text-lg">edit</span>
-                  编辑
+                  {t.app.edit}
                 </button>
                 <button
                   onClick={handleDelete}
                   className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2"
                 >
                   <span className="material-symbols-outlined text-lg">delete</span>
-                  删除
+                  {t.app.delete}
                 </button>
               </div>
             )}
@@ -248,8 +250,8 @@ export function PromptCard({ prompt }: PromptCardProps) {
             w-7 h-7 inline-flex items-center justify-center rounded-md transition-colors
             ${copied ? 'text-accent bg-accent-soft' : 'text-muted hover:bg-surface-dim hover:text-fg'}
           `}
-          aria-label="复制 Prompt 内容"
-          title={copied ? '已复制' : '复制'}
+          aria-label={t.app.copyPromptContent}
+          title={copied ? t.app.copied : t.app.copy}
         >
           <span className="material-symbols-outlined text-base">
             {copied ? 'check' : 'content_copy'}

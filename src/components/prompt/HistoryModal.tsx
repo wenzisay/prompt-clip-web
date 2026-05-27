@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { messages, useTranslation, type Locale } from '@/i18n';
 import type { HistoryVersion, Prompt } from '@/types/prompt';
 import { useFileStore } from '@/stores/fileStore';
 import { usePromptStore } from '@/stores/promptStore';
@@ -15,12 +16,14 @@ export interface HistoryModalProps {
 }
 
 interface HistoryVersionListProps {
+  locale?: Locale;
   versions: HistoryVersion[];
   selectedFilename: string | null;
   onSelect: (filename: string) => void;
 }
 
 interface HistoryVersionDetailProps {
+  locale?: Locale;
   version: HistoryVersion | null;
   copied: boolean;
   isRestoring: boolean;
@@ -29,6 +32,7 @@ interface HistoryVersionDetailProps {
 }
 
 export function HistoryModal({ isOpen, prompt, onClose }: HistoryModalProps) {
+  const { locale, t } = useTranslation();
   const { workspace } = useFileStore();
   const { updatePrompt } = usePromptStore();
   const [versions, setVersions] = useState<HistoryVersion[]>([]);
@@ -47,7 +51,7 @@ export function HistoryModal({ isOpen, prompt, onClose }: HistoryModalProps) {
 
     async function loadVersions() {
       if (!workspace) {
-        setError('未选择目录');
+        setError(t.app.noWorkspace);
         return;
       }
 
@@ -70,7 +74,7 @@ export function HistoryModal({ isOpen, prompt, onClose }: HistoryModalProps) {
         setSelectedFilename(historyVersions[0]?.filename ?? null);
       } catch (err) {
         if (!isCancelled) {
-          setError(err instanceof Error ? err.message : '读取历史版本失败');
+          setError(err instanceof Error ? err.message : t.app.historyLoadFailed);
         }
       } finally {
         if (!isCancelled) {
@@ -84,7 +88,7 @@ export function HistoryModal({ isOpen, prompt, onClose }: HistoryModalProps) {
     return () => {
       isCancelled = true;
     };
-  }, [isOpen, prompt.id, workspace]);
+  }, [isOpen, prompt.id, t.app.historyLoadFailed, t.app.noWorkspace, workspace]);
 
   const selectedVersion =
     versions.find((version) => version.filename === selectedFilename) ?? null;
@@ -99,7 +103,7 @@ export function HistoryModal({ isOpen, prompt, onClose }: HistoryModalProps) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '复制历史版本失败');
+      setError(err instanceof Error ? err.message : t.app.historyCopyFailed);
     }
   };
 
@@ -121,7 +125,7 @@ export function HistoryModal({ isOpen, prompt, onClose }: HistoryModalProps) {
       updatePrompt(restored);
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : '恢复历史版本失败');
+      setError(err instanceof Error ? err.message : t.app.historyRestoreFailed);
     } finally {
       setIsRestoring(false);
     }
@@ -131,9 +135,10 @@ export function HistoryModal({ isOpen, prompt, onClose }: HistoryModalProps) {
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="历史版本"
+      title={t.app.historyVersions}
       maxWidth="2xl"
       className="max-w-5xl"
+      closeLabel={t.app.close}
       closeOnOverlayClick={!isRestoring}
       closeOnEscape={!isRestoring}
     >
@@ -141,10 +146,11 @@ export function HistoryModal({ isOpen, prompt, onClose }: HistoryModalProps) {
         <aside className="w-72 shrink-0 overflow-y-auto border-r border-border pr-4">
           {isLoading ? (
             <div className="flex h-full items-center justify-center text-sm text-muted">
-              加载中...
+              {t.app.loading}
             </div>
           ) : (
             <HistoryVersionList
+              locale={locale}
               versions={versions}
               selectedFilename={selectedFilename}
               onSelect={(filename) => {
@@ -163,6 +169,7 @@ export function HistoryModal({ isOpen, prompt, onClose }: HistoryModalProps) {
           )}
 
           <HistoryVersionDetail
+            locale={locale}
             version={selectedVersion}
             copied={copied}
             isRestoring={isRestoring}
@@ -176,14 +183,17 @@ export function HistoryModal({ isOpen, prompt, onClose }: HistoryModalProps) {
 }
 
 export function HistoryVersionList({
+  locale = 'zh-CN',
   versions,
   selectedFilename,
   onSelect,
 }: HistoryVersionListProps) {
+  const t = messages[locale];
+
   if (versions.length === 0) {
     return (
       <div className="flex h-full items-center justify-center px-4 text-center text-sm text-muted">
-        暂无历史版本
+        {t.app.noHistoryVersions}
       </div>
     );
   }
@@ -215,16 +225,19 @@ export function HistoryVersionList({
 }
 
 export function HistoryVersionDetail({
+  locale = 'zh-CN',
   version,
   copied,
   isRestoring,
   onCopy,
   onRestore,
 }: HistoryVersionDetailProps) {
+  const t = messages[locale];
+
   if (!version) {
     return (
       <div className="flex h-full items-center justify-center text-sm text-muted">
-        请选择历史版本
+        {t.app.selectHistoryVersion}
       </div>
     );
   }
@@ -236,7 +249,7 @@ export function HistoryVersionDetail({
           <h3 className="truncate text-lg font-semibold text-fg">{version.title}</h3>
           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted">
             <span>{formatDateTime(version.editedAt)}</span>
-            <span>{countChars(version.content)} 字符</span>
+            <span>{t.app.characterCount(countChars(version.content))}</span>
           </div>
         </div>
 
@@ -249,7 +262,7 @@ export function HistoryVersionDetail({
             <span className="material-symbols-outlined text-xl">
               {copied ? 'check' : 'content_copy'}
             </span>
-            {copied ? '已复制' : '复制'}
+            {copied ? t.app.copied : t.app.copy}
           </button>
           <button
             type="button"
@@ -260,7 +273,7 @@ export function HistoryVersionDetail({
             <span className="material-symbols-outlined text-xl">
               {isRestoring ? 'refresh' : 'restore'}
             </span>
-            {isRestoring ? '恢复中...' : '恢复'}
+            {isRestoring ? t.app.restoring : t.app.restore}
           </button>
         </div>
       </div>

@@ -6,6 +6,7 @@
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { DEFAULT_LOCALE, messages } from '@/i18n/messages';
 import type { WorkspaceRef } from '@/types/file';
 import { fileRepository } from '@/services/fileRepository';
 
@@ -112,7 +113,7 @@ export const useFileStore = create<FileState>()(
             workspace: permission ? workspace : null,
             workspaceName: permission ? workspace.name : null,
             lastAccessTime: permission ? new Date() : null,
-            error: permission ? null : '目录访问权限已过期，请重新选择数据目录',
+            error: permission ? null : messages[DEFAULT_LOCALE].app.workspacePermissionExpired,
           });
         } catch (error) {
           console.warn('Failed to restore workspace:', error);
