@@ -12,10 +12,17 @@ describe('settingsStore', () => {
     expect(detectInitialLocale(['zh-SG'])).toBe('zh-CN');
   });
 
-  it('uses English for unsupported or non-Simplified Chinese languages', () => {
+  it('detects Traditional Chinese from browser languages', () => {
+    expect(detectInitialLocale(['zh-TW'])).toBe('zh-TW');
+    expect(detectInitialLocale(['zh-HK'])).toBe('zh-TW');
+    expect(detectInitialLocale(['zh-MO'])).toBe('zh-TW');
+    expect(detectInitialLocale(['zh-Hant'])).toBe('zh-TW');
+    expect(detectInitialLocale(['en-US', 'zh-Hant-TW'])).toBe('zh-TW');
+  });
+
+  it('uses English for unsupported or non-Chinese languages', () => {
     expect(detectInitialLocale(undefined)).toBe('en-US');
     expect(detectInitialLocale(['en-US'])).toBe('en-US');
-    expect(detectInitialLocale(['zh-TW'])).toBe('en-US');
   });
 
   it('updates the locale without resetting history settings', () => {

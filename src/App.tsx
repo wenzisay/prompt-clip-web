@@ -35,7 +35,13 @@ function AppContent() {
   }, [prompts, setTags]);
 
   useEffect(() => {
-    document.documentElement.lang = locale === 'zh-CN' ? 'zh-Hans' : 'en';
+    if (locale === 'zh-CN') {
+      document.documentElement.lang = 'zh-Hans';
+    } else if (locale === 'zh-TW') {
+      document.documentElement.lang = 'zh-Hant';
+    } else {
+      document.documentElement.lang = 'en';
+    }
   }, [locale]);
 
   useEffect(() => {

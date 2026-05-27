@@ -32,6 +32,15 @@ export function detectInitialLocale(languages: readonly string[] | undefined): L
     ?.map((language) => language.toLowerCase())
     .filter(Boolean) ?? [];
 
+  const hasTraditionalChinese = normalizedLanguages.some(
+    (language) =>
+      language === 'zh-tw' ||
+      language === 'zh-hant' ||
+      language.startsWith('zh-hant-') ||
+      language === 'zh-hk' ||
+      language === 'zh-mo'
+  );
+
   const hasSimplifiedChinese = normalizedLanguages.some(
     (language) =>
       language === 'zh-cn' ||
@@ -40,7 +49,13 @@ export function detectInitialLocale(languages: readonly string[] | undefined): L
       language === 'zh-sg'
   );
 
-  return hasSimplifiedChinese ? 'zh-CN' : DEFAULT_LOCALE;
+  if (hasTraditionalChinese) {
+    return 'zh-TW';
+  }
+  if (hasSimplifiedChinese) {
+    return 'zh-CN';
+  }
+  return DEFAULT_LOCALE;
 }
 
 function getBrowserLanguages(): readonly string[] | undefined {
