@@ -198,6 +198,7 @@ Prompt 内容...
 | 构建 | Vite 6 |
 | 状态管理 | Zustand 5 |
 | 样式 | Tailwind CSS 3.4 |
+| 国际化 | 自研 i18n（支持 zh-CN / zh-TW / en-US） |
 | 搜索 | FlexSearch 0.7 |
 | Markdown | Marked 15 |
 | 文件打包 | JSZip |
@@ -211,6 +212,7 @@ src/
 ├── types/           # TypeScript 类型定义
 ├── constants/       # 常量配置（CONFIG, KEYBINDINGS, DEFAULTS）
 ├── utils/           # 纯函数工具
+├── i18n/            # 国际化（zh-CN, zh-TW, en-US）
 ├── services/        # 业务逻辑层
 │   ├── fileRepository/  # 文件系统抽象（Web / Tauri / Fake）
 │   ├── promptService.ts # Prompt CRUD
@@ -221,7 +223,8 @@ src/
 │   ├── fileStore.ts     # 工作区状态（persist）
 │   ├── promptStore.ts   # Prompt 列表 + 过滤
 │   ├── tagStore.ts      # 标签树 + 置顶
-│   └── uiStore.ts       # UI 状态（选中、模态框、Toast）
+│   ├── uiStore.ts       # UI 状态（选中、模态框、Toast）
+│   └── settingsStore.ts # 设置（语言、历史版本）（persist）
 ├── hooks/           # React Hooks
 ├── components/      # React 组件
 │   ├── common/      #   通用 UI 基础组件（Button, SideDrawer, TagPill）
@@ -229,6 +232,7 @@ src/
 │   ├── prompt/      #   Prompt 领域组件（PromptCard, CreateModal, DetailPanel）
 │   ├── tag/         #   标签组件（TagTree, TagSelect）
 │   ├── command/     #   命令面板
+│   ├── settings/    #   设置界面（SettingsModal）
 │   └── export/      #   导出功能（ExportModal）
 └── App.tsx          # 根组件
 ```
@@ -243,6 +247,13 @@ src/
 4. 同时构建 FlexSearch 三索引内存索引（标题 +10、内容 +5、标签 +3）
 5. 从所有 Prompt 的 tags 字段动态提取标签树
 6. **无文件监听** — 外部修改文件后需刷新页面
+
+### 持久化策略
+
+| Store | 持久化目标 | 用途 |
+|-------|-----------|------|
+| `fileStore` | localStorage + IndexedDB | 工作区目录句柄 |
+| `settingsStore` | localStorage | 界面语言、历史版本配置 |
 
 ### 文件系统抽象
 

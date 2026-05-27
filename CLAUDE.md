@@ -23,7 +23,7 @@ src/
 ├── constants/       # 静态配置（CONFIG, KEYBINDINGS, DEFAULTS）
 ├── utils/           # 纯函数工具（无副作用）
 ├── services/        # 业务逻辑层（文件IO、搜索、标签、导出）
-├── stores/          # Zustand 状态管理（fileStore, promptStore, tagStore, uiStore）
+├── stores/          # Zustand 状态管理（fileStore, promptStore, tagStore, uiStore, settingsStore）
 ├── hooks/           # React Hooks
 ├── components/      # React 组件
 │   ├── common/      #   通用 UI 基础组件
@@ -89,7 +89,7 @@ interface XxxState {
 export const useXxxStore = create<XxxState>()((set, get) => ({ ... }));
 ```
 
-仅 `fileStore` 使用 `persist` 中间件（localStorage + IndexedDB）。
+`fileStore` 和 `settingsStore` 使用 `persist` 中间件（localStorage + IndexedDB）。
 
 ### 样式
 
@@ -112,9 +112,35 @@ export const useXxxStore = create<XxxState>()((set, get) => ({ ... }));
 - 使用 Vitest，当前无测试文件
 - 测试文件应与源文件同目录，命名为 `*.test.ts` 或 `*.test.tsx`
 
-## UI 语言
+## UI 语言与国际化
 
-界面文字全部为**简体中文**（`<html lang="zh-Hans">`），硬编码在组件中，无 i18n 框架。新增用户可见文字时使用中文。
+应用支持多语言界面，通过 i18n 模块实现：
+
+### 支持的语言
+
+- `zh-CN` — 简体中文（默认）
+- `zh-TW` — 繁体中文
+- `en-US` — 英文
+
+### 使用方式
+
+```typescript
+import { useTranslation } from '@/i18n/useTranslation';
+
+function Component() {
+  const { t } = useTranslation();
+  return <div>{t.app.title}</div>;
+}
+```
+
+### 新增翻译
+
+所有用户可见文字必须通过 i18n 添加翻译，在 `src/i18n/messages.ts` 中为三种语言分别添加对应条目。
+
+### 翻译类型
+
+- 静态字符串：直接使用字符串值
+- 动态字符串：使用函数，如 `searchResultCount: (count: number) => \`找到 ${count} 个结果\``
 
 ## 核心数据流
 
