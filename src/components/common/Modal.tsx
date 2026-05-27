@@ -22,6 +22,8 @@ export interface ModalProps {
   showCloseButton?: boolean;
   /** 自定义类名 */
   className?: string;
+  /** 内容区域自定义类名 */
+  contentClassName?: string;
   /** 关闭按钮标签 */
   closeLabel?: string;
   /** 点击遮罩是否关闭 */
@@ -47,6 +49,7 @@ export function Modal({
   maxWidth = 'md',
   showCloseButton = true,
   className = '',
+  contentClassName = '',
   closeLabel = messages[DEFAULT_LOCALE].app.close,
   closeOnOverlayClick = true,
   closeOnEscape = true,
@@ -116,7 +119,7 @@ export function Modal({
           )}
 
           {/* 内容 */}
-          <div className="px-6 py-4">{children}</div>
+          <div className={`px-6 py-4 ${contentClassName}`}>{children}</div>
         </div>
       </div>
     </>

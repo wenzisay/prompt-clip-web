@@ -169,7 +169,8 @@ export function SettingsModal() {
       title={t.settings.title}
       maxWidth="3xl"
       closeLabel={t.app.close}
-      className="overflow-hidden"
+      className="flex max-h-[calc(100vh-2rem)] flex-col overflow-hidden"
+      contentClassName="flex min-h-0 flex-1 overflow-hidden"
     >
       <SettingsModalContent
         activeTab={activeTab}
@@ -233,8 +234,8 @@ export function SettingsModalContent({
   const t = messages[locale];
 
   return (
-    <div className="-mx-6 -my-4 flex min-h-[520px] flex-col">
-      <div className="flex flex-1 overflow-hidden">
+    <div className="-mx-6 -my-4 flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
         <nav className="w-52 shrink-0 border-r border-border bg-surface-dim p-4">
           <SettingsTabButton
             icon="settings"
@@ -250,7 +251,7 @@ export function SettingsModalContent({
           />
         </nav>
 
-        <section className="flex-1 overflow-y-auto px-8 py-7">
+        <section className="min-h-0 flex-1 overflow-y-auto px-8 py-7">
           {activeTab === 'general' ? (
             <GeneralSettings
               historySettings={historySettings}
