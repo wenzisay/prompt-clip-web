@@ -30,7 +30,7 @@ export function TopBar() {
   const { t } = useTranslation();
   const { workspaceName } = useFileStore();
   const { openCommandPalette, openModal } = useUIStore();
-  const { filteredPrompts, filter } = usePromptStore();
+  const { filter } = usePromptStore();
   const [searchQuery, setSearchQuery] = useState(filter.searchQuery || '');
   const shortcutKeyParts = getCommandPaletteShortcutKeyParts(navigator.platform);
 
@@ -60,12 +60,6 @@ export function TopBar() {
           </span>
         </div>
 
-        {/* 结果计数 */}
-        {filter.searchQuery && (
-          <span className="text-sm text-muted">
-            {t.app.searchResultCount(filteredPrompts.length)}
-          </span>
-        )}
       </div>
 
       {/* 搜索框 */}
@@ -79,38 +73,41 @@ export function TopBar() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={t.app.searchPlaceholder}
-            className="h-full w-full rounded-xl bg-transparent pl-12 pr-12 text-sm text-fg outline-none placeholder:text-muted sm:pr-36"
+            className="h-full w-full rounded-xl bg-transparent pl-12 pr-12 text-sm text-fg outline-none placeholder:text-muted sm:pr-52"
           />
-          <button
-            type="button"
-            onClick={openCommandPalette}
-            aria-label={t.app.quickSwitchAria(shortcutKeyParts.shortcut)}
-            className="absolute right-3 top-1/2 hidden -translate-y-1/2 rounded-lg border border-[rgba(113,119,134,0.12)] bg-surface-dim px-2 py-1 text-xs font-medium leading-none text-muted transition-colors hover:bg-surface-high hover:text-fg focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 sm:flex sm:items-center sm:gap-2"
-          >
-            <span>{t.app.quickSwitch}</span>
-            <span className="flex items-center gap-1.5">
-              <kbd className="min-w-6 rounded-md border border-[rgba(113,119,134,0.14)] bg-surface px-1.5 py-0.5 text-center font-mono text-[12px] font-medium leading-none">
-                {shortcutKeyParts.modifier}
-              </kbd>
-              <span aria-hidden="true" className="font-mono text-xs">
-                +
-              </span>
-              <kbd className="min-w-6 rounded-md border border-[rgba(113,119,134,0.14)] bg-surface px-1.5 py-0.5 text-center font-mono text-[12px] font-medium leading-none">
-                {shortcutKeyParts.key}
-              </kbd>
-            </span>
-          </button>
-          {searchQuery && (
+          <div className="absolute right-3 top-1/2 flex -translate-y-1/2 items-center gap-2">
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="rounded-md p-1 transition-colors hover:bg-surface-high"
+                aria-label={t.app.clearSearch}
+              >
+                <span className="material-symbols-outlined text-lg text-muted">
+                  close
+                </span>
+              </button>
+            )}
             <button
-              onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 transition-colors hover:bg-surface-high sm:right-36"
-              aria-label={t.app.clearSearch}
+              type="button"
+              onClick={openCommandPalette}
+              aria-label={t.app.quickSwitchAria(shortcutKeyParts.shortcut)}
+              className="hidden rounded-lg border border-[rgba(113,119,134,0.12)] bg-surface-dim px-2 py-1 text-xs font-medium leading-none text-muted transition-colors hover:bg-surface-high hover:text-fg focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 sm:flex sm:items-center sm:gap-2"
             >
-              <span className="material-symbols-outlined text-lg text-muted">
-                close
+              <span>{t.app.quickSwitch}</span>
+              <span className="flex items-center gap-1.5">
+                <kbd className="min-w-6 rounded-md border border-[rgba(113,119,134,0.14)] bg-surface px-1.5 py-0.5 text-center font-mono text-[12px] font-medium leading-none">
+                  {shortcutKeyParts.modifier}
+                </kbd>
+                <span aria-hidden="true" className="font-mono text-xs">
+                  +
+                </span>
+                <kbd className="min-w-6 rounded-md border border-[rgba(113,119,134,0.14)] bg-surface px-1.5 py-0.5 text-center font-mono text-[12px] font-medium leading-none">
+                  {shortcutKeyParts.key}
+                </kbd>
               </span>
             </button>
-          )}
+          </div>
         </div>
       </div>
 

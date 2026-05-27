@@ -17,39 +17,27 @@ const prompt: Prompt = {
 
 describe('PromptCard date display', () => {
   it('shows created time in all view', () => {
-    const date = getPromptCardDate(prompt, {
-      favoritesOnly: false,
-      recentOnly: false,
-    });
+    const date = getPromptCardDate(prompt);
 
     expect(date).toBe(prompt.createdAt);
   });
 
-  it('shows updated time in recently modified view', () => {
-    const date = getPromptCardDate(prompt, {
-      favoritesOnly: false,
-      recentOnly: true,
-    });
+  it('shows created time in recently modified view', () => {
+    const date = getPromptCardDate(prompt);
 
-    expect(date).toBe(prompt.updatedAt);
+    expect(date).toBe(prompt.createdAt);
   });
 
-  it('shows pinned time in favorites view', () => {
-    const date = getPromptCardDate(prompt, {
-      favoritesOnly: true,
-      recentOnly: false,
-    });
+  it('shows created time in favorites view', () => {
+    const date = getPromptCardDate(prompt);
 
-    expect(date).toBe(prompt.pinnedAt);
+    expect(date).toBe(prompt.createdAt);
   });
 
-  it('falls back to updated time when favorite has no pinned time', () => {
-    const date = getPromptCardDate({ ...prompt, pinnedAt: undefined }, {
-      favoritesOnly: true,
-      recentOnly: false,
-    });
+  it('shows created time when favorite has no pinned time', () => {
+    const date = getPromptCardDate({ ...prompt, pinnedAt: undefined });
 
-    expect(date).toBe(prompt.updatedAt);
+    expect(date).toBe(prompt.createdAt);
   });
 });
 

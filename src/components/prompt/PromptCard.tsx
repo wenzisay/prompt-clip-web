@@ -2,13 +2,13 @@
  * Prompt 卡片组件
  */
 
-import type { Prompt, PromptFilter } from '@/types/prompt';
+import type { Prompt } from '@/types/prompt';
 import { useTranslation } from '@/i18n';
 import { useUIStore } from '@/stores/uiStore';
 import { usePromptStore } from '@/stores/promptStore';
 import { useFileStore } from '@/stores/fileStore';
 import { IconButton } from '@/components/common';
-import { formatDate } from '@/utils/date';
+import { formatDateTime } from '@/utils/date';
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { PromptService } from '@/services/promptService';
 import { fileRepository } from '@/services/fileRepository';
@@ -24,7 +24,7 @@ interface PromptCardProps {
 export function PromptCard({ prompt }: PromptCardProps) {
   const { t } = useTranslation();
   const { setSelectedPrompt, openModal, selectedPromptIds, toggleSelectPrompt } = useUIStore();
-  const { filter, updatePrompt } = usePromptStore();
+  const { updatePrompt } = usePromptStore();
   const { workspace } = useFileStore();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -34,8 +34,7 @@ export function PromptCard({ prompt }: PromptCardProps) {
 
   const preview = useMemo(() => getPromptPreview(prompt.content), [prompt.content]);
 
-  // 格式化当前分类对应的日期
-  const relativeDate = formatDate(getPromptCardDate(prompt, filter));
+  const createdDateTime = formatDateTime(getPromptCardDate(prompt));
 
   // 点击卡片打开详情
   const handleClick = () => {
@@ -242,7 +241,7 @@ export function PromptCard({ prompt }: PromptCardProps) {
 
       {/* 底部：元数据 */}
       <div className="flex items-center justify-between text-xs text-muted">
-        <span>{relativeDate}</span>
+        <span>{createdDateTime}</span>
         <button
           type="button"
           onClick={handleCopy}
@@ -262,18 +261,7 @@ export function PromptCard({ prompt }: PromptCardProps) {
   );
 }
 
-export function getPromptCardDate(
-  prompt: Prompt,
-  filter: PromptFilter
-): Date {
-  if (filter.favoritesOnly) {
-    return prompt.pinnedAt ?? prompt.updatedAt;
-  }
-
-  if (filter.recentOnly) {
-    return prompt.updatedAt;
-  }
-
+export function getPromptCardDate(prompt: Prompt): Date {
   return prompt.createdAt;
 }
 
