@@ -5,3 +5,4 @@
 export * from './config';
 export * from './keybindings';
 export * from './defaults';
+export * from './shareTemplates';

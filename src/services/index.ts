@@ -10,3 +10,4 @@ export * from './exportService';
 export * from './exportTargetService';
 export * from './folderConfigService';
 export * from './metadataRepairService';
+export * from './shareImageService';

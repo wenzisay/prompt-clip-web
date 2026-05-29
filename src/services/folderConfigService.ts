@@ -12,6 +12,7 @@ const CONFIG_FILENAME = '.promptclip.json';
 export interface FolderConfig {
   historyVersions: HistoryVersionSettings;
   pinnedTags: string[];
+  shareAuthorName: string;
 }
 
 export interface HistoryVersionSettings {
@@ -27,6 +28,7 @@ const DEFAULT_HISTORY_VERSION_SETTINGS: HistoryVersionSettings = {
 const DEFAULT_CONFIG: FolderConfig = {
   historyVersions: DEFAULT_HISTORY_VERSION_SETTINGS,
   pinnedTags: [],
+  shareAuthorName: '',
 };
 
 function normalizeConfig(input: unknown): FolderConfig {
@@ -35,6 +37,7 @@ function normalizeConfig(input: unknown): FolderConfig {
   }
 
   const pinnedTags = (input as Partial<FolderConfig>).pinnedTags;
+  const shareAuthorName = (input as Partial<FolderConfig>).shareAuthorName;
   const historyVersions = normalizeHistoryVersionSettings(
     (input as Partial<FolderConfig>).historyVersions
   );
@@ -44,6 +47,7 @@ function normalizeConfig(input: unknown): FolderConfig {
     pinnedTags: Array.isArray(pinnedTags)
       ? Array.from(new Set(pinnedTags.filter((tag): tag is string => typeof tag === 'string')))
       : [],
+    shareAuthorName: typeof shareAuthorName === 'string' ? shareAuthorName.trim() : '',
   };
 }
 
@@ -127,10 +131,23 @@ export async function updateHistoryVersionSettings(
   });
 }
 
+export async function updateShareAuthorName(
+  repository: FileRepository,
+  workspace: WorkspaceRef,
+  shareAuthorName: string
+): Promise<void> {
+  const config = await readFolderConfig(repository, workspace);
+  await writeFolderConfig(repository, workspace, {
+    ...config,
+    shareAuthorName,
+  });
+}
+
 export const FolderConfigService = {
   folderConfigExists,
   readFolderConfig,
   writeFolderConfig,
   updateHistoryVersionSettings,
   updatePinnedTags,
+  updateShareAuthorName,
 } as const;
