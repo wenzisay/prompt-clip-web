@@ -42,4 +42,14 @@ describe('settingsStore', () => {
     useSettingsStore.getState().setLocale('zh-CN');
     useSettingsStore.getState().setHistorySettings(DEFAULT_HISTORY_SETTINGS);
   });
+
+  it('stores the share author name independently from history settings', () => {
+    useSettingsStore.getState().setShareAuthorName('周文超');
+
+    expect(useSettingsStore.getState().shareAuthorName).toBe('周文超');
+
+    useSettingsStore.getState().resetSettings();
+
+    expect(useSettingsStore.getState().shareAuthorName).toBe('');
+  });
 });
