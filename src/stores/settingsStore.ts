@@ -13,6 +13,8 @@ export const DEFAULT_HISTORY_SETTINGS: HistoryVersionSettings = {
   retentionDays: 30,
 };
 
+export const DEFAULT_SHARE_AUTHOR_NAME = '';
+
 const noopStorage: StateStorage = {
   getItem: () => null,
   setItem: () => undefined,
@@ -75,10 +77,14 @@ interface SettingsState {
   locale: Locale;
   /** 历史版本设置 */
   historySettings: HistoryVersionSettings;
+  /** 分享图片作者名称 */
+  shareAuthorName: string;
   /** 设置界面语言 */
   setLocale: (locale: Locale) => void;
   /** 设置历史版本配置 */
   setHistorySettings: (historySettings: HistoryVersionSettings) => void;
+  /** 设置分享图片作者名称 */
+  setShareAuthorName: (shareAuthorName: string) => void;
   /** 重置为默认设置 */
   resetSettings: () => void;
 }
@@ -88,6 +94,7 @@ export const useSettingsStore = create<SettingsState>()(
     (set) => ({
       locale: detectInitialLocale(getBrowserLanguages()),
       historySettings: DEFAULT_HISTORY_SETTINGS,
+      shareAuthorName: DEFAULT_SHARE_AUTHOR_NAME,
 
       setLocale: (locale) => {
         set({ locale });
@@ -97,14 +104,23 @@ export const useSettingsStore = create<SettingsState>()(
         set({ historySettings });
       },
 
+      setShareAuthorName: (shareAuthorName) => {
+        set({ shareAuthorName });
+      },
+
       resetSettings: () => {
-        set({ historySettings: DEFAULT_HISTORY_SETTINGS });
+        set({
+          historySettings: DEFAULT_HISTORY_SETTINGS,
+          shareAuthorName: DEFAULT_SHARE_AUTHOR_NAME,
+        });
       },
     }),
     {
       name: 'promptclip-settings',
       storage: createJSONStorage(getSettingsStorage),
-      partialize: (state) => ({ locale: state.locale }),
+      partialize: (state) => ({
+        locale: state.locale,
+      }),
     }
   )
 );

@@ -15,7 +15,9 @@ describe('SettingsModal', () => {
         }}
         isSaveDisabled={false}
         isSaving={false}
+        shareAuthorName="周文超"
         onCancel={noop}
+        onChangeShareAuthorName={noop}
         onChangeLocale={noop}
         onChangeHistorySettings={noop}
         onReset={noop}
@@ -30,6 +32,8 @@ describe('SettingsModal', () => {
     expect(markup).toContain('历史版本');
     expect(markup).toContain('文件夹维护');
     expect(markup).toContain('语言');
+    expect(markup).toContain('分享作者');
+    expect(markup).toContain('value="周文超"');
     expect(markup).toContain('value="zh-CN" selected=""');
     expect(markup).toContain('value="en-US"');
     expect(markup).toContain('中文');
@@ -53,6 +57,7 @@ describe('SettingsModal', () => {
         isRepairingMetadata={false}
         isSaveDisabled={false}
         isSaving={false}
+        shareAuthorName=""
         isScanningMetadata={false}
         metadataScanResult={{
           totalMarkdownFiles: 2,
@@ -68,6 +73,7 @@ describe('SettingsModal', () => {
           ],
         }}
         onCancel={noop}
+        onChangeShareAuthorName={noop}
         onChangeLocale={noop}
         onChangeHistorySettings={noop}
         onRepairMetadata={noop}
@@ -103,6 +109,7 @@ describe('SettingsModal', () => {
         isRepairingMetadata={false}
         isSaveDisabled={false}
         isSaving={false}
+        shareAuthorName=""
         isScanningMetadata={false}
         metadataScanResult={{
           totalMarkdownFiles: 1001,
@@ -111,6 +118,7 @@ describe('SettingsModal', () => {
           issues,
         }}
         onCancel={noop}
+        onChangeShareAuthorName={noop}
         onChangeLocale={noop}
         onChangeHistorySettings={noop}
         onRepairMetadata={noop}
@@ -139,7 +147,9 @@ describe('SettingsModal', () => {
         }}
         isSaveDisabled={false}
         isSaving={false}
+        shareAuthorName=""
         onCancel={noop}
+        onChangeShareAuthorName={noop}
         onChangeLocale={noop}
         onChangeHistorySettings={noop}
         onReset={noop}
@@ -165,7 +175,9 @@ describe('SettingsModal', () => {
         }}
         isSaveDisabled={false}
         isSaving={false}
+        shareAuthorName="Alex"
         onCancel={noop}
+        onChangeShareAuthorName={noop}
         onChangeLocale={noop}
         onChangeHistorySettings={noop}
         onReset={noop}
@@ -178,6 +190,8 @@ describe('SettingsModal', () => {
     expect(markup).toContain('General');
     expect(markup).toContain('About');
     expect(markup).toContain('Language');
+    expect(markup).toContain('Share author');
+    expect(markup).toContain('value="Alex"');
     expect(markup).toContain('History versions');
     expect(markup).toContain('Folder maintenance');
     expect(markup).toContain('Scan metadata');

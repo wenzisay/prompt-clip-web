@@ -8,6 +8,7 @@ import { PromptGrid, CreateModal, DeleteConfirm } from '@/components/prompt';
 import { CommandPalette } from '@/components/command';
 import { ExportModal } from '@/components/export/ExportModal';
 import { SettingsModal } from '@/components/settings';
+import { ShareImageModal } from '@/components/share';
 import { useFileStore } from '@/stores/fileStore';
 import { useUIStore } from '@/stores/uiStore';
 import { usePromptStore } from '@/stores/promptStore';
@@ -23,7 +24,7 @@ function AppContent() {
   const { isAuthorized, workspace, initialize } = useFileStore();
   const { modalType, selectedPromptId } = useUIStore();
   const { prompts } = usePromptStore();
-  const { locale, resetSettings, setHistorySettings } = useSettingsStore();
+  const { locale, resetSettings, setHistorySettings, setShareAuthorName } = useSettingsStore();
   const { setTags } = useTagStore();
 
   useEffect(() => {
@@ -60,6 +61,7 @@ function AppContent() {
       );
       if (isCurrent) {
         setHistorySettings(config.historyVersions);
+        setShareAuthorName(config.shareAuthorName);
       }
     }
 
@@ -68,7 +70,7 @@ function AppContent() {
     return () => {
       isCurrent = false;
     };
-  }, [workspace, resetSettings, setHistorySettings]);
+  }, [workspace, resetSettings, setHistorySettings, setShareAuthorName]);
 
   // 自动加载 Prompts
   usePromptLoader();
@@ -130,6 +132,9 @@ function AppContent() {
 
       {/* 设置对话框 */}
       <SettingsModal />
+
+      {/* 分享图片对话框 */}
+      <ShareImageModal />
     </div>
   );
 }

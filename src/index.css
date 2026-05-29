@@ -257,6 +257,50 @@
   margin-bottom: 1em;
 }
 
+.share-card-preview-scale {
+  width: 100%;
+  overflow: hidden;
+}
+
+.share-card-export-host {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.share-card-preview-scale .share-card-export-root {
+  zoom: 0.76;
+}
+
+@media (min-width: 768px) {
+  .share-card-preview-scale .share-card-export-root {
+    zoom: 0.58;
+  }
+}
+
+.share-card-content,
+.share-card-content * {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.share-card-content {
+  font-size: 20px;
+  line-height: 1.8;
+}
+
+.share-card-content pre {
+  max-width: 100%;
+  overflow: visible;
+  white-space: pre-wrap;
+}
+
+.share-card-content code {
+  white-space: pre-wrap;
+}
+
 .prompt-markdown-preview-editor {
   border: 1px solid var(--border-strong);
   border-radius: 0.5rem;

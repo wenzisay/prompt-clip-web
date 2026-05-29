@@ -3,7 +3,7 @@
  */
 
 import type { Prompt } from '@/types/prompt';
-import { useTranslation } from '@/i18n';
+import { messages, useTranslation, type Locale } from '@/i18n';
 import { useUIStore } from '@/stores/uiStore';
 import { usePromptStore } from '@/stores/promptStore';
 import { useFileStore } from '@/stores/fileStore';
@@ -22,7 +22,7 @@ interface PromptCardProps {
 }
 
 export function PromptCard({ prompt }: PromptCardProps) {
-  const { t } = useTranslation();
+  const { locale, t } = useTranslation();
   const { setSelectedPrompt, openModal, selectedPromptIds, toggleSelectPrompt } = useUIStore();
   const { updatePrompt } = usePromptStore();
   const { workspace } = useFileStore();
@@ -77,6 +77,13 @@ export function PromptCard({ prompt }: PromptCardProps) {
 
   const handleMenuTogglePin = async (e: React.MouseEvent) => {
     await handleTogglePin(e);
+    setIsMenuOpen(false);
+  };
+
+  const handleShare = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedPrompt(prompt.id);
+    openModal('share');
     setIsMenuOpen(false);
   };
 
@@ -170,40 +177,16 @@ export function PromptCard({ prompt }: PromptCardProps) {
             />
             {/* 下拉菜单 */}
             {isMenuOpen && (
-              <div className="absolute right-0 top-full mt-1 w-36 bg-surface border border-border rounded-lg shadow-card py-1 z-10">
-                <button
-                  onClick={handleMenuSelect}
-                  className="w-full px-3 py-2 text-left text-sm text-fg hover:bg-surface-dim transition-colors flex items-center gap-2"
-                >
-                  <span className="material-symbols-outlined text-lg">
-                    {isSelected ? 'check_box' : 'check_box_outline_blank'}
-                  </span>
-                  {isSelected ? t.app.deselect : t.app.select}
-                </button>
-                <button
-                  onClick={handleMenuTogglePin}
-                  className="w-full px-3 py-2 text-left text-sm text-fg hover:bg-surface-dim transition-colors flex items-center gap-2"
-                >
-                  <span className="material-symbols-outlined text-lg">
-                    {prompt.pinned ? 'star' : 'star_border'}
-                  </span>
-                  {prompt.pinned ? t.app.unfavorite : t.app.favorite}
-                </button>
-                <button
-                  onClick={handleEdit}
-                  className="w-full px-3 py-2 text-left text-sm text-fg hover:bg-surface-dim transition-colors flex items-center gap-2"
-                >
-                  <span className="material-symbols-outlined text-lg">edit</span>
-                  {t.app.edit}
-                </button>
-                <button
-                  onClick={handleDelete}
-                  className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2"
-                >
-                  <span className="material-symbols-outlined text-lg">delete</span>
-                  {t.app.delete}
-                </button>
-              </div>
+              <PromptCardActionsMenu
+                isPinned={prompt.pinned}
+                isSelected={isSelected}
+                locale={locale}
+                onDelete={handleDelete}
+                onEdit={handleEdit}
+                onSelect={handleMenuSelect}
+                onShare={handleShare}
+                onTogglePin={handleMenuTogglePin}
+              />
             )}
           </div>
         </div>
@@ -258,6 +241,77 @@ export function PromptCard({ prompt }: PromptCardProps) {
         </button>
       </div>
     </div>
+  );
+}
+
+export interface PromptCardActionsMenuProps {
+  isPinned: boolean;
+  isSelected: boolean;
+  locale: Locale;
+  onDelete: (event: React.MouseEvent) => void;
+  onEdit: (event: React.MouseEvent) => void;
+  onSelect: (event: React.MouseEvent) => void;
+  onShare: (event: React.MouseEvent) => void;
+  onTogglePin: (event: React.MouseEvent) => void | Promise<void>;
+}
+
+export function PromptCardActionsMenu({
+  isPinned,
+  isSelected,
+  locale,
+  onDelete,
+  onEdit,
+  onSelect,
+  onShare,
+  onTogglePin,
+}: PromptCardActionsMenuProps) {
+  const t = messages[locale];
+
+  return (
+    <div className="absolute right-0 top-full z-10 mt-1 w-36 rounded-lg border border-border bg-surface py-1 shadow-card">
+      <PromptMenuButton
+        icon={isSelected ? 'check_box' : 'check_box_outline_blank'}
+        label={isSelected ? t.app.deselect : t.app.select}
+        onClick={onSelect}
+      />
+      <PromptMenuButton
+        icon={isPinned ? 'star' : 'star_border'}
+        label={isPinned ? t.app.unfavorite : t.app.favorite}
+        onClick={onTogglePin}
+      />
+      <PromptMenuButton icon="ios_share" label={t.app.sharePrompt} onClick={onShare} />
+      <PromptMenuButton icon="edit" label={t.app.edit} onClick={onEdit} />
+      <PromptMenuButton
+        icon="delete"
+        label={t.app.delete}
+        onClick={onDelete}
+        className="text-red-600 hover:bg-red-50"
+      />
+    </div>
+  );
+}
+
+interface PromptMenuButtonProps {
+  icon: string;
+  label: string;
+  onClick: (event: React.MouseEvent) => void | Promise<void>;
+  className?: string;
+}
+
+function PromptMenuButton({
+  icon,
+  label,
+  onClick,
+  className = 'text-fg hover:bg-surface-dim',
+}: PromptMenuButtonProps) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors ${className}`}
+    >
+      <span className="material-symbols-outlined text-lg">{icon}</span>
+      {label}
+    </button>
   );
 }
 

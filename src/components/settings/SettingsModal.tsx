@@ -34,6 +34,8 @@ export function SettingsModal() {
   const setPrompts = usePromptStore((state) => state.setPrompts);
   const setTags = useTagStore((state) => state.setTags);
   const setLocale = useSettingsStore((state) => state.setLocale);
+  const shareAuthorName = useSettingsStore((state) => state.shareAuthorName);
+  const setShareAuthorName = useSettingsStore((state) => state.setShareAuthorName);
   const setStoredHistorySettings = useSettingsStore((state) => state.setHistorySettings);
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
   const [historySettings, setHistorySettings] = useState<HistoryVersionSettings>(
@@ -86,6 +88,11 @@ export function SettingsModal() {
         fileRepository,
         workspace,
         historySettings
+      );
+      await FolderConfigService.updateShareAuthorName(
+        fileRepository,
+        workspace,
+        shareAuthorName
       );
       setStoredHistorySettings(historySettings);
       addToast({
@@ -181,11 +188,16 @@ export function SettingsModal() {
         isScanningMetadata={isScanningMetadata}
         locale={locale}
         metadataScanResult={metadataScanResult}
+        shareAuthorName={shareAuthorName}
         onCancel={closeModal}
+        onChangeShareAuthorName={setShareAuthorName}
         onChangeLocale={setLocale}
         onChangeHistorySettings={setHistorySettings}
         onRepairMetadata={handleRepairMetadata}
-        onReset={() => setHistorySettings(DEFAULT_HISTORY_SETTINGS)}
+        onReset={() => {
+          setHistorySettings(DEFAULT_HISTORY_SETTINGS);
+          setShareAuthorName('');
+        }}
         onSave={handleSave}
         onScanMetadata={handleScanMetadata}
         onSelectTab={setActiveTab}
@@ -203,7 +215,9 @@ interface SettingsModalContentProps {
   isScanningMetadata?: boolean;
   locale: Locale;
   metadataScanResult?: PromptMetadataScanResult | null;
+  shareAuthorName: string;
   onCancel: () => void;
+  onChangeShareAuthorName: (shareAuthorName: string) => void;
   onChangeLocale: (locale: Locale) => void;
   onChangeHistorySettings: (settings: HistoryVersionSettings) => void;
   onRepairMetadata?: () => void;
@@ -222,7 +236,9 @@ export function SettingsModalContent({
   isScanningMetadata = false,
   locale,
   metadataScanResult = null,
+  shareAuthorName,
   onCancel,
+  onChangeShareAuthorName,
   onChangeLocale,
   onChangeHistorySettings,
   onRepairMetadata,
@@ -259,7 +275,9 @@ export function SettingsModalContent({
               isScanningMetadata={isScanningMetadata}
               locale={locale}
               metadataScanResult={metadataScanResult}
+              shareAuthorName={shareAuthorName}
               onChangeLocale={onChangeLocale}
+              onChangeShareAuthorName={onChangeShareAuthorName}
               onChange={onChangeHistorySettings}
               onRepairMetadata={onRepairMetadata}
               onScanMetadata={onScanMetadata}
@@ -317,7 +335,9 @@ interface GeneralSettingsProps {
   isScanningMetadata: boolean;
   locale: Locale;
   metadataScanResult: PromptMetadataScanResult | null;
+  shareAuthorName: string;
   onChangeLocale: (locale: Locale) => void;
+  onChangeShareAuthorName: (shareAuthorName: string) => void;
   onChange: (settings: HistoryVersionSettings) => void;
   onRepairMetadata?: () => void;
   onScanMetadata?: () => void;
@@ -329,7 +349,9 @@ function GeneralSettings({
   isScanningMetadata,
   locale,
   metadataScanResult,
+  shareAuthorName,
   onChangeLocale,
+  onChangeShareAuthorName,
   onChange,
   onRepairMetadata,
   onScanMetadata,
@@ -373,6 +395,28 @@ function GeneralSettings({
                 </option>
               ))}
             </select>
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-border bg-surface p-5 shadow-sm">
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0 flex-1">
+              <label className="text-sm font-semibold text-fg" htmlFor="share-author-name">
+                {t.settings.shareAuthorTitle}
+              </label>
+              <p className="mt-1 text-sm text-muted">{t.settings.shareAuthorDescription}</p>
+            </div>
+            <input
+              id="share-author-name"
+              type="text"
+              value={shareAuthorName}
+              onChange={(event) => onChangeShareAuthorName(event.target.value)}
+              placeholder={t.settings.shareAuthorPlaceholder}
+              className="
+                h-10 w-52 rounded-lg border border-border bg-surface px-3 text-sm text-fg
+                focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20
+              "
+            />
           </div>
         </div>
 

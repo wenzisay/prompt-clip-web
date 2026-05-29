@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Prompt } from '@/types/prompt';
-import { getPromptCardDate, getPromptPreview } from './PromptCard';
+import { PromptCardActionsMenu, getPromptCardDate, getPromptPreview } from './PromptCard';
+import { renderToStaticMarkup } from 'react-dom/server';
 
 const prompt: Prompt = {
   id: 'date-card',
@@ -56,5 +57,26 @@ describe('PromptCard preview text', () => {
 
     expect(preview.text).toHaveLength(120);
     expect(preview.isTruncated).toBe(true);
+  });
+});
+
+describe('PromptCardActionsMenu', () => {
+  it('renders the share action in the menu', () => {
+    const noop = () => undefined;
+    const markup = renderToStaticMarkup(
+      <PromptCardActionsMenu
+        isSelected={false}
+        isPinned={false}
+        locale="zh-CN"
+        onDelete={noop}
+        onEdit={noop}
+        onSelect={noop}
+        onShare={noop}
+        onTogglePin={noop}
+      />
+    );
+
+    expect(markup).toContain('分享');
+    expect(markup).toContain('ios_share');
   });
 });

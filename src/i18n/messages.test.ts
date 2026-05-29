@@ -26,5 +26,14 @@ describe('messages', () => {
     expect(app.title).toBe('Title');
     expect(app.add).toBe('Add');
     expect(app.save).toBe('Save');
+    expect(app.sharePrompt).toBe('Share');
+    expect(app.shareImageTitle).toBe('Share image');
+    expect(app.renderMarkdown).toBe('Render Markdown');
+    expect(app.shareContentTruncated).toBe('Content truncated at 2000 characters.');
+    expect(messages['zh-CN'].app.sharePrompt).toBe('分享');
+    expect(messages['zh-TW'].app.sharePrompt).toBe('分享');
+    expect(messages['zh-CN'].settings.shareAuthorTitle).toBe('分享作者');
+    expect(messages['zh-TW'].settings.shareAuthorTitle).toBe('分享作者');
+    expect(messages['en-US'].settings.shareAuthorTitle).toBe('Share author');
   });
 });
