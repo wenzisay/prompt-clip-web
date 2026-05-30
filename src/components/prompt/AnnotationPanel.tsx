@@ -285,15 +285,27 @@ function AnnotationItem({
 }: AnnotationItemProps) {
   const t = messages[locale];
   const [isEditing, setIsEditing] = useState(initialIsEditing);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isOverflowing, setIsOverflowing] = useState(false);
   const [draft, setDraft] = useState(annotation.text);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [shouldRemoveImage, setShouldRemoveImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const contentRef = useRef<HTMLParagraphElement>(null);
   const createdAt = formatDateTime(new Date(annotation.createdAt));
   const updatedAt = formatDateTime(new Date(annotation.updatedAt));
   const didEdit = annotation.updatedAt !== annotation.createdAt;
   const currentImage = shouldRemoveImage ? null : annotation.attachments[0] ?? null;
   const selectedImageName = selectedImage?.name ?? currentImage?.name ?? null;
+
+  // Check if content is too long on mount and when editing changes
+  useEffect(() => {
+    if (!isEditing && contentRef.current) {
+      // Check if content exceeds max height (approx 8 lines of text at 1.5rem leading)
+      const maxHeight = 8 * 24; // 8 lines * 24px per line (1.5rem * 16px base)
+      setIsOverflowing(contentRef.current.scrollHeight > maxHeight);
+    }
+  }, [annotation.text, isEditing]);
 
   useEffect(() => {
     if (!isEditing) return;
@@ -420,7 +432,35 @@ function AnnotationItem({
           </div>
         </div>
       ) : (
-        <p className="whitespace-pre-wrap text-sm leading-6 text-fg">{annotation.text}</p>
+        <div>
+          <p
+            ref={contentRef}
+            className={`whitespace-pre-wrap text-sm leading-6 text-fg ${
+              !isExpanded && isOverflowing ? 'max-h-32 overflow-hidden' : ''
+            }`}
+          >
+            {annotation.text}
+          </p>
+          {isOverflowing && !isEditing && (
+            <button
+              type="button"
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="mt-2 inline-flex items-center gap-1 text-xs text-accent hover:underline"
+            >
+              {isExpanded ? (
+                <>
+                  <span className="material-symbols-outlined text-sm">expand_less</span>
+                  {t.app.collapseAnnotation}
+                </>
+              ) : (
+                <>
+                  <span className="material-symbols-outlined text-sm">expand_more</span>
+                  {t.app.expandAnnotation}
+                </>
+              )}
+            </button>
+          )}
+        </div>
       )}
 
       {!isEditing && annotation.attachments.map((attachment) => (
