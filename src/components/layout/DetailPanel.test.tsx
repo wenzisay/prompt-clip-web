@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import { HistoryAction, PromptContentView } from './DetailPanel';
+import { AnnotationSummaryIndicator, HistoryAction, PromptContentView } from './DetailPanel';
 
 describe('DetailPanel history action', () => {
   it('hides the history button when history versions are disabled', () => {
@@ -17,6 +17,20 @@ describe('DetailPanel history action', () => {
     );
 
     expect(markup).toContain('aria-label="查看历史版本"');
+  });
+});
+
+describe('AnnotationSummaryIndicator', () => {
+  it('shows no annotations when count is zero', () => {
+    const markup = renderToStaticMarkup(<AnnotationSummaryIndicator count={0} />);
+
+    expect(markup).toContain('无批注');
+  });
+
+  it('shows the annotation count', () => {
+    const markup = renderToStaticMarkup(<AnnotationSummaryIndicator count={3} />);
+
+    expect(markup).toContain('3 条批注');
   });
 });
 

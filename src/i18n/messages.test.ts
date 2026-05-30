@@ -23,6 +23,8 @@ describe('messages', () => {
     expect(app.characterCount(12)).toBe('12 characters');
     expect(app.usageCount(2)).toBe('Used 2 times');
     expect(app.favorited).toBe('Favorited');
+    expect(app.noAnnotationSummary).toBe('No annotations');
+    expect(app.annotationSummary(2)).toBe('2 annotations');
     expect(app.title).toBe('Title');
     expect(app.add).toBe('Add');
     expect(app.save).toBe('Save');

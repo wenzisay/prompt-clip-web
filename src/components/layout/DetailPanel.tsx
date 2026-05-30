@@ -4,6 +4,7 @@ import { useUIStore } from '@/stores/uiStore';
 import { usePromptStore } from '@/stores/promptStore';
 import { useFileStore } from '@/stores/fileStore';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { useAnnotationStore } from '@/stores/annotationStore';
 import { SideDrawer } from '@/components/common';
 import {
   HistoryModal,
@@ -23,12 +24,16 @@ export function DetailPanel() {
   const { prompts, updatePrompt } = usePromptStore();
   const { workspace } = useFileStore();
   const isHistoryEnabled = useSettingsStore((state) => state.historySettings.enabled);
+  const annotationPromptId = useAnnotationStore((state) => state.promptId);
+  const annotationCount = useAnnotationStore((state) => state.annotations.length);
   const [copied, setCopied] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [contentMode, setContentMode] = useState<MarkdownViewMode>('preview');
 
   // 获取选中的 Prompt
   const selectedPrompt = prompts.find((p) => p.id === selectedPromptId);
+  const selectedPromptAnnotationCount =
+    annotationPromptId === selectedPrompt?.id ? annotationCount : 0;
 
   // 复制内容到剪贴板
   const handleCopy = async () => {
@@ -167,6 +172,10 @@ export function DetailPanel() {
               </span>
               {selectedPrompt.pinned ? t.app.favorited : t.app.notFavorited}
             </button>
+            <AnnotationSummaryIndicator
+              count={selectedPromptAnnotationCount}
+              locale={locale}
+            />
             <HistoryAction
               isHistoryEnabled={isHistoryEnabled}
               locale={locale}
@@ -191,6 +200,25 @@ export function DetailPanel() {
         onClose={() => setIsHistoryOpen(false)}
       />
     </>
+  );
+}
+
+interface AnnotationSummaryIndicatorProps {
+  count: number;
+  locale?: Locale;
+}
+
+export function AnnotationSummaryIndicator({
+  count,
+  locale = 'zh-CN',
+}: AnnotationSummaryIndicatorProps) {
+  const t = messages[locale];
+
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span className="material-symbols-outlined text-lg">chat_bubble</span>
+      {count > 0 ? t.app.annotationSummary(count) : t.app.noAnnotationSummary}
+    </span>
   );
 }
 
