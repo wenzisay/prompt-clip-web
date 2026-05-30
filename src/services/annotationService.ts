@@ -301,7 +301,14 @@ async function removeIfExists(
 }
 
 function isMissingFileError(error: unknown): boolean {
-  return error instanceof Error && /不存在|not found|no such file/i.test(error.message);
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  return (
+    error.name === 'NotFoundError' ||
+    /不存在|not found|no such file|could not be found/i.test(error.message)
+  );
 }
 
 export const AnnotationService = {

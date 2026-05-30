@@ -22,6 +22,22 @@ describe('AnnotationService', () => {
     });
   });
 
+  it('treats File System Access API missing file errors as empty annotations', async () => {
+    vi.setSystemTime(now);
+    const repository = createFakeFileRepository();
+    vi.spyOn(repository, 'readText').mockRejectedValue(
+      new DOMException(
+        'A requested file or directory could not be found at the time an operation was processed.',
+        'NotFoundError'
+      )
+    );
+
+    const file = await AnnotationService.loadAnnotations(repository, workspace, promptId);
+
+    expect(file.annotations).toEqual([]);
+    expect(file.promptId).toBe(promptId);
+  });
+
   it('creates a text annotation in the prompt sidecar JSON', async () => {
     vi.setSystemTime(now);
     const repository = createFakeFileRepository();
