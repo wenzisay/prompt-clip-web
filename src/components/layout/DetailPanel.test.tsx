@@ -22,14 +22,20 @@ describe('DetailPanel history action', () => {
 
 describe('AnnotationSummaryIndicator', () => {
   it('shows no annotations when count is zero', () => {
-    const markup = renderToStaticMarkup(<AnnotationSummaryIndicator count={0} />);
+    const markup = renderToStaticMarkup(
+      <AnnotationSummaryIndicator count={0} onClick={vi.fn()} />
+    );
 
+    expect(markup).toContain('<button');
     expect(markup).toContain('无批注');
   });
 
   it('shows the annotation count', () => {
-    const markup = renderToStaticMarkup(<AnnotationSummaryIndicator count={3} />);
+    const markup = renderToStaticMarkup(
+      <AnnotationSummaryIndicator count={3} onClick={vi.fn()} />
+    );
 
+    expect(markup).toContain('aria-label="3 条批注"');
     expect(markup).toContain('3 条批注');
   });
 });

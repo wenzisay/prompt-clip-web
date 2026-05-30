@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { messages, useTranslation, type Locale } from '@/i18n';
 import { useUIStore } from '@/stores/uiStore';
 import { usePromptStore } from '@/stores/promptStore';
@@ -29,6 +29,7 @@ export function DetailPanel() {
   const [copied, setCopied] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [contentMode, setContentMode] = useState<MarkdownViewMode>('preview');
+  const annotationSectionRef = useRef<HTMLDivElement | null>(null);
 
   // 获取选中的 Prompt
   const selectedPrompt = prompts.find((p) => p.id === selectedPromptId);
@@ -63,6 +64,13 @@ export function DetailPanel() {
   const handleEdit = () => {
     if (!selectedPrompt) return;
     openModal('edit');
+  };
+
+  const handleScrollToAnnotations = () => {
+    annotationSectionRef.current?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start',
+    });
   };
 
   if (!selectedPrompt) {
@@ -175,6 +183,7 @@ export function DetailPanel() {
             <AnnotationSummaryIndicator
               count={selectedPromptAnnotationCount}
               locale={locale}
+              onClick={handleScrollToAnnotations}
             />
             <HistoryAction
               isHistoryEnabled={isHistoryEnabled}
@@ -190,7 +199,9 @@ export function DetailPanel() {
             onModeChange={setContentMode}
           />
 
-          <AnnotationPanel promptId={selectedPrompt.id} workspace={workspace} />
+          <div ref={annotationSectionRef}>
+            <AnnotationPanel promptId={selectedPrompt.id} workspace={workspace} />
+          </div>
         </article>
       </SideDrawer>
 
@@ -206,19 +217,28 @@ export function DetailPanel() {
 interface AnnotationSummaryIndicatorProps {
   count: number;
   locale?: Locale;
+  onClick: () => void;
 }
 
 export function AnnotationSummaryIndicator({
   count,
   locale = 'zh-CN',
+  onClick,
 }: AnnotationSummaryIndicatorProps) {
   const t = messages[locale];
+  const label = count > 0 ? t.app.annotationSummary(count) : t.app.noAnnotationSummary;
 
   return (
-    <span className="inline-flex items-center gap-1.5">
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex items-center gap-1.5 rounded-md transition-colors hover:text-fg"
+      aria-label={label}
+      title={label}
+    >
       <span className="material-symbols-outlined text-lg">chat_bubble</span>
-      {count > 0 ? t.app.annotationSummary(count) : t.app.noAnnotationSummary}
-    </span>
+      {label}
+    </button>
   );
 }
 
