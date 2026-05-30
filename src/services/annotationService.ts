@@ -84,18 +84,29 @@ export async function updateAnnotation(
   const now = new Date();
   const existing = await loadAnnotations(repository, workspace, promptId);
   let didUpdate = false;
-  const annotations = existing.annotations.map((annotation) => {
+  const annotations: PromptAnnotation[] = [];
+
+  for (const annotation of existing.annotations) {
     if (annotation.id !== input.id) {
-      return annotation;
+      annotations.push(annotation);
+      continue;
     }
 
     didUpdate = true;
-    return {
+    annotations.push({
       ...annotation,
       text,
+      attachments: await updateAnnotationAttachments(
+        repository,
+        workspace,
+        promptId,
+        annotation,
+        input,
+        now
+      ),
       updatedAt: now.toISOString(),
-    };
-  });
+    });
+  }
 
   if (!didUpdate) {
     throw new Error('批注不存在');
@@ -174,6 +185,29 @@ export async function readAttachment(
   attachment: AnnotationAttachment
 ): Promise<Uint8Array> {
   return repository.readBinary(workspace, attachment.path);
+}
+
+async function updateAnnotationAttachments(
+  repository: FileRepository,
+  workspace: WorkspaceRef,
+  promptId: string,
+  annotation: PromptAnnotation,
+  input: UpdateAnnotationInput,
+  now: Date
+): Promise<AnnotationAttachment[]> {
+  if (input.image) {
+    await removeIfExists(repository, workspace, annotationAssetDirectory(promptId, annotation.id));
+    return [
+      await writeImageAttachment(repository, workspace, promptId, annotation.id, input.image, now),
+    ];
+  }
+
+  if (input.removeImage) {
+    await removeIfExists(repository, workspace, annotationAssetDirectory(promptId, annotation.id));
+    return [];
+  }
+
+  return annotation.attachments;
 }
 
 async function saveAnnotationFile(

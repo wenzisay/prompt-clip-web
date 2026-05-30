@@ -50,6 +50,23 @@ describe('AnnotationList', () => {
     expect(markup).toContain('result.png');
   });
 
+  it('uses the composer controls when an annotation with an image enters edit mode', () => {
+    const markup = renderToStaticMarkup(
+      <AnnotationList
+        annotations={[annotation]}
+        editingAnnotationId="annotation-1"
+        isSaving={false}
+        onDelete={() => undefined}
+        onUpdate={() => undefined}
+      />
+    );
+
+    expect(markup).toContain('>这条 Prompt 在客服场景表现稳定。</textarea>');
+    expect(markup).toContain('添加图片');
+    expect(markup).toContain('已选择 result.png');
+    expect(markup).toContain('aria-label="移除图片"');
+  });
+
   it('renders an enlarged image preview dialog', () => {
     const markup = renderToStaticMarkup(
       <AnnotationImagePreview

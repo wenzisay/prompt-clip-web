@@ -136,6 +136,66 @@ describe('AnnotationService', () => {
     });
   });
 
+  it('replaces an existing image attachment when updating an annotation', async () => {
+    vi.setSystemTime(now);
+    const repository = createFakeFileRepository();
+    const created = await AnnotationService.createAnnotation(repository, workspace, promptId, {
+      text: '旧内容',
+      image: {
+        data: new Uint8Array([1]),
+        name: 'old.png',
+        mimeType: 'image/png',
+      },
+    });
+    const annotation = created.annotations[0];
+    const oldPath = annotation.attachments[0].path;
+
+    vi.setSystemTime(new Date('2026-05-30T11:00:00.000Z'));
+    const updated = await AnnotationService.updateAnnotation(repository, workspace, promptId, {
+      id: annotation.id,
+      text: '新内容',
+      image: {
+        data: new Uint8Array([2, 3]),
+        name: 'new.png',
+        mimeType: 'image/png',
+      },
+    });
+
+    expect(updated.annotations[0].attachments).toHaveLength(1);
+    expect(updated.annotations[0].attachments[0]).toMatchObject({
+      name: 'new.png',
+      mimeType: 'image/png',
+      size: 2,
+    });
+    expect(repository.dumpBinaryFiles()[oldPath]).toBeUndefined();
+    expect(repository.dumpBinaryFiles()[updated.annotations[0].attachments[0].path])
+      .toEqual([2, 3]);
+  });
+
+  it('removes an existing image attachment when updating an annotation', async () => {
+    vi.setSystemTime(now);
+    const repository = createFakeFileRepository();
+    const created = await AnnotationService.createAnnotation(repository, workspace, promptId, {
+      text: '带图批注',
+      image: {
+        data: new Uint8Array([9]),
+        name: 'screen.png',
+        mimeType: 'image/png',
+      },
+    });
+    const annotation = created.annotations[0];
+    const oldPath = annotation.attachments[0].path;
+
+    const updated = await AnnotationService.updateAnnotation(repository, workspace, promptId, {
+      id: annotation.id,
+      text: '不再需要图片',
+      removeImage: true,
+    });
+
+    expect(updated.annotations[0].attachments).toEqual([]);
+    expect(repository.dumpBinaryFiles()[oldPath]).toBeUndefined();
+  });
+
   it('deletes an annotation and its attachment directory', async () => {
     vi.setSystemTime(now);
     const repository = createFakeFileRepository();

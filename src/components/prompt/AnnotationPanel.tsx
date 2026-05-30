@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { messages, useTranslation, type Locale } from '@/i18n';
 import { CONFIG } from '@/constants/config';
 import { fileRepository, type FileRepository } from '@/services/fileRepository';
 import { AnnotationService } from '@/services/annotationService';
 import { useAnnotationStore } from '@/stores/annotationStore';
-import type { PromptAnnotation, AnnotationAttachment } from '@/types/annotation';
+import type { PromptAnnotation, AnnotationAttachment, UpdateAnnotationInput } from '@/types/annotation';
 import type { WorkspaceRef } from '@/types/file';
 import { formatDateTime } from '@/utils/date';
 
@@ -54,11 +54,11 @@ export function AnnotationPanel({
     }
   }
 
-  async function handleUpdate(id: string, text: string) {
+  async function handleUpdate(input: UpdateAnnotationInput) {
     if (!workspace) return;
 
     try {
-      await updateAnnotation(repository, workspace, promptId, { id, text });
+      await updateAnnotation(repository, workspace, promptId, input);
     } catch (updateError) {
       console.error(t.app.annotationSaveFailed, updateError);
     }
@@ -125,7 +125,7 @@ export function AnnotationComposer({
   const [text, setText] = useState('');
   const [image, setImage] = useState<File | null>(null);
 
-  function handleImageChange(event: React.ChangeEvent<HTMLInputElement>) {
+  function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0] ?? null;
     if (!file) return;
 
@@ -166,6 +166,7 @@ export function AnnotationComposer({
       <textarea
         value={text}
         onChange={(event) => setText(event.target.value)}
+        aria-label={t.app.annotationText}
         className="min-h-24 w-full resize-y rounded-md border border-border bg-bg px-3 py-2 text-sm leading-6 text-fg outline-none transition-colors placeholder:text-muted focus:border-accent"
         placeholder={t.app.annotationPlaceholder}
       />
@@ -218,7 +219,8 @@ interface AnnotationListProps {
   repository?: FileRepository;
   workspace?: WorkspaceRef | null;
   onDelete: (id: string) => void;
-  onUpdate: (id: string, text: string) => Promise<void> | void;
+  onUpdate: (input: UpdateAnnotationInput) => Promise<void> | void;
+  editingAnnotationId?: string | null;
 }
 
 export function AnnotationList({
@@ -229,6 +231,7 @@ export function AnnotationList({
   workspace,
   onDelete,
   onUpdate,
+  editingAnnotationId = null,
 }: AnnotationListProps) {
   const t = messages[locale];
 
@@ -252,6 +255,7 @@ export function AnnotationList({
           workspace={workspace}
           onDelete={onDelete}
           onUpdate={onUpdate}
+          initialIsEditing={annotation.id === editingAnnotationId}
         />
       ))}
     </div>
@@ -265,7 +269,8 @@ interface AnnotationItemProps {
   repository?: FileRepository;
   workspace?: WorkspaceRef | null;
   onDelete: (id: string) => void;
-  onUpdate: (id: string, text: string) => Promise<void> | void;
+  onUpdate: (input: UpdateAnnotationInput) => Promise<void> | void;
+  initialIsEditing?: boolean;
 }
 
 function AnnotationItem({
@@ -276,19 +281,84 @@ function AnnotationItem({
   workspace,
   onDelete,
   onUpdate,
+  initialIsEditing = false,
 }: AnnotationItemProps) {
   const t = messages[locale];
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditing, setIsEditing] = useState(initialIsEditing);
   const [draft, setDraft] = useState(annotation.text);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [shouldRemoveImage, setShouldRemoveImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const createdAt = formatDateTime(new Date(annotation.createdAt));
   const updatedAt = formatDateTime(new Date(annotation.updatedAt));
   const didEdit = annotation.updatedAt !== annotation.createdAt;
+  const currentImage = shouldRemoveImage ? null : annotation.attachments[0] ?? null;
+  const selectedImageName = selectedImage?.name ?? currentImage?.name ?? null;
+
+  useEffect(() => {
+    if (!isEditing) return;
+
+    setDraft(annotation.text);
+    setSelectedImage(null);
+    setShouldRemoveImage(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  }, [annotation, isEditing]);
+
+  function handleStartEdit() {
+    setDraft(annotation.text);
+    setSelectedImage(null);
+    setShouldRemoveImage(false);
+    setIsEditing(true);
+  }
+
+  function handleCancelEdit() {
+    setIsEditing(false);
+    setDraft(annotation.text);
+    setSelectedImage(null);
+    setShouldRemoveImage(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  }
+
+  function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0] ?? null;
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      event.target.value = '';
+      return;
+    }
+
+    if (file.size > CONFIG.FILE_SYSTEM.MAX_ANNOTATION_IMAGE_BYTES) {
+      event.target.value = '';
+      return;
+    }
+
+    setSelectedImage(file);
+    setShouldRemoveImage(false);
+  }
+
+  function handleRemoveImage() {
+    setSelectedImage(null);
+    setShouldRemoveImage(true);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  }
 
   async function handleSave() {
     const trimmedDraft = draft.trim();
     if (!trimmedDraft) return;
 
-    await onUpdate(annotation.id, trimmedDraft);
+    await onUpdate({
+      id: annotation.id,
+      text: trimmedDraft,
+      ...(selectedImage && { image: await fileToImageInput(selectedImage) }),
+      ...(shouldRemoveImage && { removeImage: true }),
+    });
     setIsEditing(false);
   }
 
@@ -299,31 +369,61 @@ function AnnotationItem({
           <textarea
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
+            aria-label={t.app.annotationText}
             className="min-h-20 w-full resize-y rounded-md border border-border bg-bg px-3 py-2 text-sm leading-6 text-fg outline-none focus:border-accent"
           />
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => setIsEditing(false)}
-              className="rounded-md px-3 py-1.5 text-sm text-muted hover:bg-surface-dim"
-            >
-              {t.common.cancel}
-            </button>
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={isSaving || draft.trim().length === 0}
-              className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
-            >
-              {t.app.save}
-            </button>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <label className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-md border border-border bg-bg px-3 text-sm font-medium text-fg transition-colors hover:bg-surface-dim">
+                <span className="material-symbols-outlined text-lg">image</span>
+                {t.app.addImage}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="sr-only"
+                  onChange={handleImageChange}
+                />
+              </label>
+              {selectedImageName && (
+                <span className="inline-flex items-center gap-2 rounded-md bg-bg px-2 py-1 text-xs text-muted">
+                  {t.app.annotationImageSelected(selectedImageName)}
+                  <button
+                    type="button"
+                    onClick={handleRemoveImage}
+                    className="text-muted transition-colors hover:text-fg"
+                    aria-label={t.app.removeImage}
+                    title={t.app.removeImage}
+                  >
+                    <span className="material-symbols-outlined text-base">close</span>
+                  </button>
+                </span>
+              )}
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={handleCancelEdit}
+                className="rounded-md px-3 py-1.5 text-sm text-muted hover:bg-surface-dim"
+              >
+                {t.common.cancel}
+              </button>
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={isSaving || draft.trim().length === 0}
+                className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+              >
+                {t.app.save}
+              </button>
+            </div>
           </div>
         </div>
       ) : (
         <p className="whitespace-pre-wrap text-sm leading-6 text-fg">{annotation.text}</p>
       )}
 
-      {annotation.attachments.map((attachment) => (
+      {!isEditing && annotation.attachments.map((attachment) => (
         <AnnotationAttachmentView
           key={attachment.id}
           attachment={attachment}
@@ -338,16 +438,18 @@ function AnnotationItem({
           {didEdit ? t.app.annotationUpdatedAt(updatedAt) : t.app.annotationCreatedAt(createdAt)}
         </span>
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setIsEditing(true)}
-            className="inline-flex items-center gap-1 rounded-md px-2 py-1 hover:bg-surface-dim hover:text-fg"
-            aria-label={t.app.editAnnotation}
-            title={t.app.editAnnotation}
-          >
-            <span className="material-symbols-outlined text-base">edit</span>
-            {t.app.edit}
-          </button>
+          {!isEditing && (
+            <button
+              type="button"
+              onClick={handleStartEdit}
+              className="inline-flex items-center gap-1 rounded-md px-2 py-1 hover:bg-surface-dim hover:text-fg"
+              aria-label={t.app.editAnnotation}
+              title={t.app.editAnnotation}
+            >
+              <span className="material-symbols-outlined text-base">edit</span>
+              {t.app.edit}
+            </button>
+          )}
           <button
             type="button"
             onClick={() => onDelete(annotation.id)}

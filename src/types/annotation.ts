@@ -42,4 +42,6 @@ export interface CreateAnnotationInput {
 export interface UpdateAnnotationInput {
   id: string;
   text: string;
+  image?: AnnotationImageInput;
+  removeImage?: boolean;
 }
