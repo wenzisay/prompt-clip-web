@@ -154,6 +154,23 @@ async function writeText(
   return fileEntryFromNative(entry);
 }
 
+async function readBinary(workspace: WorkspaceRef, path: string): Promise<Uint8Array> {
+  const content = await invoke<number[]>('workspace_read_binary', workspacePathArgs(workspace, path));
+  return new Uint8Array(content);
+}
+
+async function writeBinary(
+  workspace: WorkspaceRef,
+  path: string,
+  content: Uint8Array
+): Promise<FileEntry> {
+  const entry = await invoke<NativeFileEntry>('workspace_write_binary', {
+    ...workspacePathArgs(workspace, path),
+    content: Array.from(content),
+  });
+  return fileEntryFromNative(entry);
+}
+
 async function exists(workspace: WorkspaceRef, path: string): Promise<boolean> {
   const args = workspacePathArgs(workspace, path);
 
@@ -196,6 +213,8 @@ export const tauriFileRepository: FileRepository = {
   listFiles,
   readText,
   writeText,
+  readBinary,
+  writeBinary,
   exists,
   move,
   mkdir,

@@ -1,86 +1,148 @@
-# Spec: 笔记分享图片
+# Spec: Prompt 批注功能
 
 ## Objective
 
-在 PromptClip 中新增“分享图片”功能，让用户可以从单条笔记的下拉菜单中打开分享面板，将当前笔记渲染为排版精美的图片卡片，并支持下载 PNG、复制图片到剪贴板、右键保存。
+在 PromptClip 中新增 Prompt 级别的批注功能，用于记录某条 Prompt 的使用观察、效果反馈和截图资料。批注不改变 Prompt 正文，不参与当前版本搜索，仅在 Prompt 详情面板中展示和编辑。
 
-目标用户是已经在本地管理提示词或笔记的 PromptClip 用户。成功状态是用户不需要离开应用，就能选择模板、调整展示项，并生成适合社交平台或文档分享的图片。
+目标用户是使用 PromptClip 管理本地 Prompt 文件的个人用户。成功状态是用户可以在查看某条 Prompt 时，直接新增、编辑、删除纯文本批注，并为批注添加图片附件；删除 Prompt 时，对应批注数据和图片附件也随 Prompt 一起进入 `.trash`。
 
 验收标准：
 
-- 每条笔记的更多操作菜单中新增“分享”入口。
-- 点击“分享”后打开分享图片弹窗，展示可实时预览的图片卡片。
-- 首版提供 3 种模板：极简白、深色、淡彩边框。
-- 图片卡片宽度固定为 800px，高度随笔记内容自动扩展。
-- 分享内容最多使用笔记正文前 2000 个字符；超出时截断并显示省略提示。
-- 可选项包括：显示作者信息、显示 PromptClip 标志、显示笔记标签、渲染 Markdown。
-- 作者信息只包含作者名称，并可在设置页面中配置。
-- 底部不显示统计、日期、天数等参考图中的文字；右下角可保留淡色 PromptClip logo。
-- 用户可以下载 PNG、复制图片到剪贴板，也可以直接右键保存预览图片。
-- 用户可见文案需要覆盖现有多语言体系，至少补齐简体中文、繁体中文与英文。
+- Prompt 详情面板中新增“批注”区域。
+- 用户可以为当前 Prompt 新增多条批注。
+- 每条批注只需要用户输入纯文本内容。
+- 每条批注自动记录创建时间和编辑时间。
+- 用户可以编辑、删除已有批注。
+- 用户可以给每条批注添加一张图片附件。
+- 图片附件存储在工作区内，不上传到外部服务。
+- 批注数据使用 sidecar JSON 存储，不写入 Prompt `.md` 文件。
+- 当前版本批注内容不参与全局搜索、标签筛选或排序。
+- 删除 Prompt 时，对应批注 JSON 和附件目录一起移动到 `.trash`。
+- 如批注文件或附件操作失败，需要给用户明确错误，不静默吞掉异常。
 
 ## Tech Stack
 
 - React 18.3 + TypeScript 5.6
-- Zustand 5，用于设置项和 UI 状态
+- Zustand 5，用于现有 Prompt 和 UI 状态
 - Tailwind CSS 3.4，用于组件样式
-- Vitest 2.1，用于单元和组件测试
-- 可新增图片生成依赖，优先选择 `html-to-image`，用于将 DOM 预览节点导出为 PNG Blob/Data URL
+- Vitest 2.1，用于服务、store、组件测试
+- File System Access API，用于 Web 端工作区文件读写
+- Tauri v2 文件系统能力，用于桌面端工作区文件读写
+
+不新增运行时依赖，除非实现图片二进制读写时发现现有浏览器或 Tauri API 无法覆盖基础能力。
 
 ## Commands
 
 ```bash
 npm run dev
+npm run test
 npm run type-check
 npm run lint
-npm run test
 npm run build
 ```
 
-如新增依赖，使用：
+桌面端手动验证时使用：
 
 ```bash
-npm install html-to-image
+npm run tauri:dev
 ```
 
 ## Project Structure
 
 ```text
 src/types/
-  share.ts                  # 分享模板、分享选项等类型
+  annotation.ts                     # 批注、附件、sidecar 文件结构类型
 
 src/constants/
-  shareTemplates.ts         # 内置模板配置
-
-src/assets/
-  promptclip-share-logo.png # 由 docs/icon.png 预处理得到的小尺寸分享 logo
+  config.ts                         # 增加 .promptclip、annotations、assets 路径常量
 
 src/services/
-  shareImageService.ts      # DOM 转 PNG、下载、复制剪贴板
-  shareImageService.test.ts
+  annotationService.ts              # 批注 CRUD、附件写入、Prompt 删除时清理/移动
+  annotationService.test.ts
+  fileRepository/
+    types.ts                        # 增加二进制文件读写能力
+    webFileRepository.ts            # File System Access API 二进制实现
+    tauriFileRepository.ts          # Tauri 二进制实现
+    fakeFileRepository.ts           # 测试用二进制实现
 
 src/stores/
-  settingsStore.ts          # 增加作者名称设置，并持久化
-  uiStore.ts                # 如现有 modal 模式适合，增加 share modal 状态
+  annotationStore.ts                # 当前选中 Prompt 的批注状态和动作
+  annotationStore.test.ts
 
 src/components/prompt/
-  PromptCard.tsx            # 笔记菜单增加“分享”入口
+  AnnotationPanel.tsx               # 详情面板中的批注区域
+  AnnotationItem.tsx                # 单条批注展示、编辑、删除、附件预览
+  AnnotationComposer.tsx            # 新增批注输入和图片选择
+  index.ts                          # barrel 导出
 
-src/components/share/
-  ShareImageModal.tsx       # 分享弹窗和操作区
-  ShareCardPreview.tsx      # 图片卡片预览
-  ShareTemplatePicker.tsx   # 模板选择
-  ShareImageOptions.tsx     # 展示项开关
-  index.ts
-
-src/components/settings/
-  SettingsModal.tsx         # 增加作者名称设置项
+src/components/layout/
+  DetailPanel.tsx                   # 嵌入 AnnotationPanel
 
 src/i18n/
-  messages.ts               # 新增用户可见中文/现有语言文案
+  messages.ts                       # 批注相关简体中文文案
 ```
 
-目录新增后必须更新对应 barrel 文件。
+数据存储目录：
+
+```text
+.promptclip/
+  annotations/
+    <promptId>.json
+  assets/
+    <promptId>/
+      <annotationId>/
+        <attachmentId>.<ext>
+.trash/
+  <promptTrashBase>.md
+  annotations/
+    <promptTrashBase>.json
+  assets/
+    <promptTrashBase>/
+```
+
+## Data Model
+
+批注 sidecar JSON 是批注功能的权威数据源。
+
+```ts
+export interface PromptAnnotationFile {
+  promptId: string;
+  version: 1;
+  annotations: PromptAnnotation[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PromptAnnotation {
+  id: string;
+  text: string;
+  attachments: AnnotationAttachment[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AnnotationAttachment {
+  id: string;
+  type: 'image';
+  name: string;
+  mimeType: string;
+  path: string;
+  size: number;
+  createdAt: string;
+}
+```
+
+存储规则：
+
+- 批注文件路径：`.promptclip/annotations/<promptId>.json`
+- 图片附件路径：`.promptclip/assets/<promptId>/<annotationId>/<attachmentId>.<ext>`
+- JSON 中的 `path` 使用相对工作区根目录的路径。
+- `createdAt` 和 `updatedAt` 使用 ISO 字符串。
+- 批注文本必须 trim 后非空。
+- 每条批注最多 1 张图片附件。
+- 图片附件大小上限为 5MB。
+- 图片附件只接受浏览器或系统识别为 `image/*` 的文件。
+- 不把图片 base64 写入 JSON 或 Markdown。
 
 ## Code Style
 
@@ -89,39 +151,44 @@ src/i18n/
 - 组件使用函数式组件和命名导出。
 - Props 接口定义在组件文件内，并 export type。
 - 跨模块导入使用 `@/` 路径别名。
-- 用户可见文字接入现有 i18n 消息结构，至少补齐简体中文、繁体中文和英文。
-- 共享状态放在 Zustand store；图片导出等副作用放在 service 层。
-- 不引入后端、数据库或路由。
+- 同模块内部使用相对路径。
+- Service 层导出独立函数，并提供 `AnnotationService = { ... } as const`。
+- Zustand store 保持当前项目的 `create<State>()((set, get) => ({ ... }))` 风格。
+- 用户可见文字使用简体中文，放入现有 i18n 消息结构。
+- 不引入后端、数据库、路由或新的 UI 组件库。
 
 示例风格：
 
 ```tsx
-export interface ShareImageOptionsProps {
-  options: ShareImageOptions;
-  onChange: (options: ShareImageOptions) => void;
+export interface AnnotationComposerProps {
+  isSaving: boolean;
+  onSubmit: (text: string, images: File[]) => Promise<void>;
 }
 
-export function ShareImageOptionsPanel({ options, onChange }: ShareImageOptionsProps) {
+export function AnnotationComposer({ isSaving, onSubmit }: AnnotationComposerProps) {
+  const [text, setText] = useState('');
+  const [images, setImages] = useState<File[]>([]);
+
+  async function handleSubmit() {
+    const trimmedText = text.trim();
+    if (!trimmedText) return;
+
+    await onSubmit(trimmedText, images);
+    setText('');
+    setImages([]);
+  }
+
   return (
     <div className="space-y-3">
-      <label className="flex items-center justify-between gap-4 text-sm text-fg">
-        <span>显示作者信息</span>
-        <input
-          type="checkbox"
-          checked={options.showAuthor}
-          onChange={(event) => onChange({ ...options, showAuthor: event.target.checked })}
-          className="h-4 w-4 accent-accent"
-        />
-      </label>
-      <label className="flex items-center justify-between gap-4 text-sm text-fg">
-        <span>渲染 Markdown</span>
-        <input
-          type="checkbox"
-          checked={options.renderMarkdown}
-          onChange={(event) => onChange({ ...options, renderMarkdown: event.target.checked })}
-          className="h-4 w-4 accent-accent"
-        />
-      </label>
+      <textarea
+        value={text}
+        onChange={(event) => setText(event.target.value)}
+        className="min-h-24 w-full rounded-md border border-surface bg-bg px-3 py-2 text-sm"
+        placeholder="记录这条 Prompt 的使用效果..."
+      />
+      <button type="button" onClick={handleSubmit} disabled={isSaving}>
+        保存批注
+      </button>
     </div>
   );
 }
@@ -129,22 +196,42 @@ export function ShareImageOptionsPanel({ options, onChange }: ShareImageOptionsP
 
 ## Testing Strategy
 
-测试遵循 RED/GREEN TDD：
+开发严格遵循 RED/GREEN TDD：
 
-- 先为设置持久化、分享服务和关键组件行为补测试，再实现。
+- 先写失败测试，再实现最小代码通过测试。
 - 测试行为，不测试内部实现细节。
 - 测试文件与源文件同目录，命名为 `*.test.ts` 或 `*.test.tsx`。
-- 不依赖真实浏览器下载行为、外部网络或随机值。
+- 测试不依赖外部网络、真实随机值或真实用户目录。
 
 建议测试：
 
-- `settingsStore.test.ts`：作者名称默认值、设置更新、持久化 partialize 范围。
-- `shareImageService.test.ts`：成功生成 PNG、下载时创建文件名、Clipboard API 不可用时返回明确错误。
-- `ShareCardPreview.test.tsx`：不同选项下作者、标签、logo、Markdown 渲染的显示/隐藏。
-- `ShareCardPreview.test.tsx`：正文超过 2000 字时截断，并保留明确的省略提示。
-- `PromptCard.test.tsx`：更多菜单中出现“分享”，点击后打开分享弹窗。
-- `SettingsModal.test.tsx`：可编辑并保存作者名称。
-- `messages.test.ts`：新增分享功能文案在简体中文、繁体中文、英文中键位完整。
+- `annotationService.test.ts`
+  - 首次读取不存在的批注文件时返回空批注列表。
+  - 新增批注会创建 `.promptclip/annotations/<promptId>.json`。
+  - 编辑批注只更新目标批注文本和 `updatedAt`。
+  - 删除批注会从 JSON 中移除对应记录。
+  - 添加图片附件会写入 assets 路径，并在 JSON 中记录相对路径。
+  - 同一条批注添加第二张图片时返回明确错误。
+  - 图片超过 5MB 时返回明确错误。
+  - 删除单条批注时同步删除该批注下的图片附件目录。
+  - 删除 Prompt 时，批注 JSON 和附件目录会用同一删除基名移动到 `.trash`。
+  - 非图片文件作为附件时返回明确错误。
+
+- `annotationStore.test.ts`
+  - 切换选中 Prompt 时加载对应批注。
+  - 新增、编辑、删除后状态与 service 返回值一致。
+  - service 抛错时保留错误状态，不伪装成功。
+
+- `AnnotationPanel.test.tsx`
+  - 无批注时展示空状态。
+  - 有批注时按创建时间倒序展示。
+  - 可以输入文本并触发新增。
+  - 空文本不能保存。
+  - 图片附件显示预览或文件名。
+
+- `DetailPanel.test.tsx`
+  - 选中 Prompt 时渲染批注区域。
+  - 未选中 Prompt 时不触发批注加载。
 
 验证命令：
 
@@ -158,44 +245,47 @@ npm run build
 ## Boundaries
 
 - Always:
-  - 遵循现有架构依赖方向：types → constants → utils → services → stores → hooks → components。
-  - 分享图片功能必须完全在前端完成。
-  - 图片卡片宽度固定为 800px，高度根据内容自动扩展。
-  - 分享正文最多 2000 个字符，超出后截断。
-  - 默认使用 Markdown 渲染后的内容生成分享卡片；用户可以关闭 Markdown 渲染改用纯文本。
-  - 右下角 logo 基于 `docs/icon.png` 预处理为小尺寸资源后使用，并保持淡色，不显示参考图底部统计文字。
-  - 新增用户可见文字必须与现有 i18n 结构保持一致，至少覆盖简体中文、繁体中文和英文。
-  - 分享弹窗不记住用户上次选择的模板和展示项；关闭后恢复默认选项。
+  - 批注存储为 sidecar JSON，不写入 Prompt `.md` 文件。
+  - 图片附件存储为工作区内的独立文件，不使用 base64 内联。
+  - 每条批注最多允许 1 张图片附件，单张图片最大 5MB。
+  - 删除单条批注时同步删除该批注下的附件文件。
+  - 当前版本批注不参与搜索、标签筛选或 Prompt 排序。
+  - 删除 Prompt 时，批注 JSON 和附件目录必须和 Prompt Markdown 使用同一删除基名进入 `.trash`。
+  - 所有文件操作失败都需要暴露明确错误。
+  - 保持现有架构依赖方向：types → constants → utils → services → stores → hooks → components。
+  - 新增目录后更新对应 barrel 文件。
   - 实现前先写失败测试，实现后运行测试、类型检查、lint 和 build。
 
 - Ask first:
-  - 增加除 `html-to-image` 之外的运行时依赖。
-  - 引入新的 UI 组件库、状态库或样式方案。
-  - 改变笔记数据模型或 Markdown 文件格式。
-  - 将分享设置写入笔记文件本身。
-  - 持久化分享弹窗的模板或展示项选择。
-  - 增加自定义模板编辑器、云端分享、二维码或外链分享。
+  - 增加运行时依赖。
+  - 改变 Prompt Markdown frontmatter 格式。
+  - 让批注参与全局搜索、筛选或导出。
+  - 支持非图片附件。
+  - 增加富文本编辑器、Markdown 编辑器或行内批注定位。
+  - 改变现有 `.history` 历史版本语义。
 
 - Never:
-  - 不引入后端、数据库或远程上传。
-  - 不把笔记内容发送到外部服务。
+  - 不上传批注文本或图片到外部服务。
+  - 不引入后端、数据库或云同步。
+  - 不把批注内容追加到 Prompt 正文。
+  - 不静默吞掉 JSON 解析、附件写入、移动到 `.trash` 的失败。
   - 不跳过或禁用现有测试。
-  - 不静默吞掉图片生成、下载、复制失败；需要给用户明确反馈。
-  - 不移除现有菜单、复制、收藏、编辑、删除等行为。
+  - 不删除用户已有文件，除非用户明确执行删除 Prompt 或删除批注动作。
 
 ## Success Criteria
 
-- 用户可以从笔记卡片下拉菜单进入分享图片弹窗。
-- 分享弹窗中可以切换 3 种模板，并实时看到当前笔记对应的图片预览。
-- 设置页中可以设置作者名称；开启“显示作者信息”后，卡片左上角展示该名称。
-- 用户可以切换作者信息、PromptClip 标志、笔记标签、Markdown 渲染的显示状态。
-- 分享正文默认使用 Markdown 渲染效果；关闭后使用纯文本换行展示。
-- 分享正文超过 2000 字时被截断，并显示省略提示。
-- PNG 下载文件可打开，内容与预览一致。
-- 在支持 Clipboard API 的浏览器中，复制图片可用；不支持时显示明确错误。
-- 预览图片可右键保存。
+- 用户在 Prompt 详情面板中可以看到“批注”区域。
+- 用户可以输入纯文本并保存为一条新批注。
+- 批注自动显示创建时间；编辑后显示更新后的编辑时间。
+- 用户可以编辑和删除已有批注。
+- 用户可以选择 1 张不超过 5MB 的图片并添加到批注中。
+- 图片附件被复制到 `.promptclip/assets/<promptId>/<annotationId>/`。
+- 批注 JSON 被写入 `.promptclip/annotations/<promptId>.json`。
+- 刷新应用并重新加载工作区后，批注和图片附件仍可显示。
+- 当前版本搜索 Prompt 时不会命中批注内容。
+- 删除 Prompt 后，对应 `.md`、批注 JSON、附件目录都用同一删除基名移动到 `.trash`。
 - `npm run test`、`npm run type-check`、`npm run lint`、`npm run build` 通过。
 
 ## Open Questions
 
-- 暂无。已确认：logo 基于 `docs/icon.png`，分享选项不持久化，超长正文按 2000 字截断。
+- 暂无。已确认：每条批注最多 1 张图片，单张图片最大 5MB；删除单条批注时同步删除附件；删除 Prompt 时批注和附件与 Prompt Markdown 使用同一删除基名进入 `.trash`。

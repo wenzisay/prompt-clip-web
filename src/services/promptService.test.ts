@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { FileRepository } from './fileRepository';
 import type { Prompt } from '@/types/prompt';
 import { createFakeFileRepository, createFakeWorkspace } from './fileRepository';
+import { AnnotationService } from './annotationService';
 import { PromptService } from './promptService';
 
 const workspace = createFakeWorkspace();
@@ -469,6 +470,43 @@ describe('PromptService repository integration', () => {
       );
     }
   );
+
+  it('moves prompt annotations and assets to matching trash names when deleting a prompt', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 4, 17, 1, 0, 0));
+    vi.spyOn(Math, 'random').mockReturnValue(0.1234);
+    const repository = createFakeFileRepository({ now: () => new Date() });
+
+    const created = await PromptService.createPrompt(repository, workspace, {
+      title: 'Annotated Prompt',
+      content: 'Content',
+      tags: [],
+    });
+    const annotations = await AnnotationService.createAnnotation(repository, workspace, created.id, {
+      text: '使用效果不错',
+      image: {
+        data: new Uint8Array([1, 2]),
+        name: 'result.png',
+        mimeType: 'image/png',
+      },
+    });
+    const attachment = annotations.annotations[0].attachments[0];
+
+    vi.setSystemTime(new Date(2026, 4, 17, 3, 0, 0));
+    await PromptService.deletePrompt(repository, workspace, created);
+
+    const trashBase = `${created.id}.2026-05-17-030000`;
+    expect(repository.dumpFiles()[`.trash/${trashBase}.md`]).toContain('Annotated Prompt');
+    expect(repository.dumpFiles()[`.trash/annotations/${trashBase}.json`])
+      .toContain('使用效果不错');
+    expect(repository.dumpFiles()[`.promptclip/annotations/${created.id}.json`]).toBeUndefined();
+    expect(repository.dumpBinaryFiles()[attachment.path]).toBeUndefined();
+    expect(
+      repository.dumpBinaryFiles()[
+        `.trash/assets/${trashBase}/${annotations.annotations[0].id}/${attachment.id}.png`
+      ]
+    ).toEqual([1, 2]);
+  });
 
   it('does not persist temporary legacy ids or create legacy history on update', async () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);

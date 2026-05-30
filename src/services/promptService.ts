@@ -31,6 +31,7 @@ import {
 } from '@/utils/markdown';
 import { CONFIG } from '@/constants/config';
 import { FolderConfigService } from './folderConfigService';
+import { AnnotationService } from './annotationService';
 
 const HISTORY_PATH_PREFIX = `${CONFIG.FILE_SYSTEM.HISTORY_DIR}/`;
 const MAX_CONCURRENT_PROMPT_READS = 20;
@@ -233,9 +234,16 @@ export async function deletePrompt(
     && !prompt.isTemporaryLegacyId
     ? prompt.id
     : basenameWithoutMarkdownExtension(basenameFromPath(filename));
-  const trashFilename = `${trashName}.${timestamp}.md`;
+  const trashBase = `${trashName}.${timestamp}`;
+  const trashFilename = `${trashBase}.md`;
 
   await repository.mkdir(workspace, CONFIG.FILE_SYSTEM.TRASH_DIR);
+  await AnnotationService.movePromptAnnotationsToTrash(
+    repository,
+    workspace,
+    prompt.id,
+    trashBase
+  );
   await repository.move(
     workspace,
     filename,

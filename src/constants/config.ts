@@ -16,8 +16,16 @@ export const CONFIG = {
     HISTORY_DIR: '.history',
     /** 回收站目录名 */
     TRASH_DIR: '.trash',
+    /** PromptClip 工作区数据目录名 */
+    APP_DATA_DIR: '.promptclip',
+    /** 批注 sidecar 目录名 */
+    ANNOTATIONS_DIR: '.promptclip/annotations',
+    /** 批注附件目录名 */
+    ANNOTATION_ASSETS_DIR: '.promptclip/assets',
     /** 最大历史版本数 */
     MAX_HISTORY_VERSIONS: 10,
+    /** 批注图片附件最大字节数 */
+    MAX_ANNOTATION_IMAGE_BYTES: 5 * 1024 * 1024,
   },
 
   /** 性能配置 */

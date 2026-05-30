@@ -13,6 +13,8 @@ export interface FileRepository {
   ): Promise<FileEntry[]>;
   readText(workspace: WorkspaceRef, path: string): Promise<string>;
   writeText(workspace: WorkspaceRef, path: string, content: string): Promise<FileEntry>;
+  readBinary(workspace: WorkspaceRef, path: string): Promise<Uint8Array>;
+  writeBinary(workspace: WorkspaceRef, path: string, content: Uint8Array): Promise<FileEntry>;
   exists(workspace: WorkspaceRef, path: string): Promise<boolean>;
   move(workspace: WorkspaceRef, from: string, to: string): Promise<void>;
   mkdir(workspace: WorkspaceRef, path: string): Promise<void>;

@@ -3,6 +3,7 @@
  */
 
 export * from './fileStore';
+export * from './annotationStore';
 export * from './promptStore';
 export * from './settingsStore';
 export * from './tagStore';

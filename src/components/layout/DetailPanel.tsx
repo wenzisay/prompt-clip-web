@@ -7,6 +7,7 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { SideDrawer } from '@/components/common';
 import {
   HistoryModal,
+  AnnotationPanel,
   MarkdownModeToggle,
   MarkdownTextView,
   PromptContent,
@@ -179,6 +180,8 @@ export function DetailPanel() {
             mode={contentMode}
             onModeChange={setContentMode}
           />
+
+          <AnnotationPanel promptId={selectedPrompt.id} workspace={workspace} />
         </article>
       </SideDrawer>
 

@@ -275,6 +275,30 @@ async function writeText(
   return getFileEntry(path, handle);
 }
 
+async function readBinary(_workspace: WorkspaceRef, path: string): Promise<Uint8Array> {
+  const root = await requireSavedDirectoryHandle();
+  const { directory, name } = await resolveParentDirectory(root, path, false);
+  const handle = await directory.getFileHandle(name);
+  const file = await handle.getFile();
+  return new Uint8Array(await file.arrayBuffer());
+}
+
+async function writeBinary(
+  _workspace: WorkspaceRef,
+  path: string,
+  content: Uint8Array
+): Promise<FileEntry> {
+  const root = await requireSavedDirectoryHandle();
+  const { directory, name } = await resolveParentDirectory(root, path, true);
+  const handle = await directory.getFileHandle(name, { create: true });
+  const writable = await handle.createWritable();
+
+  await writable.write(content);
+  await writable.close();
+
+  return getFileEntry(path, handle);
+}
+
 async function exists(_workspace: WorkspaceRef, path: string): Promise<boolean> {
   const root = await requireSavedDirectoryHandle();
   const { directory, name } = await resolveParentDirectory(root, path, false);
@@ -355,6 +379,8 @@ export const webFileRepository: FileRepository = {
   listFiles,
   readText,
   writeText,
+  readBinary,
+  writeBinary,
   exists,
   move,
   mkdir,

@@ -258,10 +258,33 @@ fn workspace_read_text(root: String, path: String) -> Result<String, String> {
 }
 
 #[tauri::command]
+fn workspace_read_binary(root: String, path: String) -> Result<Vec<u8>, String> {
+    fs::read(workspace_path(&root, &path)?).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 fn workspace_write_text(
     root: String,
     path: String,
     content: String,
+) -> Result<WorkspaceFileEntry, String> {
+    let root_path = workspace_root(&root)?;
+    let relative_path = safe_relative_path(&path)?;
+    let native_path = root_path.join(&relative_path);
+
+    if let Some(parent) = native_path.parent() {
+        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+    }
+
+    fs::write(&native_path, content).map_err(|error| error.to_string())?;
+    file_entry(&root_path, &relative_path, &native_path)
+}
+
+#[tauri::command]
+fn workspace_write_binary(
+    root: String,
+    path: String,
+    content: Vec<u8>,
 ) -> Result<WorkspaceFileEntry, String> {
     let root_path = workspace_root(&root)?;
     let relative_path = safe_relative_path(&path)?;
@@ -401,7 +424,9 @@ pub fn run() {
             workspace_root_exists,
             workspace_exists,
             workspace_read_text,
+            workspace_read_binary,
             workspace_write_text,
+            workspace_write_binary,
             workspace_list_files,
             workspace_move,
             workspace_mkdir,
