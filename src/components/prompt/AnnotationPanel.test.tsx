@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import type { PromptAnnotation } from '@/types/annotation';
-import { AnnotationList } from './AnnotationPanel';
+import { AnnotationImagePreview, AnnotationList } from './AnnotationPanel';
 
 const annotation: PromptAnnotation = {
   id: 'annotation-1',
@@ -48,5 +48,20 @@ describe('AnnotationList', () => {
     expect(markup).toContain('客服场景');
     expect(markup).toContain('编辑于');
     expect(markup).toContain('result.png');
+  });
+
+  it('renders an enlarged image preview dialog', () => {
+    const markup = renderToStaticMarkup(
+      <AnnotationImagePreview
+        imageUrl="blob:preview"
+        imageName="result.png"
+        locale="zh-CN"
+        onClose={() => undefined}
+      />
+    );
+
+    expect(markup).toContain('role="dialog"');
+    expect(markup).toContain('aria-label="关闭图片预览"');
+    expect(markup).toContain('alt="批注图片 result.png"');
   });
 });

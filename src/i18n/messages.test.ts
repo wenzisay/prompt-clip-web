@@ -32,6 +32,7 @@ describe('messages', () => {
     expect(app.shareContentTruncated).toBe('Content truncated at 2000 characters.');
     expect(app.annotations).toBe('Annotations');
     expect(app.annotationImageTooLarge).toBe('Image must be 5MB or smaller');
+    expect(app.openAnnotationImage).toBe('Open image preview');
     expect(messages['zh-CN'].app.sharePrompt).toBe('分享');
     expect(messages['zh-TW'].app.sharePrompt).toBe('分享');
     expect(messages['zh-CN'].app.annotations).toBe('批注');

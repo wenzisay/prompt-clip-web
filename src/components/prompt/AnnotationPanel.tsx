@@ -379,6 +379,7 @@ function AnnotationAttachmentView({
 }: AnnotationAttachmentViewProps) {
   const t = messages[locale];
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   useEffect(() => {
     if (!repository || !workspace || typeof URL === 'undefined') return;
@@ -407,15 +408,84 @@ function AnnotationAttachmentView({
   return (
     <div className="mt-3 overflow-hidden rounded-md border border-border bg-bg">
       {imageUrl && (
-        <img
-          src={imageUrl}
-          alt={t.app.annotationImageAlt(attachment.name)}
-          className="max-h-72 w-full object-contain"
-        />
+        <button
+          type="button"
+          onClick={() => setIsPreviewOpen(true)}
+          className="block w-full cursor-zoom-in bg-black/5"
+          aria-label={t.app.openAnnotationImage}
+          title={t.app.openAnnotationImage}
+        >
+          <img
+            src={imageUrl}
+            alt={t.app.annotationImageAlt(attachment.name)}
+            className="max-h-72 w-full object-contain"
+          />
+        </button>
       )}
       <div className="flex items-center gap-2 px-3 py-2 text-xs text-muted">
         <span className="material-symbols-outlined text-base">image</span>
         {attachment.name}
+      </div>
+      {imageUrl && isPreviewOpen && (
+        <AnnotationImagePreview
+          imageUrl={imageUrl}
+          imageName={attachment.name}
+          locale={locale}
+          onClose={() => setIsPreviewOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+interface AnnotationImagePreviewProps {
+  imageUrl: string;
+  imageName: string;
+  locale?: Locale;
+  onClose: () => void;
+}
+
+export function AnnotationImagePreview({
+  imageUrl,
+  imageName,
+  locale = 'zh-CN',
+  onClose,
+}: AnnotationImagePreviewProps) {
+  const t = messages[locale];
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+      onClick={onClose}
+    >
+      <div className="relative max-h-full max-w-5xl" onClick={(event) => event.stopPropagation()}>
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute right-3 top-3 inline-flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white transition-colors hover:bg-black/80"
+          aria-label={t.app.closeAnnotationImage}
+          title={t.app.closeAnnotationImage}
+        >
+          <span className="material-symbols-outlined text-xl">close</span>
+        </button>
+        <img
+          src={imageUrl}
+          alt={t.app.annotationImageAlt(imageName)}
+          className="max-h-[calc(100vh-2rem)] max-w-full rounded-md object-contain shadow-2xl"
+        />
       </div>
     </div>
   );
