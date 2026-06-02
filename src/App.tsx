@@ -17,6 +17,7 @@ import { useTagStore } from '@/stores/tagStore';
 import { FolderConfigService } from '@/services/folderConfigService';
 import { fileRepository } from '@/services/fileRepository';
 import { usePromptLoader } from '@/hooks/usePromptLoader';
+import { usePromptLazyLoad } from '@/hooks/usePromptLazyLoad';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useEffect } from 'react';
 
@@ -75,6 +76,9 @@ function AppContent() {
   // 自动加载 Prompts
   usePromptLoader();
 
+  // 后台分批补全 content
+  usePromptLazyLoad();
+
   // 键盘快捷键
   useKeyboardShortcuts();
 
@@ -100,8 +104,8 @@ function AppContent() {
         <main className="flex-1 flex flex-col overflow-hidden">
           <TopBar />
 
-          {/* Prompt 网格区域 */}
-          <div className="flex-1 overflow-y-auto px-6 pb-6 pt-4 bg-bg">
+          {/* Prompt 网格区域（虚拟化滚动容器内置在 PromptGrid） */}
+          <div className="flex-1 min-h-0 px-6 pb-6 pt-4 bg-bg">
             <PromptGrid />
           </div>
         </main>

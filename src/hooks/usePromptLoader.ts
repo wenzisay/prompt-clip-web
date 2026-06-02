@@ -11,6 +11,7 @@ import { usePromptStore } from '@/stores/promptStore';
 import { useTagStore } from '@/stores/tagStore';
 import { PromptService } from '@/services/promptService';
 import { fileRepository } from '@/services/fileRepository';
+import { cancelLazyContentLoad } from '@/services/promptLazyLoader';
 
 export function usePromptLoader() {
   const { t } = useTranslation();
@@ -23,6 +24,7 @@ export function usePromptLoader() {
     if (!isAuthorized || !workspace) {
       clearPrompts();
       clearTags();
+      cancelLazyContentLoad();
       return;
     }
 
@@ -31,6 +33,7 @@ export function usePromptLoader() {
     const load = async () => {
       clearPrompts();
       clearTags();
+      cancelLazyContentLoad();
       setPromptLoading(true);
       setError(null);
 
@@ -38,12 +41,13 @@ export function usePromptLoader() {
         await loadPinnedTags(workspace, () => isActive);
         if (!isActive) return;
 
-        // 加载所有 Prompts
+        // 阶段 1：head-only 加载（preview + frontmatter）
         const prompts = await PromptService.loadPrompts(fileRepository, workspace);
         if (!isActive) return;
 
         await setPrompts(prompts);
         if (!isActive) return;
+        // 阶段 2：由 usePromptLazyLoad 在 prompts 就绪后启动后台 idle 加载
       } catch (error) {
         if (!isActive) return;
 
@@ -60,6 +64,7 @@ export function usePromptLoader() {
     load();
     return () => {
       isActive = false;
+      cancelLazyContentLoad();
     };
   }, [
     workspace,
