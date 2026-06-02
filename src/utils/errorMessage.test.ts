@@ -8,7 +8,8 @@ describe('formatSaveErrorMessage', () => {
         + 'The request is not allowed by the user agent or the platform in the current context.',
       'NotAllowedError'
     );
-
+    expect(error.name).toBe('NotAllowedError');
+    expect(error.message).toContain('getFileHandle');
     expect(formatSaveErrorMessage(error)).toBe(
       '浏览器已阻止当前页面写入文件夹。请重新选择数据目录并授权读写权限后再保存。'
     );

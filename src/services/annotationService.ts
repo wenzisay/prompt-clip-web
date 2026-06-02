@@ -335,7 +335,7 @@ async function removeIfExists(
 }
 
 function isMissingFileError(error: unknown): boolean {
-  if (!(error instanceof Error)) {
+  if (!isErrorLike(error)) {
     return false;
   }
 
@@ -343,6 +343,21 @@ function isMissingFileError(error: unknown): boolean {
     error.name === 'NotFoundError' ||
     /不存在|not found|no such file|could not be found/i.test(error.message)
   );
+}
+
+function isErrorLike(error: unknown): error is { name: string; message: string } {
+  if (error instanceof Error) {
+    return true;
+  }
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    typeof (error as { name?: unknown }).name === 'string' &&
+    typeof (error as { message?: unknown }).message === 'string'
+  ) {
+    return true;
+  }
+  return false;
 }
 
 export const AnnotationService = {

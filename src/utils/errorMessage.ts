@@ -17,12 +17,28 @@ export function formatSaveErrorMessage(error: unknown): string {
 }
 
 function isErrorLike(error: unknown): error is Error {
-  return error instanceof Error;
+  if (error instanceof Error) {
+    return true;
+  }
+  // jsdom 的 DOMException 不继承自 Error（与浏览器一致），但具备 name + message
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    typeof (error as { name?: unknown }).name === 'string' &&
+    typeof (error as { message?: unknown }).message === 'string'
+  ) {
+    return true;
+  }
+  return false;
 }
 
 function isFileSystemAccessDeniedError(error: Error): boolean {
-  return (
-    error.name === 'NotAllowedError' &&
-    error.message.includes("Failed to execute 'getFileHandle'")
-  );
+  if (error.name !== 'NotAllowedError') {
+    return false;
+  }
+  if (error.message.includes("Failed to execute 'getFileHandle'")) {
+    return true;
+  }
+  // jsdom 等环境在 throw DOMException 时 message 可能被截断：仅靠 name 也可识别
+  return error.message.length === 0;
 }
