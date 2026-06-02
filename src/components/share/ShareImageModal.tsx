@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Button, Modal } from '@/components/common';
 import {
@@ -11,6 +11,9 @@ import { ShareImageService } from '@/services/shareImageService';
 import { usePromptStore } from '@/stores/promptStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useUIStore } from '@/stores/uiStore';
+import { useFileStore } from '@/stores/fileStore';
+import { PromptService } from '@/services/promptService';
+import { fileRepository } from '@/services/fileRepository';
 import type { ShareImageOptions, ShareTemplateId } from '@/types/share';
 import { ShareCardPreview } from './ShareCardPreview';
 
@@ -20,6 +23,8 @@ export function ShareImageModal() {
   const prompt = usePromptStore((state) =>
     state.prompts.find((item) => item.id === selectedPromptId)
   );
+  const updatePrompt = usePromptStore((state) => state.updatePrompt);
+  const { workspace } = useFileStore();
   const shareAuthorName = useSettingsStore((state) => state.shareAuthorName);
   const [templateId, setTemplateId] = useState<ShareTemplateId>('minimal');
   const [options, setOptions] = useState<ShareImageOptions>(DEFAULT_SHARE_IMAGE_OPTIONS);
@@ -27,6 +32,25 @@ export function ShareImageModal() {
   const [isGenerating, setIsGenerating] = useState(false);
   const exportRef = useRef<HTMLDivElement>(null);
   const isOpen = modalType === 'share' && Boolean(prompt);
+
+  useEffect(() => {
+    if (!isOpen || !prompt) return;
+    if (prompt.isContentLoaded) return;
+    if (!workspace) return;
+    let cancelled = false;
+    PromptService.ensureContent(fileRepository, workspace, prompt)
+      .then((full) => {
+        if (cancelled) return;
+        updatePrompt(full);
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        console.error('Failed to load prompt content for share:', error);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, prompt, workspace, updatePrompt]);
 
   const handleClose = () => {
     setTemplateId('minimal');

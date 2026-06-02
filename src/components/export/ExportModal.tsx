@@ -7,7 +7,10 @@ import { Modal } from '@/components/common';
 import { useTranslation } from '@/i18n';
 import { usePromptStore } from '@/stores/promptStore';
 import { useUIStore } from '@/stores/uiStore';
+import { useFileStore } from '@/stores/fileStore';
 import { ExportService, type ExportFormat } from '@/services/exportService';
+import { PromptService } from '@/services/promptService';
+import { fileRepository } from '@/services/fileRepository';
 
 const FORMAT_OPTIONS: Array<{ value: ExportFormat; label: string; icon: string }> = [
   { value: 'json', label: 'JSON', icon: 'data_object' },
@@ -18,7 +21,8 @@ const FORMAT_OPTIONS: Array<{ value: ExportFormat; label: string; icon: string }
 export function ExportModal() {
   const { t } = useTranslation();
   const { modalType, closeModal, selectedPromptIds } = useUIStore();
-  const { prompts, filteredPrompts } = usePromptStore();
+  const { prompts, filteredPrompts, updatePrompt } = usePromptStore();
+  const { workspace } = useFileStore();
   const [format, setFormat] = useState<ExportFormat>('json');
   const [scope, setScope] = useState<'selected' | 'filtered' | 'all'>('selected');
   const [isExporting, setIsExporting] = useState(false);
@@ -54,7 +58,21 @@ export function ExportModal() {
 
     setIsExporting(true);
     try {
-      const exported = await ExportService.exportPrompts(exportPrompts, format);
+      const pending = workspace
+        ? await Promise.all(
+            exportPrompts.map((prompt) =>
+              prompt.isContentLoaded
+                ? prompt
+                : PromptService.ensureContent(fileRepository, workspace, prompt)
+            )
+          )
+        : exportPrompts;
+      for (const full of pending) {
+        if (full.isContentLoaded) {
+          updatePrompt(full);
+        }
+      }
+      const exported = await ExportService.exportPrompts(pending, format);
       if (exported) {
         closeModal();
       }

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { messages, useTranslation, type Locale } from '@/i18n';
 import { useUIStore } from '@/stores/uiStore';
 import { usePromptStore } from '@/stores/promptStore';
@@ -41,9 +41,14 @@ export function DetailPanel() {
     if (!selectedPrompt) return;
 
     try {
-      await navigator.clipboard.writeText(selectedPrompt.content);
+      const target = selectedPrompt.isContentLoaded
+        ? selectedPrompt
+        : workspace
+          ? await PromptService.ensureContent(fileRepository, workspace, selectedPrompt)
+          : selectedPrompt;
+      await navigator.clipboard.writeText(target.content);
       if (workspace) {
-        const updated = await PromptService.incrementCopyCount(fileRepository, workspace, selectedPrompt);
+        const updated = await PromptService.incrementCopyCount(fileRepository, workspace, target);
         updatePrompt(updated);
       }
       setCopied(true);
@@ -52,6 +57,26 @@ export function DetailPanel() {
       console.error('复制失败:', error);
     }
   };
+
+  // 选中未加载 content 的 prompt 时，自动补全
+  useEffect(() => {
+    if (!selectedPrompt) return;
+    if (selectedPrompt.isContentLoaded) return;
+    if (!workspace) return;
+    let cancelled = false;
+    PromptService.ensureContent(fileRepository, workspace, selectedPrompt)
+      .then((full) => {
+        if (cancelled) return;
+        updatePrompt(full);
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        console.error('Failed to load prompt content:', error);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedPrompt, workspace, updatePrompt]);
 
   // 切换收藏
   const handleTogglePin = async () => {

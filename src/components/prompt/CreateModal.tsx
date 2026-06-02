@@ -45,6 +45,22 @@ export function CreateModal({ editingPromptId }: CreateModalProps) {
         setTitle(prompt.title);
         setContent(prompt.content);
         setTags(prompt.tags);
+        if (!prompt.isContentLoaded && workspace) {
+          let cancelled = false;
+          PromptService.ensureContent(fileRepository, workspace, prompt)
+            .then((full) => {
+              if (cancelled) return;
+              setContent(full.content);
+              updatePrompt(full);
+            })
+            .catch((error: unknown) => {
+              if (cancelled) return;
+              console.error('Failed to load prompt content for edit:', error);
+            });
+          return () => {
+            cancelled = true;
+          };
+        }
       }
     } else {
       // 新建模式：重置表单，自动带入当前筛选的标签
@@ -54,7 +70,8 @@ export function CreateModal({ editingPromptId }: CreateModalProps) {
     }
     setEditorMode('text');
     setError(null);
-  }, [editingPromptId, modalType, isOpen, prompts, filter.tag]);
+    return undefined;
+  }, [editingPromptId, modalType, isOpen, prompts, filter.tag, workspace, updatePrompt]);
 
   // 关闭模态框
   const handleClose = () => {
