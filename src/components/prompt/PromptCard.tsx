@@ -3,25 +3,55 @@
  */
 
 import type { Prompt } from '@/types/prompt';
+import type { WorkspaceRef } from '@/types/file';
 import { messages, useTranslation, type Locale } from '@/i18n';
 import { useUIStore } from '@/stores/uiStore';
 import { usePromptStore } from '@/stores/promptStore';
 import { useFileStore } from '@/stores/fileStore';
 import { IconButton } from '@/components/common';
 import { formatDateTime } from '@/utils/date';
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { memo, useState, useRef, useEffect } from 'react';
 import { PromptService } from '@/services/promptService';
-import { fileRepository } from '@/services/fileRepository';
-
-const PREVIEW_LINE_LIMIT = 4;
-const PREVIEW_CHARACTER_LIMIT = 120;
+import { fileRepository, type FileRepository } from '@/services/fileRepository';
+import { getPromptPreview } from '@/utils/markdown';
 
 interface PromptCardProps {
   /** Prompt 数据 */
   prompt: Prompt;
 }
 
-export function PromptCard({ prompt }: PromptCardProps) {
+export interface CopyPromptOptions {
+  prompt: Prompt;
+  workspace: WorkspaceRef | null;
+  repository?: FileRepository;
+  onCopied?: () => void;
+}
+
+/**
+ * 将 prompt 的正文复制到剪贴板，必要时先调用 ensureContent 补全。
+ * - 复制成功后递增 copyCount 并把更新写回 store
+ * - 抛错时由调用方决定是否提示
+ */
+export async function copyPromptToClipboard(options: CopyPromptOptions): Promise<Prompt> {
+  const { prompt, workspace, repository = fileRepository } = options;
+  let target = prompt;
+  if (!target.isContentLoaded) {
+    if (!workspace) {
+      throw new Error('当前未选择工作区，无法补全内容');
+    }
+    target = await PromptService.ensureContent(repository, workspace, prompt);
+  }
+  await navigator.clipboard.writeText(target.content);
+  options.onCopied?.();
+  if (workspace) {
+    const updated = await PromptService.incrementCopyCount(repository, workspace, target);
+    usePromptStore.getState().updatePrompt(updated);
+    return updated;
+  }
+  return target;
+}
+
+export const PromptCard = memo(function PromptCard({ prompt }: PromptCardProps) {
   const { locale, t } = useTranslation();
   const { setSelectedPrompt, openModal, selectedPromptIds, toggleSelectPrompt } = useUIStore();
   const { updatePrompt } = usePromptStore();
@@ -32,7 +62,7 @@ export function PromptCard({ prompt }: PromptCardProps) {
   const isSelected = selectedPromptIds.includes(prompt.id);
   const isSelectionMode = selectedPromptIds.length > 0;
 
-  const preview = useMemo(() => getPromptPreview(prompt.content), [prompt.content]);
+  const preview = prompt.preview;
 
   const createdDateTime = formatDateTime(getPromptCardDate(prompt));
 
@@ -45,13 +75,14 @@ export function PromptCard({ prompt }: PromptCardProps) {
     e.stopPropagation();
 
     try {
-      await navigator.clipboard.writeText(prompt.content);
-      if (workspace) {
-        const updated = await PromptService.incrementCopyCount(fileRepository, workspace, prompt);
-        updatePrompt(updated);
-      }
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
+      await copyPromptToClipboard({
+        prompt,
+        workspace,
+        onCopied: () => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        },
+      });
     } catch (error) {
       console.error('复制失败:', error);
     }
@@ -194,8 +225,7 @@ export function PromptCard({ prompt }: PromptCardProps) {
 
       {/* 预览文本 */}
       <p className="prompt-card-preview text-sm text-muted line-clamp-4 mb-3">
-        {preview.text}
-        {preview.isTruncated && '...'}
+        {preview}
       </p>
 
       {/* 标签 */}
@@ -242,7 +272,7 @@ export function PromptCard({ prompt }: PromptCardProps) {
       </div>
     </div>
   );
-}
+});
 
 export interface PromptCardActionsMenuProps {
   isPinned: boolean;
@@ -319,45 +349,4 @@ export function getPromptCardDate(prompt: Prompt): Date {
   return prompt.createdAt;
 }
 
-export function getPromptPreview(content: string): { text: string; isTruncated: boolean } {
-  let text = '';
-  let lineCount = 1;
-
-  for (let index = 0; index < content.length; index += 1) {
-    const char = content[index];
-    const isLineBreak = char === '\n' || char === '\r';
-
-    if (isLineBreak) {
-      if (char === '\r' && content[index + 1] === '\n') {
-        index += 1;
-      }
-
-      if (lineCount >= PREVIEW_LINE_LIMIT) {
-        return {
-          text,
-          isTruncated: index < content.length - 1,
-        };
-      }
-
-      lineCount += 1;
-      if (text.length < PREVIEW_CHARACTER_LIMIT) {
-        text += ' ';
-      }
-      continue;
-    }
-
-    if (text.length >= PREVIEW_CHARACTER_LIMIT) {
-      return {
-        text,
-        isTruncated: true,
-      };
-    }
-
-    text += char;
-  }
-
-  return {
-    text,
-    isTruncated: false,
-  };
-}
+export { getPromptPreview };

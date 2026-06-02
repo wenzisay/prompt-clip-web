@@ -1,7 +1,9 @@
 /**
- * Prompt 网格组件
+ * Prompt 网格组件（虚拟化）
  */
 
+import { useEffect, useMemo, useRef } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { usePromptStore } from '@/stores/promptStore';
 import { useTranslation } from '@/i18n';
 import { useUIStore } from '@/stores/uiStore';
@@ -11,11 +13,16 @@ import { Spinner } from '@/components/common';
 import { PromptService } from '@/services/promptService';
 import { fileRepository } from '@/services/fileRepository';
 import { FilterTabs } from '@/components/layout/FilterTabs';
+import { useResponsiveColumnCount } from '@/hooks/useResponsiveColumnCount';
 
 interface PromptGridProps {
   /** 加载状态 */
   isLoading?: boolean;
 }
+
+const ESTIMATED_ROW_HEIGHT = 220;
+const ROW_OVERSCAN = 2;
+const ROW_GAP = 16; // 与 Tailwind gap-4 对应
 
 export function PromptGrid({ isLoading = false }: PromptGridProps) {
   const { t } = useTranslation();
@@ -23,6 +30,31 @@ export function PromptGrid({ isLoading = false }: PromptGridProps) {
   const { selectedPromptIds, toggleSelectAll, clearSelection, openModal } = useUIStore();
   const { workspace } = useFileStore();
   const selectedCount = selectedPromptIds.length;
+
+  const { ref: setContainerRef, columnCount } = useResponsiveColumnCount<HTMLDivElement>();
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+
+  const rowCount = Math.max(1, Math.ceil(filteredPrompts.length / columnCount));
+
+  const promptRows = useMemo(() => {
+    const rows: Array<Array<typeof filteredPrompts[number]>> = [];
+    for (let i = 0; i < rowCount; i += 1) {
+      rows.push(filteredPrompts.slice(i * columnCount, (i + 1) * columnCount));
+    }
+    return rows;
+  }, [filteredPrompts, rowCount, columnCount]);
+
+  const rowVirtualizer = useVirtualizer({
+    count: rowCount,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => ESTIMATED_ROW_HEIGHT,
+    overscan: ROW_OVERSCAN,
+  });
+
+  // 当列数或 rowCount 变化时手动触发一次 measure
+  useEffect(() => {
+    rowVirtualizer.measure();
+  }, [columnCount, rowCount, rowVirtualizer]);
 
   const handleBatchDelete = async () => {
     if (!workspace || selectedPromptIds.length === 0) return;
@@ -67,9 +99,11 @@ export function PromptGrid({ isLoading = false }: PromptGridProps) {
     );
   }
 
-  // 网格
+  const virtualRows = rowVirtualizer.getVirtualItems();
+  const totalHeight = rowVirtualizer.getTotalSize() + (rowCount - 1) * ROW_GAP;
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 h-full flex flex-col">
       <FilterTabs />
 
       {selectedCount > 0 && (
@@ -105,10 +139,41 @@ export function PromptGrid({ isLoading = false }: PromptGridProps) {
         </div>
       )}
 
-      <div className="prompt-card-grid grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(min(360px,100%),1fr))]">
-        {filteredPrompts.map((prompt) => (
-          <PromptCard key={prompt.id} prompt={prompt} />
-        ))}
+      <div
+        ref={(node) => {
+          setContainerRef(node);
+          scrollRef.current = node;
+        }}
+        className="prompt-card-virtual-scroll flex-1 min-h-0 overflow-y-auto"
+      >
+        <div
+          style={{ height: totalHeight, position: 'relative' }}
+          className="prompt-card-grid"
+        >
+          {virtualRows.map((virtualRow) => {
+            const rowPrompts = promptRows[virtualRow.index] ?? [];
+            return (
+              <div
+                key={virtualRow.key}
+                data-index={virtualRow.index}
+                ref={rowVirtualizer.measureElement}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  transform: `translateY(${virtualRow.start + virtualRow.index * ROW_GAP}px)`,
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(min(360px, 100%), 1fr))',
+                }}
+                className="grid gap-4"
+              >
+                {rowPrompts.map((prompt) => (
+                  <PromptCard key={prompt.id} prompt={prompt} />
+                ))}
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

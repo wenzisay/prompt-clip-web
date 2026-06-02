@@ -7,6 +7,8 @@ const prompt: Prompt = {
   id: 'share-preview',
   title: '分享标题',
   content: '# 一级标题\n\n- 第一条\n- 第二条',
+  preview: '# 一级标题',
+  isContentLoaded: true,
   tags: ['效率', 'AI'],
   createdAt: new Date('2026-05-14T00:00:00.000Z'),
   updatedAt: new Date('2026-05-14T00:00:00.000Z'),

@@ -1,12 +1,17 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { Prompt } from '@/types/prompt';
-import { PromptCardActionsMenu, getPromptCardDate, getPromptPreview } from './PromptCard';
+import { PromptCardActionsMenu, copyPromptToClipboard, getPromptCardDate, getPromptPreview } from './PromptCard';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { PromptService } from '@/services/promptService';
+import { createFakeFileRepository, createFakeWorkspace } from '@/services/fileRepository';
+import { usePromptStore } from '@/stores/promptStore';
 
 const prompt: Prompt = {
   id: 'date-card',
   title: 'Date Card',
   content: 'Content',
+  preview: 'Content',
+  isContentLoaded: true,
   tags: [],
   createdAt: new Date('2026-05-17T00:00:00.000Z'),
   updatedAt: new Date('2026-05-16T00:00:00.000Z'),
@@ -78,5 +83,104 @@ describe('PromptCardActionsMenu', () => {
 
     expect(markup).toContain('分享');
     expect(markup).toContain('ios_share');
+  });
+});
+
+describe('copyPromptToClipboard', () => {
+  const workspace = createFakeWorkspace();
+
+  function stubClipboard() {
+    const writeTextSpy = vi.fn(async () => undefined);
+    const clipboard = { writeText: writeTextSpy };
+    const originalClipboard = (navigator as unknown as { clipboard?: { writeText: typeof writeTextSpy } }).clipboard;
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: clipboard });
+    return {
+      writeTextSpy,
+      restore: () => {
+        if (originalClipboard === undefined) {
+          Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined });
+        } else {
+          Object.defineProperty(navigator, 'clipboard', { configurable: true, value: originalClipboard });
+        }
+      },
+    };
+  }
+
+  it('calls ensureContent before writing to the clipboard when content is not loaded', async () => {
+    const headOnly: Prompt = {
+      ...prompt,
+      id: 'lazy',
+      filePath: 'lazy.md',
+      content: '',
+      preview: 'preview only',
+      isContentLoaded: false,
+    };
+    usePromptStore.setState({ prompts: [headOnly], filteredPrompts: [headOnly] });
+    const repository = createFakeFileRepository({
+      files: {
+        'lazy.md': ['---', 'id: "17474772000000000"', '---', '', 'full body'].join('\n'),
+      },
+    });
+    const clipboard = stubClipboard();
+
+    try {
+      await copyPromptToClipboard({
+        prompt: headOnly,
+        workspace,
+        repository,
+        onCopied: () => undefined,
+      });
+    } finally {
+      clipboard.restore();
+    }
+
+    expect(clipboard.writeTextSpy).toHaveBeenCalledWith('full body');
+    const stored = usePromptStore.getState().prompts.find((p) => p.id === 'lazy');
+    expect(stored?.copyCount).toBe(1);
+    expect(stored?.isContentLoaded).toBe(true);
+  });
+
+  it('skips ensureContent when content is already loaded', async () => {
+    usePromptStore.setState({ prompts: [prompt], filteredPrompts: [prompt] });
+    const repository = createFakeFileRepository();
+    const ensureContentSpy = vi
+      .spyOn(PromptService, 'ensureContent')
+      .mockResolvedValue(prompt);
+    const clipboard = stubClipboard();
+
+    try {
+      await copyPromptToClipboard({
+        prompt,
+        workspace,
+        repository,
+        onCopied: () => undefined,
+      });
+    } finally {
+      clipboard.restore();
+      ensureContentSpy.mockRestore();
+    }
+
+    expect(ensureContentSpy).not.toHaveBeenCalled();
+    expect(clipboard.writeTextSpy).toHaveBeenCalledWith('Content');
+  });
+
+  it('calls onCopied after clipboard write succeeds', async () => {
+    usePromptStore.setState({ prompts: [prompt], filteredPrompts: [prompt] });
+    const repository = createFakeFileRepository();
+    const clipboard = stubClipboard();
+    const onCopied = vi.fn();
+
+    try {
+      await copyPromptToClipboard({
+        prompt,
+        workspace,
+        repository,
+        onCopied,
+      });
+    } finally {
+      clipboard.restore();
+    }
+
+    expect(onCopied).toHaveBeenCalledTimes(1);
   });
 });
