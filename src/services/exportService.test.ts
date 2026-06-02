@@ -106,6 +106,8 @@ function createPrompt(overrides: Partial<Prompt> = {}): Prompt {
     id: '17474772000000000',
     title: 'Prompt',
     content: 'Content',
+    preview: '',
+    isContentLoaded: true,
     tags: [],
     createdAt: new Date('2025-01-01T00:00:00.000Z'),
     updatedAt: new Date('2025-01-02T00:00:00.000Z'),

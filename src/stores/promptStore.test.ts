@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Prompt } from '@/types/prompt';
 import { usePromptStore } from './promptStore';
 
@@ -10,6 +10,8 @@ function createPrompt(
     id,
     title: id,
     content: '',
+    preview: '',
+    isContentLoaded: true,
     tags: [],
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
     updatedAt: new Date('2026-01-01T00:00:00.000Z'),
@@ -148,5 +150,50 @@ describe('usePromptStore filtering order', () => {
     expect(usePromptStore.getState().filteredPrompts.map((prompt) => prompt.id)).toEqual([
       'matching-tag',
     ]);
+  });
+});
+
+describe('usePromptStore.patchPromptContent', () => {
+  beforeEach(() => {
+    usePromptStore.getState().clearPrompts();
+  });
+
+  it('patches a prompt content without changing filtered order or triggering applyFilter', async () => {
+    await usePromptStore.getState().setPrompts([
+      createPrompt('a', {
+        content: '',
+        isContentLoaded: false,
+        createdAt: new Date('2026-04-01T00:00:00.000Z'),
+      }),
+      createPrompt('b', {
+        content: '',
+        isContentLoaded: false,
+        createdAt: new Date('2026-03-01T00:00:00.000Z'),
+      }),
+    ]);
+
+    const filteredBefore = usePromptStore.getState().filteredPrompts;
+    const applyFilterSpy = vi.spyOn(usePromptStore.getState(), 'applyFilter');
+
+    usePromptStore.getState().patchPromptContent('b', 'Full body of b');
+
+    expect(applyFilterSpy).not.toHaveBeenCalled();
+    const updated = usePromptStore.getState().prompts.find((p) => p.id === 'b');
+    expect(updated?.content).toBe('Full body of b');
+    expect(updated?.isContentLoaded).toBe(true);
+    // 顺序保持（不影响 filteredPrompts 引用）
+    expect(usePromptStore.getState().filteredPrompts.map((p) => p.id)).toEqual(filteredBefore.map((p) => p.id));
+  });
+
+  it('also updates indexedPrompts-like references inside filteredPrompts', async () => {
+    await usePromptStore.getState().setPrompts([
+      createPrompt('p1', { content: '', isContentLoaded: false }),
+    ]);
+
+    usePromptStore.getState().patchPromptContent('p1', 'Hello world');
+
+    const inFiltered = usePromptStore.getState().filteredPrompts.find((p) => p.id === 'p1');
+    expect(inFiltered?.content).toBe('Hello world');
+    expect(inFiltered?.isContentLoaded).toBe(true);
   });
 });

@@ -12,6 +12,7 @@ export interface FileRepository {
     options?: { includeHiddenDirectories?: boolean }
   ): Promise<FileEntry[]>;
   readText(workspace: WorkspaceRef, path: string): Promise<string>;
+  readTextHead(workspace: WorkspaceRef, path: string, byteLimit: number): Promise<string>;
   writeText(workspace: WorkspaceRef, path: string, content: string): Promise<FileEntry>;
   readBinary(workspace: WorkspaceRef, path: string): Promise<Uint8Array>;
   writeBinary(workspace: WorkspaceRef, path: string, content: Uint8Array): Promise<FileEntry>;

@@ -7,8 +7,12 @@ export interface Prompt {
   id: string;
   /** Prompt 标题 */
   title: string;
-  /** Prompt 内容主体 */
+  /** Prompt 内容主体；若 isContentLoaded=false，则为空串，需要先调用 ensureContent */
   content: string;
+  /** 卡片预览（4 行 / 120 字符以内），首屏即填充，独立于 content */
+  preview: string;
+  /** content 是否已加载完整正文；首屏 head-only 加载时为 false */
+  isContentLoaded: boolean;
   /** 标签列表，支持层级格式如 "计算机/Linux" */
   tags: string[];
   /** 创建时间 */

@@ -89,6 +89,86 @@ function parseFrontmatter(content: string): {
   };
 }
 
+const PREVIEW_LINE_LIMIT = 4;
+const PREVIEW_CHARACTER_LIMIT = 120;
+
+/**
+ * \u4ECE\u6B63\u6587\u4E2D\u622A\u53D6\u5361\u7247\u9884\u89C8\uFF1A\u6700\u591A 4 \u884C\u3001120 \u5B57\u7B26\u3002
+ */
+export function getPromptPreview(content: string): { text: string; isTruncated: boolean } {
+  let text = '';
+  let lineCount = 1;
+
+  for (let index = 0; index < content.length; index += 1) {
+    const char = content[index];
+    const isLineBreak = char === '\n' || char === '\r';
+
+    if (isLineBreak) {
+      if (char === '\r' && content[index + 1] === '\n') {
+        index += 1;
+      }
+
+      if (lineCount >= PREVIEW_LINE_LIMIT) {
+        return { text, isTruncated: index < content.length - 1 };
+      }
+
+      lineCount += 1;
+      if (text.length < PREVIEW_CHARACTER_LIMIT) {
+        text += ' ';
+      }
+      continue;
+    }
+
+    if (text.length >= PREVIEW_CHARACTER_LIMIT) {
+      return { text, isTruncated: true };
+    }
+
+    text += char;
+  }
+
+  return { text, isTruncated: false };
+}
+
+/**
+ * \u4EC5\u89E3\u6790 frontmatter \u533A\u6BB5\uFF0C\u5E76\u8FD4\u56DE\u6240\u89C1\u5230\u7684\u6B63\u6587\u7247\u6BB5\u3002
+ * \u9002\u5408\u53EA\u8BFB\u53D6\u4E86\u6587\u4EF6\u5934\u90E8\u5B57\u8282\u7684\u573A\u666F\uFF1A\u5F53\u8D77\u59CB\u4E3A `---` \u4F46\u672A\u5728\u5934\u90E8\u627E\u5230\u7ED3\u5C3E `---` \u65F6\u8FD4\u56DE incomplete=true\uFF0C
+ * \u8C03\u7528\u65B9\u5E94\u56DE\u9000\u5230\u5168\u6587\u8BFB\u53D6\u3002
+ */
+export function parseFrontmatterOnly(headText: string): {
+  metadata: PromptMetadata;
+  body: string;
+  incomplete: boolean;
+} {
+  const normalized = headText.replace(/^\uFEFF/, '');
+  const hasFrontmatterStart =
+    normalized.startsWith('---\n') || normalized.startsWith('---\r\n');
+
+  if (!hasFrontmatterStart) {
+    return { metadata: {}, body: headText, incomplete: false };
+  }
+
+  const match = normalized.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (!match) {
+    return { metadata: {}, body: '', incomplete: true };
+  }
+
+  const data = parseSimpleYaml(match[1]);
+  return {
+    metadata: {
+      id: normalizeString(data.id),
+      title: data.title as string | undefined,
+      tags: normalizeTags(data.tags),
+      created: data.created as string | undefined,
+      modified: data.modified as string | undefined,
+      copyCount: normalizeNumber(data.copy_count ?? data.copyCount),
+      pinned: data.pinned as boolean | undefined,
+      pinnedAt: data.pinned_at as string | undefined,
+    },
+    body: normalized.slice(match[0].length),
+    incomplete: false,
+  };
+}
+
 function parseSimpleYaml(yaml: string): Record<string, unknown> {
   const data: Record<string, unknown> = {};
   const lines = yaml.split(/\r?\n/);

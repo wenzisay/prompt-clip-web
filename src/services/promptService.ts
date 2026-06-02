@@ -25,6 +25,8 @@ import {
 import { joinPath } from '@/utils/path';
 import {
   detectFrontmatterTagStyle,
+  getPromptPreview,
+  parseFrontmatterOnly,
   parseMarkdown,
   serializeMarkdown,
   extractTitle,
@@ -35,12 +37,29 @@ import { AnnotationService } from './annotationService';
 
 const HISTORY_PATH_PREFIX = `${CONFIG.FILE_SYSTEM.HISTORY_DIR}/`;
 const MAX_CONCURRENT_PROMPT_READS = 20;
+const PROMPT_HEAD_BYTE_LIMIT = 8192;
 
 interface ParsedPromptFile {
   entry: FileEntry;
   metadata: PromptMetadata;
   content: string;
   raw: string;
+}
+
+/**
+ * 仅读取文件头部解析得到的 Prompt 元数据。content/raw 字段在未发生回退时只包含 head 范围内的内容。
+ */
+interface ParsedPromptHead {
+  entry: FileEntry;
+  metadata: PromptMetadata;
+  /** head 范围内可见的正文片段，用于截取预览 */
+  bodyHead: string;
+  /** head 范围内的原始文本（包含 frontmatter），用于检测 tag 风格与判断 ID 写回 */
+  rawHead: string;
+  /** 头部不足回退到全读时缓存的完整正文，否则为 null */
+  fullContent: string | null;
+  /** 头部不足回退到全读时缓存的完整 raw，否则为 null */
+  fullRaw: string | null;
 }
 
 /**
@@ -61,7 +80,9 @@ export async function loadPrompt(
 }
 
 /**
- * 加载目录中的所有 Prompts
+ * 加载目录中的所有 Prompts（首屏 head-only：只读 frontmatter + 预览片段）
+ *
+ * 正文不会被填入 prompt.content，调用方需在使用 content 前调用 ensureContent。
  */
 export async function loadPrompts(
   repository: FileRepository,
@@ -71,46 +92,83 @@ export async function loadPrompts(
     workspace,
     [...CONFIG.FILE_SYSTEM.SUPPORTED_EXTENSIONS]
   );
-  const parsedFileResults = await mapWithConcurrency(
+  const headResults = await mapWithConcurrency(
     entries,
     MAX_CONCURRENT_PROMPT_READS,
     async (entry) => {
       try {
-        return await readPromptFile(repository, workspace, entry);
+        return await readPromptHead(repository, workspace, entry);
       } catch (error) {
         console.error(`Failed to load prompt: ${entry.path}`, error);
         return null;
       }
     }
   );
-  const parsedFiles = parsedFileResults.filter((parsed): parsed is ParsedPromptFile =>
-    parsed !== null
-  );
+  const heads = headResults.filter((parsed): parsed is ParsedPromptHead => parsed !== null);
 
-  const idAssignments = assignEffectiveStableIds(parsedFiles);
+  const idAssignments = assignEffectiveStableIds(heads);
   const prompts = await Promise.all(
-    parsedFiles.map(async (parsed) => {
-      const assignedId = getAssignedStableId(idAssignments, parsed.entry.path);
+    heads.map(async (head) => {
+      const assignedId = getAssignedStableId(idAssignments, head.entry.path);
       let effectiveStableId = assignedId;
       let isTemporaryLegacyId = false;
 
-      if (shouldWritePromptFileWithId(parsed, assignedId)) {
+      if (shouldWritePromptHeadWithId(head, assignedId)) {
         try {
-          await writePromptFileWithId(repository, workspace, parsed, assignedId);
+          await writePromptHeadWithId(repository, workspace, head, assignedId);
         } catch (error) {
-          console.error(`Failed to migrate prompt id for file: ${parsed.entry.path}`, error);
-          effectiveStableId = idFromFilename(parsed.entry.path);
+          console.error(`Failed to migrate prompt id for file: ${head.entry.path}`, error);
+          effectiveStableId = idFromFilename(head.entry.path);
           isTemporaryLegacyId = true;
         }
       }
 
-      return buildPromptFromParsed(parsed, effectiveStableId, isTemporaryLegacyId);
+      return buildPromptFromHead(head, effectiveStableId, isTemporaryLegacyId);
     })
   );
 
   // 按修改时间排序
   return prompts.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
 }
+
+/**
+ * 按需补全 Prompt 的完整正文。
+ * - 已加载则直接返回原对象
+ * - 未加载则读取全文、解析正文并返回新的 Prompt 对象（不修改入参）
+ * - 同一 prompt 的并发调用会复用同一次 IO
+ */
+export async function ensureContent(
+  repository: FileRepository,
+  workspace: WorkspaceRef,
+  prompt: Prompt
+): Promise<Prompt> {
+  if (prompt.isContentLoaded) {
+    return prompt;
+  }
+
+  const cacheKey = `${workspace.id}::${prompt.id}::${prompt.filePath}`;
+  const inflight = ensureContentInflight.get(cacheKey);
+  if (inflight) {
+    return inflight;
+  }
+
+  const promise = (async () => {
+    const raw = await repository.readText(workspace, prompt.filePath);
+    const { content } = parseMarkdown(raw);
+    return {
+      ...prompt,
+      content: content.replace(/^\r?\n/, ''),
+      isContentLoaded: true,
+    };
+  })().finally(() => {
+    ensureContentInflight.delete(cacheKey);
+  });
+
+  ensureContentInflight.set(cacheKey, promise);
+  return promise;
+}
+
+const ensureContentInflight = new Map<string, Promise<Prompt>>();
 
 /**
  * 创建新 Prompt
@@ -144,6 +202,8 @@ export async function createPrompt(
     id: stableId,
     title,
     content: input.content,
+    preview: buildPreview(input.content),
+    isContentLoaded: true,
     tags: input.tags,
     createdAt: now,
     updatedAt: now,
@@ -487,6 +547,39 @@ async function readPromptFile(
   };
 }
 
+async function readPromptHead(
+  repository: FileRepository,
+  workspace: WorkspaceRef,
+  entry: FileEntry
+): Promise<ParsedPromptHead> {
+  const headText = await repository.readTextHead(workspace, entry.path, PROMPT_HEAD_BYTE_LIMIT);
+  const parsed = parseFrontmatterOnly(headText);
+
+  if (!parsed.incomplete) {
+    return {
+      entry,
+      metadata: parsed.metadata,
+      bodyHead: parsed.body.replace(/^\r?\n/, ''),
+      rawHead: headText,
+      fullContent: null,
+      fullRaw: null,
+    };
+  }
+
+  // frontmatter 未在头部范围内闭合 → 回退到全读
+  const raw = await repository.readText(workspace, entry.path);
+  const { metadata, content } = parseMarkdown(raw);
+  const stripped = content.replace(/^\r?\n/, '');
+  return {
+    entry,
+    metadata,
+    bodyHead: stripped,
+    rawHead: raw,
+    fullContent: stripped,
+    fullRaw: raw,
+  };
+}
+
 function buildPromptFromParsed(
   parsed: ParsedPromptFile,
   effectiveStableId: string,
@@ -502,6 +595,8 @@ function buildPromptFromParsed(
     id: effectiveStableId,
     title: metadata.title || extractTitle(content) || fileTitle,
     content,
+    preview: buildPreview(content),
+    isContentLoaded: true,
     tags,
     createdAt: metadata.created ? new Date(metadata.created) : entry.modifiedAt,
     updatedAt: metadata.modified ? new Date(metadata.modified) : entry.modifiedAt,
@@ -511,6 +606,39 @@ function buildPromptFromParsed(
     filePath: entry.path,
     ...(isTemporaryLegacyId && { isTemporaryLegacyId }),
   };
+}
+
+function buildPromptFromHead(
+  head: ParsedPromptHead,
+  effectiveStableId: string,
+  isTemporaryLegacyId = false
+): Prompt {
+  const { entry, metadata, bodyHead, rawHead, fullContent } = head;
+  const fileTitle = idFromFilename(entry.name);
+  const tags = metadata.tags && metadata.tags.length > 0
+    ? metadata.tags
+    : extractFrontmatterBlockTags(rawHead) ?? [];
+  const hasFullContent = fullContent !== null;
+
+  return {
+    id: effectiveStableId,
+    title: metadata.title || extractTitle(bodyHead) || fileTitle,
+    content: hasFullContent ? fullContent : '',
+    preview: buildPreview(bodyHead),
+    isContentLoaded: hasFullContent,
+    tags,
+    createdAt: metadata.created ? new Date(metadata.created) : entry.modifiedAt,
+    updatedAt: metadata.modified ? new Date(metadata.modified) : entry.modifiedAt,
+    copyCount: metadata.copyCount ?? 0,
+    pinned: metadata.pinned ?? false,
+    pinnedAt: metadata.pinnedAt ? new Date(metadata.pinnedAt) : undefined,
+    filePath: entry.path,
+    ...(isTemporaryLegacyId && { isTemporaryLegacyId }),
+  };
+}
+
+function buildPreview(content: string): string {
+  return getPromptPreview(content).text;
 }
 
 function buildHistoryVersionFromParsed(parsed: ParsedPromptFile): HistoryVersion {
@@ -534,10 +662,10 @@ function buildHistoryVersionFromParsed(parsed: ParsedPromptFile): HistoryVersion
   };
 }
 
-function assignEffectiveStableIds(parsedFiles: ParsedPromptFile[]): Map<string, string> {
+function assignEffectiveStableIds<T extends HeadLike>(parsedFiles: T[]): Map<string, string> {
   const assignments = new Map<string, string>();
   const usedStableIds = new Set<string>();
-  const validIdGroups = new Map<string, ParsedPromptFile[]>();
+  const validIdGroups = new Map<string, T[]>();
 
   for (const parsed of parsedFiles) {
     if (!isStableId(parsed.metadata.id)) {
@@ -583,11 +711,11 @@ function getAssignedStableId(assignments: Map<string, string>, filePath: string)
   return stableId;
 }
 
-function chooseCanonicalDuplicate(group: ParsedPromptFile[]): ParsedPromptFile {
+function chooseCanonicalDuplicate<T extends HeadLike>(group: T[]): T {
   return [...group].sort(compareDuplicateCandidates)[0];
 }
 
-function compareDuplicateCandidates(left: ParsedPromptFile, right: ParsedPromptFile): number {
+function compareDuplicateCandidates<T extends HeadLike>(left: T, right: T): number {
   const leftTitleMatch = basenameWithoutMarkdownExtension(left.entry.name) === left.metadata.title;
   const rightTitleMatch =
     basenameWithoutMarkdownExtension(right.entry.name) === right.metadata.title;
@@ -602,6 +730,11 @@ function compareDuplicateCandidates(left: ParsedPromptFile, right: ParsedPromptF
   }
 
   return left.entry.path.localeCompare(right.entry.path);
+}
+
+interface HeadLike {
+  entry: FileEntry;
+  metadata: PromptMetadata;
 }
 
 function basenameWithoutMarkdownExtension(filename: string): string {
@@ -655,6 +788,42 @@ async function writePromptFileWithId(
   );
 }
 
+function shouldWritePromptHeadWithId(head: ParsedPromptHead, stableId: string): boolean {
+  return head.metadata.id !== stableId || !hasDoubleQuotedStableId(head.rawHead, stableId);
+}
+
+async function writePromptHeadWithId(
+  repository: FileRepository,
+  workspace: WorkspaceRef,
+  head: ParsedPromptHead,
+  stableId: string
+): Promise<void> {
+  if (head.fullContent !== null && head.fullRaw !== null) {
+    const parsedForRewrite: ParsedPromptFile = {
+      entry: head.entry,
+      metadata: head.metadata,
+      content: head.fullContent,
+      raw: head.fullRaw,
+    };
+    await writePromptFileWithId(repository, workspace, parsedForRewrite, stableId);
+    return;
+  }
+
+  const raw = await repository.readText(workspace, head.entry.path);
+  const { metadata, content } = parseMarkdown(raw);
+  await writePromptFileWithId(
+    repository,
+    workspace,
+    {
+      entry: head.entry,
+      metadata,
+      content: content.replace(/^\r?\n/, ''),
+      raw,
+    },
+    stableId
+  );
+}
+
 async function readPromptTagStyle(
   repository: FileRepository,
   workspace: WorkspaceRef,
@@ -665,10 +834,6 @@ async function readPromptTagStyle(
   } catch {
     return null;
   }
-}
-
-function shouldWritePromptFileWithId(parsed: ParsedPromptFile, stableId: string): boolean {
-  return parsed.metadata.id !== stableId || !hasDoubleQuotedStableId(parsed.raw, stableId);
 }
 
 function hasDoubleQuotedStableId(content: string, stableId: string): boolean {
@@ -789,6 +954,7 @@ function extractFrontmatterBlockTags(content: string): string[] | null {
 export const PromptService = {
   loadPrompt,
   loadPrompts,
+  ensureContent,
   createPrompt,
   updatePrompt,
   deletePrompt,

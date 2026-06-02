@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseMarkdown, serializeMarkdown } from './markdown';
+import { parseFrontmatterOnly, parseMarkdown, serializeMarkdown } from './markdown';
 
 describe('markdown utilities', () => {
   it('parses quoted stable id from frontmatter', () => {
@@ -89,5 +89,40 @@ describe('markdown utilities', () => {
         '正文',
       ].join('\n')
     );
+  });
+});
+
+describe('parseFrontmatterOnly', () => {
+  it('parses a complete frontmatter and returns the body slice', () => {
+    const text = ['---', 'title: Hello', 'tags: [a, b]', '---', '', 'Body line one'].join('\n');
+    const result = parseFrontmatterOnly(text);
+    expect(result.incomplete).toBe(false);
+    expect(result.metadata.title).toBe('Hello');
+    expect(result.metadata.tags).toEqual(['a', 'b']);
+    expect(result.body).toBe('\nBody line one');
+  });
+
+  it('returns incomplete=true when frontmatter starts but end delimiter is missing', () => {
+    const text = ['---', 'title: Hello', 'tags:', '  - a'].join('\n');
+    const result = parseFrontmatterOnly(text);
+    expect(result.incomplete).toBe(true);
+    expect(result.metadata).toEqual({});
+    expect(result.body).toBe('');
+  });
+
+  it('treats text without frontmatter as pure body', () => {
+    const text = 'Just body text\nNo frontmatter here';
+    const result = parseFrontmatterOnly(text);
+    expect(result.incomplete).toBe(false);
+    expect(result.metadata).toEqual({});
+    expect(result.body).toBe(text);
+  });
+
+  it('handles CRLF line endings', () => {
+    const text = '---\r\ntitle: Win\r\n---\r\nBody';
+    const result = parseFrontmatterOnly(text);
+    expect(result.incomplete).toBe(false);
+    expect(result.metadata.title).toBe('Win');
+    expect(result.body).toBe('Body');
   });
 });

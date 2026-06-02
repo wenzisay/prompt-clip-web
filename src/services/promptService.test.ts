@@ -37,12 +37,14 @@ describe('PromptService repository integration', () => {
     expect(prompts[0]).toMatchObject({
       id: '11111111111111111',
       title: 'Hello',
-      content: 'Body',
       tags: ['test'],
       copyCount: 2,
       pinned: true,
       filePath: 'hello.md',
+      isContentLoaded: false,
+      content: '',
     });
+    expect(prompts[0].preview).toBe('Body');
   });
 
   it('reads prompt files with bounded concurrency', async () => {
@@ -62,16 +64,16 @@ describe('PromptService repository integration', () => {
     const repository = createFakeFileRepository({ files });
     let activeReads = 0;
     let maxActiveReads = 0;
-    const originalReadText = repository.readText;
+    const originalReadTextHead = repository.readTextHead;
     const delayedRepository: FileRepository = {
       ...repository,
-      readText: async (currentWorkspace, path) => {
+      readTextHead: async (currentWorkspace, path, byteLimit) => {
         activeReads += 1;
         maxActiveReads = Math.max(maxActiveReads, activeReads);
         await new Promise((resolve) => setTimeout(resolve, 1));
 
         try {
-          return await originalReadText(currentWorkspace, path);
+          return await originalReadTextHead(currentWorkspace, path, byteLimit);
         } finally {
           activeReads -= 1;
         }
@@ -164,6 +166,27 @@ describe('PromptService repository integration', () => {
 
     expect(prompt.id).toBe('17789760000002222');
     expect(repository.dumpFiles()['legacy.md']).toContain('id: "17789760000002222"');
+  });
+
+  it('preserves full content past the head limit when migrating prompt ids', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-17T00:00:00.000Z'));
+    vi.spyOn(Math, 'random').mockReturnValue(0.2424);
+    const longBody = `Preview\n\n${'x'.repeat(9000)}`;
+    const repository = createFakeFileRepository({
+      now: () => new Date(),
+      files: {
+        'long.md': ['---', 'title: Long', '---', '', longBody].join('\n'),
+      },
+    });
+
+    await PromptService.loadPrompts(repository, workspace);
+
+    const saved = repository.dumpFiles()['long.md'];
+    expect(saved).toContain('id: "17789760000002424"');
+    expect(saved).toContain('Preview');
+    expect(saved).toContain('x'.repeat(9000));
+    expect(saved.length).toBeGreaterThan(9000);
   });
 
   it('preserves Obsidian block tags when migrating prompts without ids', async () => {
@@ -997,6 +1020,8 @@ function createPromptFixture(overrides: Partial<Prompt>): Prompt {
     id: '11111111111111111',
     title: 'Legacy',
     content: 'Body',
+    preview: '',
+    isContentLoaded: true,
     tags: [],
     createdAt: new Date('2026-05-17T00:00:00.000Z'),
     updatedAt: new Date('2026-05-17T00:00:00.000Z'),
@@ -1006,3 +1031,108 @@ function createPromptFixture(overrides: Partial<Prompt>): Prompt {
     ...overrides,
   };
 }
+
+describe('PromptService head-only loading and ensureContent', () => {
+  it('reads only the head and does not call readText for non-migrating files', async () => {
+    const readText = vi.fn(async () => {
+      throw new Error('readText should not be called for head-only loading');
+    });
+    const repository = createFakeFileRepository({
+      files: {
+        'p.md': [
+          '---',
+          'id: "17474772000000000"',
+          'title: P',
+          '---',
+          '',
+          'Body line 1',
+          'Body line 2',
+        ].join('\n'),
+      },
+    });
+    const spied = { ...repository, readText } as unknown as FileRepository;
+
+    const prompts = await PromptService.loadPrompts(spied, workspace);
+
+    expect(prompts).toHaveLength(1);
+    expect(prompts[0].content).toBe('');
+    expect(prompts[0].isContentLoaded).toBe(false);
+    expect(prompts[0].preview).toBe('Body line 1 Body line 2');
+    expect(readText).not.toHaveBeenCalled();
+  });
+
+  it('falls back to readText when the frontmatter is not closed within the head', async () => {
+    // 第一行是 `---` 起始 frontmatter，但 8KB 头部内没有 `---` 结束，需要回退到全读
+    const hugeFrontmatter = 'tag: x\n'.repeat(5000);
+    const repository = createFakeFileRepository({
+      files: {
+        'big.md': `---\ntitle: T\n${hugeFrontmatter}more-stuff`,
+      },
+    });
+    const readTextSpy = vi.spyOn(repository, 'readText');
+
+    const prompts = await PromptService.loadPrompts(repository, workspace);
+
+    expect(prompts).toHaveLength(1);
+    expect(readTextSpy).toHaveBeenCalledOnce();
+    expect(prompts[0].isContentLoaded).toBe(true);
+    expect(prompts[0].content.length).toBeGreaterThan(0);
+  });
+
+  it('ensureContent is a no-op when content is already loaded', async () => {
+    const repository = createFakeFileRepository();
+    const prompt: Prompt = {
+      ...createPromptFixture({ filePath: 'p.md' }),
+      isContentLoaded: true,
+      content: 'Existing',
+    };
+    const result = await PromptService.ensureContent(repository, workspace, prompt);
+    expect(result).toBe(prompt);
+  });
+
+  it('ensureContent reads the full file once and patches the prompt with content', async () => {
+    const repository = createFakeFileRepository({
+      files: {
+        'p.md': ['---', 'title: P', '---', '', 'Full body'].join('\n'),
+      },
+    });
+    const prompt: Prompt = {
+      ...createPromptFixture({ id: '11111111111111111', filePath: 'p.md' }),
+      content: '',
+      isContentLoaded: false,
+    };
+
+    const result = await PromptService.ensureContent(repository, workspace, prompt);
+
+    expect(result.isContentLoaded).toBe(true);
+    expect(result.content).toBe('Full body');
+    // 入参对象未被修改
+    expect(prompt.isContentLoaded).toBe(false);
+    expect(prompt.content).toBe('');
+  });
+
+  it('ensureContent coalesces concurrent calls into a single IO', async () => {
+    const repository = createFakeFileRepository({
+      files: {
+        'p.md': ['---', 'title: P', '---', '', 'Body'].join('\n'),
+      },
+    });
+    const readTextSpy = vi.spyOn(repository, 'readText');
+    const prompt: Prompt = {
+      ...createPromptFixture({ id: '11111111111111111', filePath: 'p.md' }),
+      content: '',
+      isContentLoaded: false,
+    };
+
+    const [a, b, c] = await Promise.all([
+      PromptService.ensureContent(repository, workspace, prompt),
+      PromptService.ensureContent(repository, workspace, prompt),
+      PromptService.ensureContent(repository, workspace, prompt),
+    ]);
+
+    expect(readTextSpy).toHaveBeenCalledOnce();
+    expect(a.content).toBe('Body');
+    expect(b.content).toBe('Body');
+    expect(c.content).toBe('Body');
+  });
+});

@@ -259,6 +259,22 @@ async function readText(_workspace: WorkspaceRef, path: string): Promise<string>
   return file.text();
 }
 
+async function readTextHead(
+  _workspace: WorkspaceRef,
+  path: string,
+  byteLimit: number
+): Promise<string> {
+  const root = await requireSavedDirectoryHandle();
+  const { directory, name } = await resolveParentDirectory(root, path, false);
+  const handle = await directory.getFileHandle(name);
+  const file = await handle.getFile();
+  if (file.size <= byteLimit) {
+    return file.text();
+  }
+  const slice = file.slice(0, byteLimit);
+  return slice.text();
+}
+
 async function writeText(
   _workspace: WorkspaceRef,
   path: string,
@@ -378,6 +394,7 @@ export const webFileRepository: FileRepository = {
   clearSavedWorkspace,
   listFiles,
   readText,
+  readTextHead,
   writeText,
   readBinary,
   writeBinary,

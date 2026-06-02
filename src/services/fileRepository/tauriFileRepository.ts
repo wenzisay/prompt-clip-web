@@ -142,6 +142,19 @@ async function readText(workspace: WorkspaceRef, path: string): Promise<string> 
   return invoke('workspace_read_text', workspacePathArgs(workspace, path));
 }
 
+async function readTextHead(
+  workspace: WorkspaceRef,
+  path: string,
+  byteLimit: number
+): Promise<string> {
+  const full = await readText(workspace, path);
+  const bytes = new TextEncoder().encode(full);
+  if (bytes.byteLength <= byteLimit) {
+    return full;
+  }
+  return new TextDecoder('utf-8', { fatal: false }).decode(bytes.slice(0, byteLimit));
+}
+
 async function writeText(
   workspace: WorkspaceRef,
   path: string,
@@ -212,6 +225,7 @@ export const tauriFileRepository: FileRepository = {
   clearSavedWorkspace,
   listFiles,
   readText,
+  readTextHead,
   writeText,
   readBinary,
   writeBinary,

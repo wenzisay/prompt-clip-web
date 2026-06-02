@@ -9,6 +9,7 @@ import type { Prompt } from '@/types/prompt';
 
 interface SearchIndex {
   addAsync(id: string, content: string): Promise<unknown>;
+  add(id: string, content: string): unknown;
   searchAsync(query: string, options: { limit: number }): Promise<Array<string | number>>;
   remove(id: string): void;
 }
@@ -41,15 +42,44 @@ export function initSearchIndex(): void {
 
 /**
  * 构建搜索索引
+ * - 默认构建 title + content + tags 三个索引
+ * - 当 `options.skipContent === true` 时，仅构建 title + tags 索引，content 索引保持空。
+ *   content 索引将由 `addContentToIndex` 在后台补全。
  */
-export async function buildSearchIndex(prompts: Prompt[]): Promise<void> {
+export async function buildSearchIndex(
+  prompts: Prompt[],
+  options: { skipContent?: boolean } = {}
+): Promise<void> {
   initSearchIndex();
+
+  if (options.skipContent) {
+    await mapWithConcurrency(prompts, MAX_CONCURRENT_INDEX_ADDS, addHeadToIndex);
+    return;
+  }
 
   await mapWithConcurrency(prompts, MAX_CONCURRENT_INDEX_ADDS, addToIndex);
 }
 
 /**
+ * 仅将 prompt 的 title + tags 加入索引，用于 head-only 首屏。
+ * content 索引中不含该 prompt。
+ */
+async function addHeadToIndex(prompt: Prompt): Promise<void> {
+  if (!titleIndex) {
+    initSearchIndex();
+  }
+  if (!titleIndex || !contentIndex || !tagsIndex) return;
+
+  indexedPrompts.set(prompt.id, prompt);
+  await Promise.all([
+    titleIndex.addAsync(prompt.id, prompt.title),
+    tagsIndex.addAsync(prompt.id, prompt.tags.join(' ')),
+  ]);
+}
+
+/**
  * 添加单个 Prompt 到索引
+ * 当 prompt.isContentLoaded=false 时只索引 title + tags，content 留待 addContentToIndex 补全。
  */
 export async function addToIndex(prompt: Prompt): Promise<void> {
   if (!titleIndex) {
@@ -59,11 +89,18 @@ export async function addToIndex(prompt: Prompt): Promise<void> {
 
   indexedPrompts.set(prompt.id, prompt);
 
-  await Promise.all([
-    titleIndex.addAsync(prompt.id, prompt.title),
-    contentIndex.addAsync(prompt.id, prompt.content),
-    tagsIndex.addAsync(prompt.id, prompt.tags.join(' ')),
-  ]);
+  if (prompt.isContentLoaded) {
+    await Promise.all([
+      titleIndex.addAsync(prompt.id, prompt.title),
+      contentIndex.addAsync(prompt.id, prompt.content),
+      tagsIndex.addAsync(prompt.id, prompt.tags.join(' ')),
+    ]);
+  } else {
+    await Promise.all([
+      titleIndex.addAsync(prompt.id, prompt.title),
+      tagsIndex.addAsync(prompt.id, prompt.tags.join(' ')),
+    ]);
+  }
 }
 
 /**
@@ -79,6 +116,19 @@ export function removeFromIndex(promptId: string): void {
     tagsIndex.remove(promptId);
   } catch {
     // 忽略删除错误
+  }
+}
+
+/**
+ * 把单条 prompt 的 content 增量加入 content 索引（不重建其它索引）。
+ * 用于后台 idle 加载时补全 content 索引。
+ */
+export function addContentToIndex(promptId: string, content: string): void {
+  if (!contentIndex) return;
+  try {
+    contentIndex.add(promptId, content);
+  } catch {
+    // 忽略单条 add 错误，避免阻塞后续 batch
   }
 }
 
@@ -198,6 +248,7 @@ export const SearchService = {
   initSearchIndex,
   buildSearchIndex,
   addToIndex,
+  addContentToIndex,
   removeFromIndex,
   updateIndex,
   search,

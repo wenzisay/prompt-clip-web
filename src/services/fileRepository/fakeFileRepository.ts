@@ -85,6 +85,18 @@ export function createFakeFileRepository(
       }
       return record.content;
     },
+    readTextHead: async (_workspace, path, byteLimit) => {
+      const normalized = normalizeRelativePath(path);
+      const record = files.get(normalized);
+      if (!record) {
+        throw new Error('文件不存在或已被移动');
+      }
+      const bytes = new TextEncoder().encode(record.content);
+      if (bytes.byteLength <= byteLimit) {
+        return record.content;
+      }
+      return new TextDecoder('utf-8', { fatal: false }).decode(bytes.slice(0, byteLimit));
+    },
     writeText: async (_workspace, path, content) => {
       const normalized = normalizeRelativePath(path);
       const record = { content, modifiedAt: now() };

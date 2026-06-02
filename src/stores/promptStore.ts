@@ -24,6 +24,8 @@ interface PromptState {
   addPrompt: (prompt: Prompt) => void;
   /** 更新 Prompt */
   updatePrompt: (prompt: Prompt) => void;
+  /** 静默补全单条 prompt 的 content（不触发 applyFilter） */
+  patchPromptContent: (promptId: string, content: string) => void;
   /** 删除 Prompt */
   deletePrompt: (promptId: string) => void;
   /** 切换收藏状态 */
@@ -58,8 +60,13 @@ export const usePromptStore = create<PromptState>((set, get) => ({
 
   setPrompts: async (prompts) => {
     set({ prompts, isLoading: false });
-    // 重建搜索索引
-    await SearchService.buildSearchIndex(prompts);
+    // 首屏场景：prompts 多为 isContentLoaded=false，仅索引 title+tags；后台 lazyLoader 后续补 content
+    const allLoaded = prompts.every((p) => p.isContentLoaded);
+    if (allLoaded) {
+      await SearchService.buildSearchIndex(prompts);
+    } else {
+      await SearchService.buildSearchIndex(prompts, { skipContent: true });
+    }
     get().applyFilter();
   },
 
@@ -77,6 +84,28 @@ export const usePromptStore = create<PromptState>((set, get) => ({
     }));
     SearchService.updateIndex(prompt);
     get().applyFilter();
+  },
+
+  patchPromptContent: (promptId, content) => {
+    let didPatch = false;
+    set((state) => {
+      const prompts = state.prompts.map((p) => {
+        if (p.id !== promptId || p.isContentLoaded) {
+          return p;
+        }
+        didPatch = true;
+        return { ...p, content, isContentLoaded: true };
+      });
+      if (!didPatch) {
+        return state;
+      }
+      const filteredPrompts = state.filteredPrompts.map((p) =>
+        p.id === promptId && !p.isContentLoaded
+          ? { ...p, content, isContentLoaded: true }
+          : p
+      );
+      return { prompts, filteredPrompts };
+    });
   },
 
   deletePrompt: (promptId) => {
