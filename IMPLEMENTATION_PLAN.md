@@ -1,209 +1,103 @@
-## 阶段 1: Stable ID 基础能力
+# Implementation Plan: 列表页性能优化（DOM 虚拟化 + 延迟读全文）
 
-**目标**: 为 stableId 增加类型、生成、校验、Markdown 解析和序列化能力。
-**成功标准**: frontmatter `id` 按字符串读写，生成的 stableId 为 17 位数字字符串。
-**测试**: 覆盖 `generateStableId`、`isStableId`、`parseMarkdown`、`serializeMarkdown`。
+对应 `SPEC.md`。按"自下而上"顺序：先夯实 IO 与数据层，再加后台调度，再接入消费方，最后做 UI 虚拟化与全量验证。
+
+## 阶段 1: head-only IO 与数据模型
+
+**目标**: 让文件仓库能按字节读取头部；`Prompt` 携带 `preview` 与 `isContentLoaded`；`PromptService.loadPrompts` 改为只读 8KB 头部解析 frontmatter + 预览，并提供 `ensureContent` 按需补全正文。
+
+**成功标准**:
+- `FileRepository.readTextHead(workspace, path, byteLimit)` 在三端（web / tauri / fake）均能正确返回前 N 字节解码后的字符串；文件长度不足时返回全文。
+- `parseFrontmatterOnly(headText)` 仅解析 frontmatter，返回 `metadata` 与正文起始位置；frontmatter 不完整（如截断在 `---` 之前）时显式返回 `incomplete: true`。
+- `Prompt` 新增 `preview: string`、`isContentLoaded: boolean`；`loadPrompts` 后 `isContentLoaded === false`，`content === ''`，`preview` 按 4 行 / 120 字符规则截断（沿用 `getPromptPreview` 语义）。
+- `PromptService.ensureContent(prompt)` 幂等：未加载时读全文并返回带完整 `content` 的新 Prompt；已加载时直接返回原 prompt；并发调用同一 prompt 合并为单次 IO（用 in-flight map 缓存 Promise）。
+- 边界：head 解析判定 `incomplete` 时回退到 `readText` 全读。
+- stable id 迁移在 head-only 模式下仍能写回 frontmatter（不需要原始正文，因为 metadata + content="" 重新 serialize 会丢正文 → 此处必须保留：迁移路径仍走全读，普通路径走 head；二者分支决策见 SPEC「需先确认」第 3 项，本阶段默认实现"需要写回时回退全读"）。
+
+**测试**:
+- `webFileRepository.test.ts`: `readTextHead` 返回前 N 字节；文件 < N 时返回全文；UTF-8 多字节字符不被截半（最少不抛错，允许末尾被截）。
+- `fakeFileRepository.test.ts`: `readTextHead` 实现。
+- `utils/markdown.test.ts`（如无则新建）: `parseFrontmatterOnly` 解析完整/不完整 frontmatter。
+- `promptService.test.ts`: `loadPrompts` 在 mock repository 下只调用 `readTextHead` 不调用 `readText`（除非需要写回 ID）；`preview` 截断正确；`isContentLoaded === false`；`ensureContent` 幂等与并发合并。
+
 **状态**: 已完成
 
-## 阶段 2: Prompt 服务迁移与历史关联
+---
 
-**目标**: 将 `prompt.id` 改为 stableId，加载时迁移旧文件，处理重复 ID，更新标题校验、历史、删除逻辑。
-**成功标准**: 创建/加载/更新/删除/历史查询均使用 stableId，rename 后 ID 不变。
-**测试**: 覆盖 spec 中的加载迁移、重复 ID、非法 ID、rename、历史匹配、回收站命名场景。
+## 阶段 2: 后台延迟加载与渐进式索引
+
+**目标**: 首屏 `setPrompts` 不阻塞索引；title+tags 索引立即可用；正文与 content 索引由 `requestIdleCallback` 分批补全；workspace 切换可安全取消。
+
+**成功标准**:
+- `SearchService` 内部拆分：`titleIndex` / `tagsIndex` 在 `buildSearchIndex` 中立即填充；`contentIndex` 在 `buildSearchIndex(prompts, { skipContent: true })` 时为空，由后续 `addContentToIndex(id, content)` 增量填充。`search()` 行为兼容（合并三索引）。
+- `promptStore` 新增 `patchPromptContent(id, content)` action：更新单条 prompt 的 `content` 与 `isContentLoaded = true`；**不触发 `applyFilter`**，不改变 `filteredPrompts` 引用顺序。
+- 新增 `services/promptLazyLoader.ts`：`start(prompts, { repository, workspace, batchSize=50 })` 用 `requestIdleCallback`（带 `setTimeout(0)` fallback）分批调用 `ensureContent` + `patchPromptContent` + `SearchService.addContentToIndex`；`cancel()` 立即停止后续批次；进行中的批次结果通过 generation 标记丢弃。
+- 新增 `hooks/usePromptLazyLoad.ts`：在 prompts 数组就绪后启动 loader，组件卸载或 workspace 切换时 cancel。
+- `usePromptLoader` 改造为两阶段：先 head-only `loadPrompts` → `setPrompts` → 立即返回；然后由 `usePromptLazyLoad` 启动 idle 填充。
+- 后台填充期间用户操作（搜索、切筛选、复制、编辑、收藏）不被阻塞。
+
+**测试**:
+- `searchService.test.ts`: `skipContent` 模式下 title/tag 命中、content 不命中；`addContentToIndex` 后正文命中生效。
+- `promptStore.test.ts`: `patchPromptContent` 更新 `content` 与 `isContentLoaded`，不改变 `filteredPrompts` 顺序与引用项数。
+- `promptLazyLoader.test.ts`（新建）: 用 fake timer + mock `requestIdleCallback` 验证分批；`cancel()` 后续批不再执行；workspace 切换时旧 generation 结果被丢弃。
+
 **状态**: 已完成
 
-## 阶段 3: 导出与回归验证
+---
 
-**目标**: Markdown zip 导出使用可读文件名，同时 frontmatter 保留 stableId；清理旧编码相关测试。
-**成功标准**: 导出文件名不使用 stableId，冲突文件名有后缀，所有现有测试通过。
-**测试**: 覆盖 Markdown zip 文件名和 frontmatter id；运行 lint、type-check、test。
+## 阶段 3: content 消费方接入 ensureContent
+
+**目标**: 所有依赖 `prompt.content` 的用户路径，在 content 未加载时透明触发 `ensureContent`。
+
+**成功标准**:
+- `PromptCard.handleCopy`：复制前 `ensureContent` 并把更新后的 prompt 写回 store（避免下次再读）。
+- `DetailPanel`：选中 prompt 后若 `!isContentLoaded`，在 effect 中触发 `ensureContent`，渲染 loading 占位（复用现有 Spinner / skeleton）；复制、字符数计算用更新后的 content。
+- `CreateModal`（编辑态）：打开时若 `!isContentLoaded`，先 ensure 再填入 textarea。
+- `exportService.exportPrompts`：调用方（`ExportModal`）在导出前批量 `ensureContent` 选中 prompts。
+- `shareImageService` / `ShareCardPreview`：分享渲染前 `ensureContent`。
+- 历史版本路径（`HistoryModal`）使用的是 `HistoryVersion.content`，与本次改动正交，不需要改。但 `createHistoryVersion` 内部读 `prompt.filePath` 全文存档，原逻辑已经走 `repository.readText`，**保持不变**。
+
+**测试**:
+- `PromptCard.test.tsx`: 在 `isContentLoaded=false` 下点复制，断言 `PromptService.ensureContent` 被调用，剪贴板写入完整内容，store 中该 prompt 已 patch。
+- `DetailPanel.test.tsx`: 选中未加载 prompt 后异步加载并展示正文。
+- `CreateModal.test.tsx`: 编辑态触发 ensureContent 后填入 textarea。
+- `ExportModal.test.tsx`: 导出前对选中未加载 prompts 触发批量 ensureContent。
+
 **状态**: 已完成
 
-## 阶段 4: 历史版本服务能力
+---
 
-**目标**: 扩展 PromptService，支持读取历史版本详情并将指定历史版本恢复为当前笔记。
-**成功标准**: 历史版本包含编辑时间、标题、正文、标签等信息；恢复前自动保存当前笔记为历史版本；恢复后 prompt.id 保持不变。
-**测试**: 覆盖历史详情读取、按时间倒序、恢复前创建历史、恢复后内容与 metadata 更新。
+## 阶段 4: 虚拟化 PromptGrid
+
+**目标**: 用 `@tanstack/react-virtual` 改造 `PromptGrid`，DOM 中 `PromptCard` 实例数仅受视窗约束；`PromptCard` `React.memo` 化，单条更新不触发全列表重渲染。
+
+**成功标准**:
+- 安装依赖：`npm install @tanstack/react-virtual`。
+- 新增 `hooks/useResponsiveColumnCount.ts`：基于 `ResizeObserver` 测量容器宽度，按 `minmax(min(360px,100%),1fr)` 规则推导列数，返回 `(containerRef, columnCount)`。
+- 改造 `PromptGrid.tsx`：用包裹层 `overflow-y-auto` 作为滚动容器；`useVirtualizer({ count: rowCount, estimateSize: () => 180, overscan: 2, measureElement })`；按列数把一维 `filteredPrompts` 切行渲染；FilterTabs + 批量工具条保持 sticky。
+- `PromptCard.tsx`：`React.memo` 包裹；卡片预览来源改为 `prompt.preview`（不再 `useMemo(getPromptPreview(content))`）；保留对外的 `getPromptPreview` 导出（供 service 复用）。
+- 现有键盘交互（Up/Down 选中卡片、滚动到选中项）若被破坏，先记录在 SPEC「需先确认」第 2 项，回退到 `useWindowVirtualizer` 在后续阶段处理。
+
+**测试**:
+- `PromptGrid.test.tsx`: 注入 1000 条 prompt + 模拟容器尺寸（mock `getBoundingClientRect` + `ResizeObserver`），断言渲染的 `PromptCard` 数量 ≤ (rows-in-view + overscan*2) × columnCount，远少于 1000。
+- `PromptCard.test.tsx`: 切换某条 prompt 的 `pinned` 后，其它卡片实例不应被重渲染（用 render counter mock 验证 `memo` 生效）。
+- 视觉/手工：5K mock 数据下滚动顺畅。
+
 **状态**: 已完成
 
-## 阶段 5: 历史管理弹窗与详情入口
+---
 
-**目标**: 在详情页增加历史入口，点击后展示历史管理弹窗，支持列表选择、复制和恢复。
-**成功标准**: 弹窗左侧展示历史列表和编辑时间，右侧展示选中版本内容；复制有反馈；恢复成功后关闭弹窗并更新详情页。
-**测试**: 覆盖弹窗空状态、历史内容渲染、复制按钮和恢复回调。
-**状态**: 已完成
+## 阶段 5: i18n + 完整验证
 
-## 阶段 6: 完整验证
+**目标**: 补齐三套 i18n；通过全套质量门禁；用 fake repository 注入 5K mock prompts 做性能验证。
 
-**目标**: 运行测试、类型检查、lint 和构建，确认无回归。
-**成功标准**: `npm run test`、`npm run type-check`、`npm run lint`、`npm run build` 全部通过。
-**测试**: 全量验证命令。
-**状态**: 已完成
+**成功标准**:
+- `src/i18n/messages.ts` 新增"内容加载中..."、"全文索引构建中..."等本阶段引入的用户可见文案，覆盖 `zh-CN` / `zh-TW` / `en-US`。
+- `npm run lint`、`npm run type-check`、`npm run test`、`npm run build` 全部通过，无新增 warning。
+- 在 dev server 用 fake repository 注入 5000 条 prompts，Chrome DevTools Performance 录制：
+  - 首次列表可见 ≤ 2s。
+  - 滚动期间主线程 long task < 50ms / 帧。
+  - 后台 idle 填充期间不阻塞交互（搜索、点击、滚动均流畅）。
+- 在记录中确认 SPEC「需先确认」三处的最终处理：Tauri `readTextHead` 实现策略 / 滚动容器选择 / stable id 迁移阶段归属，必要时回写 SPEC。
 
-## 阶段 7: 设置配置模型
-
-**目标**: 在 `.promptclip.json` 中增加通用设置里的历史版本配置。
-**成功标准**: 默认关闭；读取已有配置时规范化；保存历史版本设置时保留已有配置项。
-**测试**: 覆盖默认值、读取规范化、更新历史版本设置。
-**状态**: 已完成
-
-## 阶段 8: 设置弹窗 UI
-
-**目标**: 增加设置入口和设置弹窗，仅保留“通用”“关于”两项。
-**成功标准**: 侧边栏底部状态条右侧显示设置按钮；点击后弹窗可切换通用/关于；通用中可保存历史版本开关。
-**测试**: 覆盖设置弹窗基础渲染。
-**状态**: 已完成
-
-## 阶段 9: 验证与收尾
-
-**目标**: 运行测试、类型检查、lint 和构建，确认无回归。
-**成功标准**: `npm run test`、`npm run type-check`、`npm run lint`、`npm run build` 全部通过。
-**测试**: 全量验证命令。
-**状态**: 已完成
-
-## 阶段 10: Obsidian 元数据维护服务
-
-**目标**: 增加扫描当前 Markdown 文件夹并补全 PromptClip 必要 frontmatter 的服务。
-**成功标准**: 能识别缺少或无效 metadata 的 `.md` 文件；修复时只补缺失字段，保留正文和已有字段。
-**测试**: 覆盖无 frontmatter、已有 Obsidian frontmatter、完整文件无需修复。
-**状态**: 已完成
-
-## 阶段 11: 设置页维护入口
-
-**目标**: 在设置页增加“文件夹维护”入口，支持扫描、显示结果和确认补全。
-**成功标准**: 用户可在设置页查看需修复数量，确认后批量补全并刷新当前 Prompt 列表。
-**测试**: 覆盖设置页维护入口渲染和扫描结果展示。
-**状态**: 已完成
-
-## 阶段 12: 验证与收尾
-
-**目标**: 运行测试、类型检查、lint 和构建，确认无回归。
-**成功标准**: `npm run test`、`npm run type-check`、`npm run lint`、`npm run build` 全部通过。
-**测试**: 全量验证命令。
-**状态**: 已完成
-
-## 阶段 13: Tags 格式兼容读写
-
-**目标**: 支持 `tags: ["Coding"]` 与 Obsidian 块状 tags 两种格式，并在保存时沿用当前文件格式。
-**成功标准**: 解析两种格式；创建新文件仍使用当前默认行内格式；编辑已有块状 tags 文件时继续写回块状格式。
-**测试**: 覆盖 Markdown 工具解析/序列化和 PromptService 更新写回。
-**状态**: 已完成
-
-## 阶段 14: Tags 格式验证收尾
-
-**目标**: 运行相关测试、类型检查、lint 和构建，确认无回归。
-**成功标准**: `npm run test`、`npm run type-check`、`npm run lint`、`npm run build` 全部通过。
-**测试**: 全量验证命令。
-**状态**: 已完成
-
-## 阶段 15: Prompt 加载并发优化
-
-**目标**: 将 Prompt 文件读取从串行改为受控分批并发。
-**成功标准**: 多文件加载时允许并发读取，但并发数不超过固定上限；加载结果、迁移逻辑和排序保持不变。
-**测试**: 覆盖并发读取上限与现有 PromptService 回归场景。
-**状态**: 已完成
-
-## 阶段 16: 搜索筛选路径优化
-
-**目标**: 搜索筛选直接复用搜索服务返回结果，避免搜索后再次扫描全部 Prompt，并保留相关性顺序。
-**成功标准**: 搜索结果按标题/内容/标签权重排序；标签、收藏、最近筛选仍可叠加。
-**测试**: 覆盖搜索相关性顺序与组合筛选。
-**状态**: 已完成
-
-## 阶段 17: 标签构建去重
-
-**目标**: 移除启动加载后的重复标签树构建。
-**成功标准**: 加载 Prompt 后标签树只构建一次；Prompt 变更后标签仍能更新。
-**测试**: 覆盖 App 层不重复触发标签构建的行为或通过 store 行为回归验证。
-**状态**: 已完成
-
-## 阶段 18: 列表渲染基础优化
-
-**目标**: 降低 PromptCard 大列表重渲染成本。
-**成功标准**: 预览文本生成逻辑可单独测试并限制扫描范围；卡片渲染行为保持不变。
-**测试**: 覆盖预览文本截断和换行合并。
-**状态**: 已完成
-
-## 阶段 19: 搜索索引构建优化
-
-**目标**: 重建索引时清理旧索引，并用受控并发添加 Prompt 到 FlexSearch。
-**成功标准**: 全量重建不会残留旧内容；标题、内容、标签权重搜索保持不变；索引构建不再逐条串行。
-**测试**: 覆盖权重搜索顺序和重建索引清理旧内容。
-**状态**: 已完成
-
-## 阶段 20: 多语言基础设施
-
-**目标**: 增加轻量 i18n 字典、语言类型和设置状态中的语言偏好。
-**成功标准**: 可在全局 store 中切换中文/英文，语言偏好持久化到 localStorage。
-**测试**: 覆盖设置 store 默认语言与切换行为。
-**状态**: 已完成
-
-## 阶段 21: 设置页语言切换
-
-**目标**: 在设置弹窗通用设置中增加中文/英文切换控件，并国际化设置页首批文案。
-**成功标准**: 设置页可展示当前语言，切换后标题、按钮、通用/关于等文案更新。
-**测试**: 覆盖设置页中文/英文渲染和语言选择控件。
-**状态**: 已完成
-
-## 阶段 22: 多语言验证收尾
-
-**目标**: 运行测试、类型检查、lint 和构建，确认无回归。
-**成功标准**: `npm run test`、`npm run type-check`、`npm run lint`、`npm run build` 全部通过。
-**测试**: 全量验证命令。
-**状态**: 已完成
-
-## 阶段 23: 分享基础模型与图片服务
-
-**目标**: 增加分享类型、模板配置、正文截断规则、图片生成/下载/复制服务和分享 logo 资源。
-**成功标准**: 可将指定 DOM 节点导出为 PNG；正文超过 2000 字会截断；复制不可用时返回明确错误。
-**测试**: 覆盖正文截断、文件名生成、下载和 Clipboard API 不可用场景。
-**状态**: 已完成
-
-## 阶段 24: 分享弹窗与卡片预览
-
-**目标**: 新增分享图片弹窗，支持模板切换、展示项开关、Markdown 渲染开关和图片操作反馈。
-**成功标准**: 弹窗实时预览当前笔记；默认渲染 Markdown；可关闭作者、标签、PromptClip 标志和 Markdown 渲染。
-**测试**: 覆盖预览内容、选项显示/隐藏、Markdown/纯文本切换、截断提示。
-**状态**: 已完成
-
-## 阶段 25: 设置与笔记入口集成
-
-**目标**: 设置页增加作者名称；笔记下拉菜单增加分享入口；App 挂载分享弹窗。
-**成功标准**: 作者名称可保存到设置 store；点击笔记菜单“分享”能打开对应笔记的分享弹窗。
-**测试**: 覆盖设置页作者名称编辑、菜单分享入口和 modal 打开状态。
-**状态**: 已完成
-
-## 阶段 26: 分享功能验证收尾
-
-**目标**: 运行测试、类型检查、lint、构建并做浏览器冒烟验证。
-**成功标准**: `npm run test`、`npm run type-check`、`npm run lint`、`npm run build` 全部通过；本地页面无明显运行时错误。
-**测试**: 全量验证命令和浏览器检查。
-**状态**: 已完成
-
-## 阶段 27: 批注基础模型与文件服务
-
-**目标**: 增加批注类型、二进制文件仓库能力和 AnnotationService。
-**成功标准**: 批注 sidecar JSON 可读写；图片附件限制为单张 5MB；删除批注同步删除附件；删除 Prompt 时批注和附件与 Prompt Markdown 使用同一删除基名进入 `.trash`。
-**测试**: 覆盖空批注读取、新增/编辑/删除批注、图片附件校验和写入、Prompt 删除联动。
-**状态**: 已完成
-
-## 阶段 28: 批注状态管理
-
-**目标**: 增加 annotationStore，管理当前 Prompt 的批注加载、新增、编辑和删除。
-**成功标准**: 切换 Prompt 时可加载对应批注；服务失败时保留明确错误状态。
-**测试**: 覆盖加载、新增、编辑、删除和失败状态。
-**状态**: 已完成
-
-## 阶段 29: 详情面板批注 UI
-
-**目标**: 在 Prompt 详情面板中增加批注区域，支持文本输入、单图上传、编辑、删除和附件预览。
-**成功标准**: 用户可在详情页完成批注 CRUD；空文本不能保存；非图片或超过 5MB 的图片给出明确错误。
-**测试**: 覆盖空状态、批注列表、新增输入、编辑删除和图片附件显示。
-**状态**: 已完成
-
-## 阶段 30: 批注功能验证收尾
-
-**目标**: 运行测试、类型检查、lint 和构建，确认无回归。
-**成功标准**: `npm run test`、`npm run type-check`、`npm run lint`、`npm run build` 全部通过。
-**测试**: 全量验证命令。
 **状态**: 已完成

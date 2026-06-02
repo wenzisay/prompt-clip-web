@@ -1,291 +1,220 @@
-# Spec: Prompt 批注功能
+# Spec: 列表页性能优化 — DOM 虚拟化 + 延迟读全文
 
 ## Objective
 
-在 PromptClip 中新增 Prompt 级别的批注功能，用于记录某条 Prompt 的使用观察、效果反馈和截图资料。批注不改变 Prompt 正文，不参与当前版本搜索，仅在 Prompt 详情面板中展示和编辑。
+在 PromptClip 中改造列表页加载与渲染链路，使其在中大规模数据下保持流畅。具体引入两项能力：
 
-目标用户是使用 PromptClip 管理本地 Prompt 文件的个人用户。成功状态是用户可以在查看某条 Prompt 时，直接新增、编辑、删除纯文本批注，并为批注添加图片附件；删除 Prompt 时，对应批注数据和图片附件也随 Prompt 一起进入 `.trash`。
+1. **DOM 虚拟化**：用 `@tanstack/react-virtual` 改造 `PromptGrid`，只渲染可视区域的 `PromptCard`，消除一次性挂载上千 DOM 节点的卡顿。
+2. **延迟读全文**：首屏只解析每个文件头部以获取 frontmatter 和预览片段，正文 (`content`) 由后台 `requestIdleCallback` 分批补全；FlexSearch 全文索引随后台加载渐进式构建。
 
-验收标准：
+目标用户是在本地维护数千条 Prompt（量级 1–5K）的个人用户。成功状态是：在 5000 条 prompt 的工作区下，首次可交互时间 < 2 秒，可见区域立即可滚动浏览且滚动保持 60 fps，搜索能力在后台索引完成后无缝升级为全文匹配。
 
-- Prompt 详情面板中新增“批注”区域。
-- 用户可以为当前 Prompt 新增多条批注。
-- 每条批注只需要用户输入纯文本内容。
-- 每条批注自动记录创建时间和编辑时间。
-- 用户可以编辑、删除已有批注。
-- 用户可以给每条批注添加一张图片附件。
-- 图片附件存储在工作区内，不上传到外部服务。
-- 批注数据使用 sidecar JSON 存储，不写入 Prompt `.md` 文件。
-- 当前版本批注内容不参与全局搜索、标签筛选或排序。
-- 删除 Prompt 时，对应批注 JSON 和附件目录一起移动到 `.trash`。
-- 如批注文件或附件操作失败，需要给用户明确错误，不静默吞掉异常。
+### 验收标准
+
+- 5000 条 prompt 工作区下，从授权目录到列表可滚动 < 2s（首次冷启动 / 已授权热启动皆达成）。
+- 列表滚动期间，主线程长任务 < 50ms / 帧，整体 60 fps（Chrome DevTools Performance 抽样确认）。
+- DOM 中 `PromptCard` 实例数 ≤ 当前视窗可见行数 × 列数 + 上下 overscan 2 行，与列表总长度无关。
+- 列表挂载 → 用户可点击/编辑/复制单条 prompt 之间无功能丢失：详情、复制、导出、分享、历史版本等所有使用 `prompt.content` 的路径，在 content 未加载时按需触发加载并完成操作。
+- 搜索：在后台索引完成前，搜索可命中 `title` 和 `tags`；索引完成后自动覆盖全文匹配。索引构建过程不阻塞用户交互。
+- 切换 workspace、关闭页面时，后台延迟加载任务能被取消，不产生竞态错误。
+- 现有测试套件（`npm run test`、`npm run type-check`、`npm run lint`）全部通过；新增的服务/store/组件具备对应单元测试。
+- 现有 `.md` 文件格式不变；frontmatter 字段与 stable id 迁移逻辑保持兼容。
+
+### 非目标
+
+- 不做 FlexSearch 索引持久化（已在 `TODO.md`，属独立任务）。
+- 不做文件系统变更监听 / 自动刷新（已在 `TODO.md`）。
+- 不保留小数据量下的非虚拟化代码路径，统一走虚拟化。
+- 不改 `.md` 文件存储格式或 frontmatter schema。
+- 不做并发或批量删除性能优化（独立任务）。
 
 ## Tech Stack
 
-- React 18.3 + TypeScript 5.6
-- Zustand 5，用于现有 Prompt 和 UI 状态
-- Tailwind CSS 3.4，用于组件样式
-- Vitest 2.1，用于服务、store、组件测试
-- File System Access API，用于 Web 端工作区文件读写
-- Tauri v2 文件系统能力，用于桌面端工作区文件读写
-
-不新增运行时依赖，除非实现图片二进制读写时发现现有浏览器或 Tauri API 无法覆盖基础能力。
+- React 18.3 + TypeScript 5.6（strict / `noUnusedLocals` / `noUnusedParameters`）
+- Zustand 5，扩展现有 `promptStore`
+- `@tanstack/react-virtual` ^3（新引入，约 5KB gzipped，headless）
+- FlexSearch 0.7（沿用）
+- File System Access API（Web）/ Tauri v2 文件系统（桌面端）— 通过 `FileRepository` 抽象统一访问
+- Vitest 2.1 + 现有 jsdom 测试环境
 
 ## Commands
 
+沿用现有命令，不新增：
+
 ```bash
-npm run dev
-npm run test
-npm run type-check
-npm run lint
-npm run build
+npm run dev          # 开发服务器 (localhost:5173)
+npm run build        # tsc 类型检查 + Vite 构建
+npm run type-check   # 仅类型检查
+npm run lint         # ESLint
+npm run test         # Vitest
+npm run test:ui      # Vitest UI
 ```
 
-桌面端手动验证时使用：
+新增依赖：
 
 ```bash
-npm run tauri:dev
+npm install @tanstack/react-virtual
 ```
 
 ## Project Structure
 
-```text
-src/types/
-  annotation.ts                     # 批注、附件、sidecar 文件结构类型
+新增与改动的文件（保持现有目录约定，不引入新目录）：
 
-src/constants/
-  config.ts                         # 增加 .promptclip、annotations、assets 路径常量
+```
+src/
+├── types/
+│   └── prompt.ts                          # 修改：Prompt 增加 preview/isContentLoaded
+├── services/
+│   ├── promptService.ts                   # 修改：loadPrompts 改为 head-only 解析；新增 ensureContent
+│   ├── promptLazyLoader.ts                # 新增：idle 调度，分批补全 content 并喂索引
+│   ├── searchService.ts                   # 修改：支持只索引 title+tags 的快速模式 + 渐进式补全 content 索引
+│   └── fileRepository/
+│       ├── types.ts                       # 修改：FileRepository 新增可选 readTextHead(path, byteLimit)
+│       ├── webFileRepository.ts           # 修改：实现 readTextHead（File.slice + text）
+│       ├── tauriFileRepository.ts         # 修改：实现 readTextHead（按字节读取或 fallback 全读）
+│       └── fakeFileRepository.ts          # 修改：实现 readTextHead（默认基于内存数据）
+├── stores/
+│   └── promptStore.ts                     # 修改：setPrompts 不再阻塞索引；新增 patchPromptContent action
+├── hooks/
+│   ├── usePromptLoader.ts                 # 修改：两阶段流程（head → background fill）
+│   ├── usePromptLazyLoad.ts               # 新增：管理 idle 加载生命周期 / 取消
+│   └── useResponsiveColumnCount.ts        # 新增：测量 PromptGrid 容器宽度，得出当前列数
+├── components/prompt/
+│   ├── PromptGrid.tsx                     # 改造：用 @tanstack/react-virtual 做行级虚拟化
+│   └── PromptCard.tsx                     # 修改：使用 prompt.preview；React.memo 包裹
+└── utils/
+    └── markdown.ts                        # 修改：导出 parseFrontmatterOnly（仅解析 frontmatter，不处理正文）
 
-src/services/
-  annotationService.ts              # 批注 CRUD、附件写入、Prompt 删除时清理/移动
-  annotationService.test.ts
-  fileRepository/
-    types.ts                        # 增加二进制文件读写能力
-    webFileRepository.ts            # File System Access API 二进制实现
-    tauriFileRepository.ts          # Tauri 二进制实现
-    fakeFileRepository.ts           # 测试用二进制实现
-
-src/stores/
-  annotationStore.ts                # 当前选中 Prompt 的批注状态和动作
-  annotationStore.test.ts
-
-src/components/prompt/
-  AnnotationPanel.tsx               # 详情面板中的批注区域
-  AnnotationItem.tsx                # 单条批注展示、编辑、删除、附件预览
-  AnnotationComposer.tsx            # 新增批注输入和图片选择
-  index.ts                          # barrel 导出
-
-src/components/layout/
-  DetailPanel.tsx                   # 嵌入 AnnotationPanel
-
-src/i18n/
-  messages.ts                       # 批注相关简体中文文案
+specs/
+└── annotation.md                          # 旧 SPEC 归档（如需保留）
 ```
 
-数据存储目录：
+### 数据模型变更
 
-```text
-.promptclip/
-  annotations/
-    <promptId>.json
-  assets/
-    <promptId>/
-      <annotationId>/
-        <attachmentId>.<ext>
-.trash/
-  <promptTrashBase>.md
-  annotations/
-    <promptTrashBase>.json
-  assets/
-    <promptTrashBase>/
-```
+`Prompt` 接口新增两个字段：
 
-## Data Model
-
-批注 sidecar JSON 是批注功能的权威数据源。
-
-```ts
-export interface PromptAnnotationFile {
-  promptId: string;
-  version: 1;
-  annotations: PromptAnnotation[];
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface PromptAnnotation {
-  id: string;
-  text: string;
-  attachments: AnnotationAttachment[];
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface AnnotationAttachment {
-  id: string;
-  type: 'image';
-  name: string;
-  mimeType: string;
-  path: string;
-  size: number;
-  createdAt: string;
+```typescript
+interface Prompt {
+  // …existing fields…
+  /** 卡片预览（首屏即填充，最多 4 行 / 120 字符，独立于 content） */
+  preview: string;
+  /** 标记 content 是否已加载到完整正文；false 表示 content 为空串且需调用 ensureContent */
+  isContentLoaded: boolean;
 }
 ```
 
-存储规则：
+约束：
+- `preview` 始终非空（即使空文件也填空串），列表渲染**只读 preview**，永不读 content。
+- `content` 在 `isContentLoaded === false` 时为空串 `""`；任何会使用 content 的入口（详情面板、复制、导出、分享、历史版本、CreateModal 编辑态）必须先 `await PromptService.ensureContent(prompt)`，拿回填充好的 Prompt 再使用。
+- `ensureContent` 内部缓存并幂等：重复调用同一 prompt 不会重复读盘。
 
-- 批注文件路径：`.promptclip/annotations/<promptId>.json`
-- 图片附件路径：`.promptclip/assets/<promptId>/<annotationId>/<attachmentId>.<ext>`
-- JSON 中的 `path` 使用相对工作区根目录的路径。
-- `createdAt` 和 `updatedAt` 使用 ISO 字符串。
-- 批注文本必须 trim 后非空。
-- 每条批注最多 1 张图片附件。
-- 图片附件大小上限为 5MB。
-- 图片附件只接受浏览器或系统识别为 `image/*` 的文件。
-- 不把图片 base64 写入 JSON 或 Markdown。
+### 两阶段加载流程
+
+阶段 1（首屏，目标 < 2s @ 5K 文档）：
+1. `repository.listFiles(workspace)` 列出所有 `.md` 文件。
+2. 并发（concurrency=20）对每个文件调用 `repository.readTextHead(path, 8192)` 读取前 8 KB。
+3. 解析 frontmatter（`parseFrontmatterOnly`），从头部正文截取 `preview`（沿用 `getPromptPreview` 的 4 行 / 120 字符规则）。
+4. 极少数文件的 frontmatter > 8 KB：识别后回退到 `readText` 全读（边界处理，预计 < 1%）。
+5. 完成 stable id 迁移所需的字段计算（与现状一致，写回操作可保留在阶段 1 末尾，但每次写回都是单文件 IO，整体可承受）。
+6. 构建 prompts 数组（`isContentLoaded = false`）→ `promptStore.setPrompts` → `SearchService.buildIndex({ skipContent: true })` 只索引 title+tags（快速）→ 列表立即可见。
+
+阶段 2（idle，后台进行）：
+1. `promptLazyLoader.start(prompts)` 启动调度，使用 `requestIdleCallback`（带 setTimeout fallback）分批（每批 50 条）。
+2. 每批：并发读全文 → `promptStore.patchPromptContent(id, content)` → `SearchService.addContentToIndex(id, content)`。
+3. 切换 workspace、清空 prompts、组件卸载时调用 `lazyLoader.cancel()`，已发出的 IO 用 `AbortController` 中止（Web 端 `getFile()` 不可中止，则用 generation 标记丢弃结果）。
+4. 全部完成后置位 `promptStore.contentLoadingState = 'complete'`，搜索 UI 可去除"索引构建中"提示。
+
+### 搜索行为
+
+- `SearchService` 拆为 `titleIndex` / `tagsIndex`（首屏即建好）和 `contentIndex`（延迟分批添加）。
+- 公共 `search(query, limit)` 内部合并三索引结果；当 `contentIndex` 未完成时也返回有效的 title/tag 命中。
+- 不引入新的"模式"参数，调用方无需感知阶段差异。
+
+### 虚拟化策略
+
+- `PromptGrid` 不再直接 `.map`，改为：
+  1. `useResponsiveColumnCount(containerRef)` 通过 `ResizeObserver` 计算当前列数（基于现有 CSS `minmax(min(360px,100%),1fr)` 规则在 JS 中复算）。
+  2. 把一维 prompts 数组按列数切成行，行数 = `Math.ceil(filteredPrompts.length / columnCount)`。
+  3. `useVirtualizer({ count: rowCount, estimateSize: () => 180, overscan: 2, getScrollElement: () => scrollRef.current })`，开启 `measureElement` 动态测量真实行高。
+  4. 滚动容器：复用现有页面级滚动容器（在 `MainLayout` 中找到现有 main scroll element）或为 PromptGrid 自身包一层 `overflow-y-auto`。SPEC 阶段默认采用**包裹层滚动**，避免影响 `Sidebar` / `TopBar` 等 fixed 布局；如包裹层方案导致视觉/键盘交互问题，回退到 window 级 `useWindowVirtualizer`。
+- `FilterTabs` 与"批量操作工具条"保持在 sticky 头部，与虚拟化区域兄弟节点关系。
+- `PromptCard` 用 `React.memo` 包裹，props 仅 `prompt`，加 `arePropsEqual` 比较 `prompt.id + updatedAt + pinned + copyCount + isContentLoaded`（preview/tags 由 updatedAt 反映）。
 
 ## Code Style
 
-遵循项目现有 TypeScript/React 约定：
+沿用项目既有约定（详见 `CLAUDE.md`），关键点：
 
-- 组件使用函数式组件和命名导出。
-- Props 接口定义在组件文件内，并 export type。
-- 跨模块导入使用 `@/` 路径别名。
-- 同模块内部使用相对路径。
-- Service 层导出独立函数，并提供 `AnnotationService = { ... } as const`。
-- Zustand store 保持当前项目的 `create<State>()((set, get) => ({ ... }))` 风格。
-- 用户可见文字使用简体中文，放入现有 i18n 消息结构。
-- 不引入后端、数据库、路由或新的 UI 组件库。
-
-示例风格：
-
-```tsx
-export interface AnnotationComposerProps {
-  isSaving: boolean;
-  onSubmit: (text: string, images: File[]) => Promise<void>;
-}
-
-export function AnnotationComposer({ isSaving, onSubmit }: AnnotationComposerProps) {
-  const [text, setText] = useState('');
-  const [images, setImages] = useState<File[]>([]);
-
-  async function handleSubmit() {
-    const trimmedText = text.trim();
-    if (!trimmedText) return;
-
-    await onSubmit(trimmedText, images);
-    setText('');
-    setImages([]);
-  }
-
-  return (
-    <div className="space-y-3">
-      <textarea
-        value={text}
-        onChange={(event) => setText(event.target.value)}
-        className="min-h-24 w-full rounded-md border border-surface bg-bg px-3 py-2 text-sm"
-        placeholder="记录这条 Prompt 的使用效果..."
-      />
-      <button type="button" onClick={handleSubmit} disabled={isSaving}>
-        保存批注
-      </button>
-    </div>
-  );
-}
-```
+- 文件命名：组件 `PascalCase.tsx`、服务/store/hook/utils `camelCase.ts`。
+- 函数式组件 + 命名导出（`App.tsx` 除外）。
+- 路径别名：跨模块用 `@/`；同模块用相对路径。
+- Service 层：无状态模块，导出独立函数 + 一个 `as const` 冻结对象（如 `PromptLazyLoader`）。
+- Store 层：Zustand v5，遵循 `数据 / UI状态 / Actions` 三段式；新增的 `patchPromptContent` 必须不触发 `applyFilter`（避免列表抖动）。
+- 样式：Tailwind utility class；不引入 CSS Modules / CSS-in-JS。
+- TypeScript：strict；新增类型必须显式（避免隐式 `any`）；`Prompt` 字段为必填，序列化/反序列化时由 `PromptService` 负责设默认值。
+- 注释：默认不加；只为非显而易见的"为什么"加单行注释（例如：解释为何需要 `generation` 标记丢弃过期结果）。
+- 翻译：所有新增用户可见文字（如"索引构建中..."）必须通过 `src/i18n/messages.ts` 同时添加 `zh-CN` / `zh-TW` / `en-US` 三套。
+- Barrel 文件：新增模块时更新对应 `index.ts` 的 re-export。
 
 ## Testing Strategy
 
-开发严格遵循 RED/GREEN TDD：
+测试与源文件同目录，命名 `*.test.ts` / `*.test.tsx`，使用 Vitest。
 
-- 先写失败测试，再实现最小代码通过测试。
-- 测试行为，不测试内部实现细节。
-- 测试文件与源文件同目录，命名为 `*.test.ts` 或 `*.test.tsx`。
-- 测试不依赖外部网络、真实随机值或真实用户目录。
+### 单元测试（必须）
 
-建议测试：
+1. `promptService.test.ts`
+   - `loadPrompts` head-only 解析：构造 fake repository 返回大文件，断言只读头部、preview 截断正确、`isContentLoaded === false`。
+   - `loadPrompts` 边界：frontmatter > 8KB 时回退全读，preview 正确。
+   - `ensureContent`：未加载时触发读盘，已加载时不重复读；并发调用合并为单次 IO（用 mock repository 计数）。
+   - stable id 迁移在 head-only 模式下仍能正确写回。
+2. `promptLazyLoader.test.ts`（新增）
+   - 分批调度：100 条 prompts 在 mock requestIdleCallback 下按批触发。
+   - 取消：`cancel()` 后续批次不再执行；已发出的批不会写入 store。
+   - generation：workspace 切换后旧批结果被丢弃。
+3. `searchService.test.ts`
+   - 仅 title+tags 索引时，搜索能命中 title / tag，但不命中正文 substring。
+   - `addContentToIndex` 增量加入后，相同 query 能命中正文。
+4. `promptStore.test.ts`
+   - `setPrompts` 后 `filteredPrompts` 立即可用，不需要等 content。
+   - `patchPromptContent` 更新单条 prompt 的 content 与 `isContentLoaded`，不改变排序、不触发 `filteredPrompts` 重排。
+5. `webFileRepository.test.ts` / `tauriFileRepository.test.ts`
+   - `readTextHead` 返回前 N 字节解码字符串；超出文件长度时返回全文。
 
-- `annotationService.test.ts`
-  - 首次读取不存在的批注文件时返回空批注列表。
-  - 新增批注会创建 `.promptclip/annotations/<promptId>.json`。
-  - 编辑批注只更新目标批注文本和 `updatedAt`。
-  - 删除批注会从 JSON 中移除对应记录。
-  - 添加图片附件会写入 assets 路径，并在 JSON 中记录相对路径。
-  - 同一条批注添加第二张图片时返回明确错误。
-  - 图片超过 5MB 时返回明确错误。
-  - 删除单条批注时同步删除该批注下的图片附件目录。
-  - 删除 Prompt 时，批注 JSON 和附件目录会用同一删除基名移动到 `.trash`。
-  - 非图片文件作为附件时返回明确错误。
+### 组件测试（必须）
 
-- `annotationStore.test.ts`
-  - 切换选中 Prompt 时加载对应批注。
-  - 新增、编辑、删除后状态与 service 返回值一致。
-  - service 抛错时保留错误状态，不伪装成功。
+6. `PromptGrid.test.tsx`（改造或新增）
+   - 给定 1000 条 prompt + 模拟容器高度 600px，断言渲染的 `PromptCard` 数量受 overscan 限制（< 20 张），而非 1000 张。
+   - 列数计算：mock `ResizeObserver` 模拟不同宽度，断言行数符合预期。
+7. `PromptCard.test.tsx`
+   - 卡片仅依赖 `prompt.preview`，content 为空也能正常渲染预览。
+   - 复制按钮在 `isContentLoaded === false` 时触发 `ensureContent` 后再写入剪贴板（mock PromptService）。
+8. `DetailPanel.test.tsx`
+   - 打开未加载 content 的 prompt 时，自动触发 `ensureContent`，加载完成后正常展示正文。
 
-- `AnnotationPanel.test.tsx`
-  - 无批注时展示空状态。
-  - 有批注时按创建时间倒序展示。
-  - 可以输入文本并触发新增。
-  - 空文本不能保存。
-  - 图片附件显示预览或文件名。
+### 集成 / 手工验证（建议）
 
-- `DetailPanel.test.tsx`
-  - 选中 Prompt 时渲染批注区域。
-  - 未选中 Prompt 时不触发批注加载。
+- 在 dev server 用 fake repository 注入 5000 条样例 prompt，使用 Chrome DevTools Performance 录制：
+  - 首次列表可见时间 < 2s。
+  - 滚动 main thread long tasks < 50ms / 帧。
+  - 后台 idle 阶段 CPU 占用不超过 50%（不影响交互）。
+- 切换 workspace、快速翻页搜索、复制 / 编辑 / 收藏，验证后台加载被正确中止/继续。
 
-验证命令：
+## Out of Scope（边界）
 
-```bash
-npm run test
-npm run type-check
-npm run lint
-npm run build
-```
+**必须做**
+- 所有依赖 `prompt.content` 的入口接入 `ensureContent`（详情、复制、导出、分享、历史版本、编辑态）。
+- 三套 i18n 同步更新。
+- `webFileRepository` 实现真实的 `readTextHead`（不能简单 fallback 到 readText，否则失去优化意义）。
+- `PromptCard` `React.memo` 化。
 
-## Boundaries
+**需先确认（落地阶段提出）**
+- `tauriFileRepository.readTextHead` 在 Tauri v2 文件系统 API 下是否能真正按字节读取；若 Tauri 端只能全读，需评估桌面端是否仍能达到 < 2s 目标，或接受桌面端略慢于 Web。
+- 滚动容器选择（包裹层 vs window）：阶段 1 用包裹层，若键盘 PageUp/Down、`scrollTo selectedPrompt` 等现有交互被破坏，再切回 window 级。
+- stable id 迁移是否完整保留在阶段 1。若 5K 工作区中含大量需迁移文件，写回时间可能超过 2s 预算，届时改为"读阶段不迁移、idle 阶段写回"的策略。
 
-- Always:
-  - 批注存储为 sidecar JSON，不写入 Prompt `.md` 文件。
-  - 图片附件存储为工作区内的独立文件，不使用 base64 内联。
-  - 每条批注最多允许 1 张图片附件，单张图片最大 5MB。
-  - 删除单条批注时同步删除该批注下的附件文件。
-  - 当前版本批注不参与搜索、标签筛选或 Prompt 排序。
-  - 删除 Prompt 时，批注 JSON 和附件目录必须和 Prompt Markdown 使用同一删除基名进入 `.trash`。
-  - 所有文件操作失败都需要暴露明确错误。
-  - 保持现有架构依赖方向：types → constants → utils → services → stores → hooks → components。
-  - 新增目录后更新对应 barrel 文件。
-  - 实现前先写失败测试，实现后运行测试、类型检查、lint 和 build。
-
-- Ask first:
-  - 增加运行时依赖。
-  - 改变 Prompt Markdown frontmatter 格式。
-  - 让批注参与全局搜索、筛选或导出。
-  - 支持非图片附件。
-  - 增加富文本编辑器、Markdown 编辑器或行内批注定位。
-  - 改变现有 `.history` 历史版本语义。
-
-- Never:
-  - 不上传批注文本或图片到外部服务。
-  - 不引入后端、数据库或云同步。
-  - 不把批注内容追加到 Prompt 正文。
-  - 不静默吞掉 JSON 解析、附件写入、移动到 `.trash` 的失败。
-  - 不跳过或禁用现有测试。
-  - 不删除用户已有文件，除非用户明确执行删除 Prompt 或删除批注动作。
-
-## Success Criteria
-
-- 用户在 Prompt 详情面板中可以看到“批注”区域。
-- 用户可以输入纯文本并保存为一条新批注。
-- 批注自动显示创建时间；编辑后显示更新后的编辑时间。
-- 用户可以编辑和删除已有批注。
-- 用户可以选择 1 张不超过 5MB 的图片并添加到批注中。
-- 图片附件被复制到 `.promptclip/assets/<promptId>/<annotationId>/`。
-- 批注 JSON 被写入 `.promptclip/annotations/<promptId>.json`。
-- 刷新应用并重新加载工作区后，批注和图片附件仍可显示。
-- 当前版本搜索 Prompt 时不会命中批注内容。
-- 删除 Prompt 后，对应 `.md`、批注 JSON、附件目录都用同一删除基名移动到 `.trash`。
-- `npm run test`、`npm run type-check`、`npm run lint`、`npm run build` 通过。
-
-## Open Questions
-
-- 暂无。已确认：每条批注最多 1 张图片，单张图片最大 5MB；删除单条批注时同步删除附件；删除 Prompt 时批注和附件与 Prompt Markdown 使用同一删除基名进入 `.trash`。
+**绝不做**
+- 不引入新的虚拟化抽象层 / 自研虚拟列表。
+- 不引入 Web Worker 做解析（除非性能基准证明必要，避免增加复杂度）。
+- 不更改 `.md` 文件存储格式 / frontmatter schema。
+- 不删除或重写现有的 FlexSearch 索引结构。
+- 不保留旧的 `PromptGrid` 非虚拟化代码路径作为 fallback。
+- 不增加额外的 LocalStorage / IndexedDB 持久化（索引持久化属另一个 TODO）。
