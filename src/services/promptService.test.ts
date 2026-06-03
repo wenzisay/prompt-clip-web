@@ -425,6 +425,7 @@ describe('PromptService repository integration', () => {
       });
 
       expect(updated.id).toBe(created.id);
+      expect(updated.preview).toBe('Second');
       expect(updated.filePath).toBe('My Prompt Renamed.md');
       expect(await repository.exists(workspace, 'My Prompt.md')).toBe(false);
       expect(await repository.exists(workspace, 'My Prompt Renamed.md')).toBe(true);

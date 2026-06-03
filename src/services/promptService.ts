@@ -237,7 +237,11 @@ export async function updatePrompt(
   const updatedPrompt: Prompt = {
     ...prompt,
     ...(updatedTitle !== undefined && { title: updatedTitle }),
-    ...(updates.content !== undefined && { content: updates.content }),
+    ...(updates.content !== undefined && {
+      content: updates.content,
+      preview: buildPreview(updates.content),
+      isContentLoaded: true,
+    }),
     ...(updates.tags !== undefined && { tags: updates.tags }),
     ...(updates.createdAt !== undefined && { createdAt: updates.createdAt }),
     ...(updates.copyCount !== undefined && { copyCount: updates.copyCount }),
