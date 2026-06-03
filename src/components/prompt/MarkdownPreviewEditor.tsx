@@ -1,5 +1,6 @@
-import { renderMarkdownSync } from '@/utils/markdown';
+import { useMemo } from 'react';
 import { useTranslation } from '@/i18n';
+import { renderMarkdownSync } from '@/utils/markdown';
 
 interface MarkdownPreviewEditorProps {
   value: string;
@@ -13,7 +14,7 @@ export function MarkdownPreviewEditor({
   className = '',
 }: MarkdownPreviewEditorProps) {
   const { t } = useTranslation();
-  const html = value ? renderMarkdownSync(value) : '';
+  const html = useMemo(() => (value ? renderMarkdownSync(value) : ''), [value]);
   const previewClassName = `prompt-markdown-preview-editor${
     html ? ' prompt-detail-content' : ''
   } ${className}`;

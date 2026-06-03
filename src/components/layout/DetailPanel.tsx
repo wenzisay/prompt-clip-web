@@ -20,9 +20,15 @@ import { fileRepository } from '@/services/fileRepository';
 
 export function DetailPanel() {
   const { locale, t } = useTranslation();
-  const { isDetailOpen, selectedPromptId, toggleDetail, openModal } = useUIStore();
-  const { prompts, updatePrompt } = usePromptStore();
-  const { workspace } = useFileStore();
+  const isDetailOpen = useUIStore((state) => state.isDetailOpen);
+  const selectedPromptId = useUIStore((state) => state.selectedPromptId);
+  const toggleDetail = useUIStore((state) => state.toggleDetail);
+  const openModal = useUIStore((state) => state.openModal);
+  const selectedPrompt = usePromptStore(
+    (state) => state.prompts.find((prompt) => prompt.id === selectedPromptId) ?? null
+  );
+  const updatePrompt = usePromptStore((state) => state.updatePrompt);
+  const workspace = useFileStore((state) => state.workspace);
   const isHistoryEnabled = useSettingsStore((state) => state.historySettings.enabled);
   const annotationPromptId = useAnnotationStore((state) => state.promptId);
   const annotationCount = useAnnotationStore((state) => state.annotations.length);
@@ -31,8 +37,6 @@ export function DetailPanel() {
   const [contentMode, setContentMode] = useState<MarkdownViewMode>('preview');
   const annotationSectionRef = useRef<HTMLDivElement | null>(null);
 
-  // 获取选中的 Prompt
-  const selectedPrompt = prompts.find((p) => p.id === selectedPromptId);
   const selectedPromptAnnotationCount =
     annotationPromptId === selectedPrompt?.id ? annotationCount : 0;
 

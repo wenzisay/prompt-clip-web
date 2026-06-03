@@ -2,7 +2,7 @@
  * Prompt 创建/编辑抽屉组件
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from '@/i18n';
 import { useUIStore } from '@/stores/uiStore';
 import { usePromptStore } from '@/stores/promptStore';
@@ -23,9 +23,17 @@ interface CreateModalProps {
 
 export function CreateModal({ editingPromptId }: CreateModalProps) {
   const { locale, t } = useTranslation();
-  const { modalType, closeModal, setSelectedPrompt } = useUIStore();
-  const { addPrompt, updatePrompt, deletePrompt, prompts, filter } = usePromptStore();
-  const { workspace } = useFileStore();
+  const modalType = useUIStore((state) => state.modalType);
+  const closeModal = useUIStore((state) => state.closeModal);
+  const setSelectedPrompt = useUIStore((state) => state.setSelectedPrompt);
+  const addPrompt = usePromptStore((state) => state.addPrompt);
+  const updatePrompt = usePromptStore((state) => state.updatePrompt);
+  const deletePrompt = usePromptStore((state) => state.deletePrompt);
+  const activeTag = usePromptStore((state) => state.filter.tag);
+  const editingPrompt = usePromptStore(
+    (state) => state.prompts.find((prompt) => prompt.id === editingPromptId) ?? null
+  );
+  const workspace = useFileStore((state) => state.workspace);
 
   const isOpen = modalType === 'create' || modalType === 'edit';
 
@@ -36,21 +44,36 @@ export function CreateModal({ editingPromptId }: CreateModalProps) {
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [editorMode, setEditorMode] = useState<MarkdownViewMode>('text');
+  const initializedPromptIdRef = useRef<string | null>(null);
+  const hasUserEditedRef = useRef(false);
 
   // 编辑模式：加载现有数据
   useEffect(() => {
+    if (!isOpen) {
+      initializedPromptIdRef.current = null;
+      hasUserEditedRef.current = false;
+      return undefined;
+    }
+
     if (editingPromptId && modalType === 'edit') {
-      const prompt = prompts.find((p) => p.id === editingPromptId);
-      if (prompt) {
-        setTitle(prompt.title);
-        setContent(prompt.content);
-        setTags(prompt.tags);
-        if (!prompt.isContentLoaded && workspace) {
+      if (initializedPromptIdRef.current === editingPromptId) {
+        return undefined;
+      }
+
+      if (editingPrompt) {
+        initializedPromptIdRef.current = editingPromptId;
+        hasUserEditedRef.current = false;
+        setTitle(editingPrompt.title);
+        setContent(editingPrompt.content);
+        setTags(editingPrompt.tags);
+        if (!editingPrompt.isContentLoaded && workspace) {
           let cancelled = false;
-          PromptService.ensureContent(fileRepository, workspace, prompt)
+          PromptService.ensureContent(fileRepository, workspace, editingPrompt)
             .then((full) => {
               if (cancelled) return;
-              setContent(full.content);
+              if (!hasUserEditedRef.current) {
+                setContent(full.content);
+              }
               updatePrompt(full);
             })
             .catch((error: unknown) => {
@@ -64,14 +87,16 @@ export function CreateModal({ editingPromptId }: CreateModalProps) {
       }
     } else {
       // 新建模式：重置表单，自动带入当前筛选的标签
+      initializedPromptIdRef.current = null;
+      hasUserEditedRef.current = false;
       setTitle('');
       setContent('');
-      setTags(filter.tag ? [filter.tag] : []);
+      setTags(activeTag ? [activeTag] : []);
     }
     setEditorMode('text');
     setError(null);
     return undefined;
-  }, [editingPromptId, modalType, isOpen, prompts, filter.tag, workspace, updatePrompt]);
+  }, [editingPromptId, modalType, isOpen, editingPrompt, activeTag, workspace, updatePrompt]);
 
   // 关闭模态框
   const handleClose = () => {
@@ -111,22 +136,21 @@ export function CreateModal({ editingPromptId }: CreateModalProps) {
     try {
       if (editingPromptId && modalType === 'edit') {
         // 编辑模式
-        const existing = prompts.find((p) => p.id === editingPromptId);
-        if (existing && workspace) {
+        if (editingPrompt && workspace) {
           const updated = await PromptService.updatePrompt(
             fileRepository,
             workspace,
-            existing,
+            editingPrompt,
             {
-              id: existing.id,
+              id: editingPrompt.id,
               title: title.trim(),
               content: content.trim(),
               tags,
             }
           );
 
-          if (updated.id !== existing.id) {
-            deletePrompt(existing.id);
+          if (updated.id !== editingPrompt.id) {
+            deletePrompt(editingPrompt.id);
             addPrompt(updated);
             setSelectedPrompt(updated.id);
           } else {
@@ -208,6 +232,7 @@ export function CreateModal({ editingPromptId }: CreateModalProps) {
             type="text"
             value={title}
             onChange={(e) => {
+              hasUserEditedRef.current = true;
               setTitle(e.target.value);
               if (error) setError(null);
             }}
@@ -231,6 +256,7 @@ export function CreateModal({ editingPromptId }: CreateModalProps) {
         <PromptMarkdownEditorField
           value={content}
           onChange={(value) => {
+            hasUserEditedRef.current = true;
             setContent(value);
             if (error) setError(null);
           }}
