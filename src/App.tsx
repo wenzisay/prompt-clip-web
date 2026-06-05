@@ -50,6 +50,8 @@ function AppContent() {
       document.documentElement.lang = 'zh-Hans';
     } else if (locale === 'zh-TW') {
       document.documentElement.lang = 'zh-Hant';
+    } else if (locale === 'ja-JP') {
+      document.documentElement.lang = 'ja';
     } else {
       document.documentElement.lang = 'en';
     }

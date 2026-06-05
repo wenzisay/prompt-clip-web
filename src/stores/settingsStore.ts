@@ -51,11 +51,18 @@ export function detectInitialLocale(languages: readonly string[] | undefined): L
       language === 'zh-sg'
   );
 
+  const hasJapanese = normalizedLanguages.some(
+    (language) => language === 'ja' || language.startsWith('ja-')
+  );
+
   if (hasTraditionalChinese) {
     return 'zh-TW';
   }
   if (hasSimplifiedChinese) {
     return 'zh-CN';
+  }
+  if (hasJapanese) {
+    return 'ja-JP';
   }
   return DEFAULT_LOCALE;
 }

@@ -20,9 +20,15 @@ describe('settingsStore', () => {
     expect(detectInitialLocale(['en-US', 'zh-Hant-TW'])).toBe('zh-TW');
   });
 
+  it('detects Japanese from browser languages', () => {
+    expect(detectInitialLocale(['ja-JP'])).toBe('ja-JP');
+    expect(detectInitialLocale(['en-US', 'ja'])).toBe('ja-JP');
+  });
+
   it('uses English for unsupported or non-Chinese languages', () => {
     expect(detectInitialLocale(undefined)).toBe('en-US');
     expect(detectInitialLocale(['en-US'])).toBe('en-US');
+    expect(detectInitialLocale(['ko-KR'])).toBe('en-US');
   });
 
   it('updates the locale without resetting history settings', () => {

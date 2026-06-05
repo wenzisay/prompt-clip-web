@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { messages } from './messages';
+import { LOCALE_OPTIONS, messages } from './messages';
 
 describe('messages', () => {
   it('contains English labels for the main workspace chrome', () => {
@@ -42,5 +42,20 @@ describe('messages', () => {
     expect(messages['zh-CN'].settings.shareAuthorTitle).toBe('分享作者');
     expect(messages['zh-TW'].settings.shareAuthorTitle).toBe('分享作者');
     expect(messages['en-US'].settings.shareAuthorTitle).toBe('Share author');
+  });
+
+  it('contains Japanese labels and exposes Japanese as a selectable locale', () => {
+    expect(LOCALE_OPTIONS).toContainEqual({ value: 'ja-JP', label: '日本語' });
+
+    const app = messages['ja-JP'].app;
+
+    expect(app.tags).toBe('タグ');
+    expect(app.searchPlaceholder).toBe('クイック検索');
+    expect(app.createPrompt).toBe('新規 Prompt (Cmd+N)');
+    expect(app.shareImageTitle).toBe('共有画像を生成');
+    expect(app.annotations).toBe('注釈');
+    expect(app.annotationSummary(2)).toBe('2 件の注釈');
+    expect(messages['ja-JP'].settings.languageTitle).toBe('言語');
+    expect(messages['ja-JP'].settings.shareAuthorTitle).toBe('共有作者');
   });
 });
