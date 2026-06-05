@@ -8,7 +8,8 @@ import { Overlay } from './Overlay';
 import { IconButton } from './IconButton';
 
 const DRAWER_WIDTH_STORAGE_KEY = 'promptclip:drawer-width';
-const DEFAULT_DRAWER_WIDTH = 480;
+const LEGACY_DEFAULT_DRAWER_WIDTH = 480;
+const DEFAULT_DRAWER_WIDTH = 560;
 const MIN_DRAWER_WIDTH = 360;
 const VIEWPORT_MARGIN = 64;
 
@@ -30,7 +31,11 @@ function getInitialDrawerWidth(): number {
   if (typeof window === 'undefined') return DEFAULT_DRAWER_WIDTH;
 
   const storedWidth = window.localStorage.getItem(DRAWER_WIDTH_STORAGE_KEY);
-  const parsedWidth = storedWidth ? Number(storedWidth) : DEFAULT_DRAWER_WIDTH;
+  const parsedStoredWidth = storedWidth ? Number(storedWidth) : null;
+  const parsedWidth =
+    parsedStoredWidth === LEGACY_DEFAULT_DRAWER_WIDTH
+      ? DEFAULT_DRAWER_WIDTH
+      : parsedStoredWidth ?? DEFAULT_DRAWER_WIDTH;
   return clampDrawerWidth(Number.isFinite(parsedWidth) ? parsedWidth : DEFAULT_DRAWER_WIDTH);
 }
 
