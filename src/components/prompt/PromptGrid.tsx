@@ -2,7 +2,7 @@
  * Prompt 网格组件（虚拟化）
  */
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { usePromptStore } from '@/stores/promptStore';
 import { useTranslation } from '@/i18n';
@@ -30,6 +30,7 @@ export function PromptGrid({ isLoading = false }: PromptGridProps) {
   const { selectedPromptIds, toggleSelectAll, clearSelection, openModal } = useUIStore();
   const { workspace } = useFileStore();
   const selectedCount = selectedPromptIds.length;
+  const [openMenuPromptId, setOpenMenuPromptId] = useState<string | null>(null);
 
   const { ref: setContainerRef, columnCount } = useResponsiveColumnCount<HTMLDivElement>();
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -152,6 +153,7 @@ export function PromptGrid({ isLoading = false }: PromptGridProps) {
         >
           {virtualRows.map((virtualRow) => {
             const rowPrompts = promptRows[virtualRow.index] ?? [];
+            const hasOpenMenu = rowPrompts.some((prompt) => prompt.id === openMenuPromptId);
             return (
               <div
                 key={virtualRow.key}
@@ -162,13 +164,18 @@ export function PromptGrid({ isLoading = false }: PromptGridProps) {
                   top: 0,
                   left: 0,
                   width: '100%',
+                  zIndex: hasOpenMenu ? 20 : 0,
                   transform: `translateY(${virtualRow.start + virtualRow.index * ROW_GAP}px)`,
                   gridTemplateColumns: 'repeat(auto-fill, minmax(min(360px, 100%), 1fr))',
                 }}
                 className="grid gap-4"
               >
                 {rowPrompts.map((prompt) => (
-                  <PromptCard key={prompt.id} prompt={prompt} />
+                  <PromptCard
+                    key={prompt.id}
+                    prompt={prompt}
+                    onMenuOpenChange={setOpenMenuPromptId}
+                  />
                 ))}
               </div>
             );

@@ -1,10 +1,18 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Prompt } from '@/types/prompt';
-import { PromptCardActionsMenu, copyPromptToClipboard, getPromptCardDate, getPromptPreview } from './PromptCard';
+import {
+  PromptCard,
+  PromptCardActionsMenu,
+  copyPromptToClipboard,
+  getPromptCardDate,
+  getPromptPreview,
+} from './PromptCard';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { PromptService } from '@/services/promptService';
 import { createFakeFileRepository, createFakeWorkspace } from '@/services/fileRepository';
 import { usePromptStore } from '@/stores/promptStore';
+import { useSettingsStore } from '@/stores/settingsStore';
 
 const prompt: Prompt = {
   id: 'date-card',
@@ -83,6 +91,18 @@ describe('PromptCardActionsMenu', () => {
 
     expect(markup).toContain('分享');
     expect(markup).toContain('ios_share');
+  });
+
+  it('raises the open card and menu above neighboring cards', () => {
+    useSettingsStore.setState({ locale: 'zh-CN' });
+    const { container } = render(<PromptCard prompt={prompt} />);
+
+    fireEvent.click(screen.getByLabelText('更多操作'));
+
+    const card = container.querySelector('.prompt-card');
+    const menu = screen.getByText('分享').closest('div');
+    expect(card?.className).toContain('relative z-30');
+    expect(menu?.className).toContain('z-40');
   });
 });
 

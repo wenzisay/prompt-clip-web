@@ -10,7 +10,7 @@ import { usePromptStore } from '@/stores/promptStore';
 import { useFileStore } from '@/stores/fileStore';
 import { IconButton } from '@/components/common';
 import { formatDateTime } from '@/utils/date';
-import { memo, useState, useRef, useEffect } from 'react';
+import { memo, useCallback, useState, useRef, useEffect } from 'react';
 import { PromptService } from '@/services/promptService';
 import { fileRepository, type FileRepository } from '@/services/fileRepository';
 import { getPromptPreview } from '@/utils/markdown';
@@ -18,6 +18,8 @@ import { getPromptPreview } from '@/utils/markdown';
 interface PromptCardProps {
   /** Prompt 数据 */
   prompt: Prompt;
+  /** 菜单打开状态变化 */
+  onMenuOpenChange?: (promptId: string | null) => void;
 }
 
 export interface CopyPromptOptions {
@@ -51,7 +53,10 @@ export async function copyPromptToClipboard(options: CopyPromptOptions): Promise
   return target;
 }
 
-export const PromptCard = memo(function PromptCard({ prompt }: PromptCardProps) {
+export const PromptCard = memo(function PromptCard({
+  prompt,
+  onMenuOpenChange,
+}: PromptCardProps) {
   const { locale, t } = useTranslation();
   const { setSelectedPrompt, openModal, selectedPromptIds, toggleSelectPrompt } = useUIStore();
   const { updatePrompt } = usePromptStore();
@@ -59,6 +64,7 @@ export const PromptCard = memo(function PromptCard({ prompt }: PromptCardProps) 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const isMenuOpenRef = useRef(false);
   const isSelected = selectedPromptIds.includes(prompt.id);
   const isSelectionMode = selectedPromptIds.length > 0;
 
@@ -101,27 +107,33 @@ export const PromptCard = memo(function PromptCard({ prompt }: PromptCardProps) 
     toggleSelectPrompt(prompt.id);
   };
 
+  const setMenuOpen = useCallback((isOpen: boolean) => {
+    isMenuOpenRef.current = isOpen;
+    setIsMenuOpen(isOpen);
+    onMenuOpenChange?.(isOpen ? prompt.id : null);
+  }, [onMenuOpenChange, prompt.id]);
+
   const handleMenuSelect = (e: React.MouseEvent) => {
     handleSelect(e);
-    setIsMenuOpen(false);
+    setMenuOpen(false);
   };
 
   const handleMenuTogglePin = async (e: React.MouseEvent) => {
     await handleTogglePin(e);
-    setIsMenuOpen(false);
+    setMenuOpen(false);
   };
 
   const handleShare = (e: React.MouseEvent) => {
     e.stopPropagation();
     setSelectedPrompt(prompt.id);
     openModal('share');
-    setIsMenuOpen(false);
+    setMenuOpen(false);
   };
 
   // 打开菜单
   const handleMenuClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setIsMenuOpen(!isMenuOpen);
+    setMenuOpen(!isMenuOpen);
   };
 
   // 编辑
@@ -129,7 +141,7 @@ export const PromptCard = memo(function PromptCard({ prompt }: PromptCardProps) 
     e.stopPropagation();
     setSelectedPrompt(prompt.id);
     openModal('edit');
-    setIsMenuOpen(false);
+    setMenuOpen(false);
   };
 
   // 删除
@@ -137,7 +149,7 @@ export const PromptCard = memo(function PromptCard({ prompt }: PromptCardProps) 
     e.stopPropagation();
     setSelectedPrompt(prompt.id);
     openModal('delete');
-    setIsMenuOpen(false);
+    setMenuOpen(false);
   };
 
   // 点击外部关闭菜单
@@ -146,13 +158,21 @@ export const PromptCard = memo(function PromptCard({ prompt }: PromptCardProps) 
 
     const handleClickOutside = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setIsMenuOpen(false);
+        setMenuOpen(false);
       }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isMenuOpen]);
+  }, [isMenuOpen, setMenuOpen]);
+
+  useEffect(() => {
+    return () => {
+      if (isMenuOpenRef.current) {
+        onMenuOpenChange?.(null);
+      }
+    };
+  }, [onMenuOpenChange]);
 
   return (
     <div
@@ -163,6 +183,7 @@ export const PromptCard = memo(function PromptCard({ prompt }: PromptCardProps) 
         cursor-pointer transition-all duration-200
         group
         ${isSelected ? 'border-accent shadow-card-hover' : 'border-transparent'}
+        ${isMenuOpen ? 'relative z-30' : ''}
       `}
     >
       {/* 头部：标题和操作按钮 */}
@@ -298,7 +319,7 @@ export function PromptCardActionsMenu({
   const t = messages[locale];
 
   return (
-    <div className="absolute right-0 top-full z-10 mt-1 w-36 rounded-lg border border-border bg-surface py-1 shadow-card">
+    <div className="absolute right-0 top-full z-40 mt-1 w-36 rounded-lg border border-border bg-surface py-1 shadow-card">
       <PromptMenuButton
         icon={isSelected ? 'check_box' : 'check_box_outline_blank'}
         label={isSelected ? t.app.deselect : t.app.select}

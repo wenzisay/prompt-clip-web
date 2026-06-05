@@ -1,10 +1,22 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Prompt } from '@/types/prompt';
-import { render } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { PromptGrid } from './PromptGrid';
 import { usePromptStore } from '@/stores/promptStore';
 import { useFileStore } from '@/stores/fileStore';
 import { useSettingsStore } from '@/stores/settingsStore';
+
+vi.mock('@tanstack/react-virtual', () => ({
+  useVirtualizer: () => ({
+    measure: () => undefined,
+    measureElement: () => undefined,
+    getTotalSize: () => 440,
+    getVirtualItems: () => [
+      { key: 'row-0', index: 0, start: 0 },
+      { key: 'row-1', index: 1, start: 220 },
+    ],
+  }),
+}));
 
 function createPrompt(id: string): Prompt {
   return {
@@ -66,6 +78,7 @@ describe('PromptGrid virtualization', () => {
     });
   });
   afterEach(() => {
+    cleanup();
     vi.restoreAllMocks();
   });
 
@@ -87,5 +100,22 @@ describe('PromptGrid virtualization', () => {
     // 内部 wrapper 使用 grid className（与最小预期一致）
     const grid = container.querySelector('.prompt-card-grid');
     expect(grid).toBeTruthy();
+  });
+
+  it('raises the virtual row that contains an open card menu', async () => {
+    const { container } = render(<PromptGrid />);
+    for (let i = 0; i < 10; i += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+
+    const moreButtons = screen.getAllByLabelText('更多操作');
+    fireEvent.click(moreButtons[0]);
+
+    const openRow = screen.getByText('分享').closest('[data-index]');
+    const otherRows = Array.from(container.querySelectorAll<HTMLElement>('[data-index]'))
+      .filter((row) => row !== openRow);
+
+    expect((openRow as HTMLElement | null)?.style.zIndex).toBe('20');
+    expect(otherRows.some((row) => row.style.zIndex === '20')).toBe(false);
   });
 });
