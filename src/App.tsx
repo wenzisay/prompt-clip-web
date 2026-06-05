@@ -6,9 +6,7 @@ import { WelcomeScreen } from '@/components/WelcomeScreen';
 import { Sidebar, TopBar, DetailPanel } from '@/components/layout';
 import { PromptGrid, CreateModal, DeleteConfirm } from '@/components/prompt';
 import { CommandPalette } from '@/components/command';
-import { ExportModal } from '@/components/export/ExportModal';
 import { SettingsModal } from '@/components/settings';
-import { ShareImageModal } from '@/components/share';
 import { useFileStore } from '@/stores/fileStore';
 import { useUIStore } from '@/stores/uiStore';
 import { usePromptStore } from '@/stores/promptStore';
@@ -19,7 +17,18 @@ import { fileRepository } from '@/services/fileRepository';
 import { usePromptLoader } from '@/hooks/usePromptLoader';
 import { usePromptLazyLoad } from '@/hooks/usePromptLazyLoad';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
+
+const ExportModal = lazy(() =>
+  import('@/components/export/ExportModal').then((module) => ({
+    default: module.ExportModal,
+  }))
+);
+const ShareImageModal = lazy(() =>
+  import('@/components/share').then((module) => ({
+    default: module.ShareImageModal,
+  }))
+);
 
 function AppContent() {
   const { isAuthorized, workspace, initialize } = useFileStore();
@@ -132,13 +141,21 @@ function AppContent() {
       <CommandPalette />
 
       {/* 导出对话框 */}
-      <ExportModal />
+      {modalType === 'export' && (
+        <Suspense fallback={null}>
+          <ExportModal />
+        </Suspense>
+      )}
 
       {/* 设置对话框 */}
       <SettingsModal />
 
       {/* 分享图片对话框 */}
-      <ShareImageModal />
+      {modalType === 'share' && (
+        <Suspense fallback={null}>
+          <ShareImageModal />
+        </Suspense>
+      )}
     </div>
   );
 }
