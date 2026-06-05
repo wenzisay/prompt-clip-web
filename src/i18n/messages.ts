@@ -237,12 +237,26 @@ export const messages = {
       repairSucceeded: (count: number) => `已补全 ${count} 个文件`,
       repairFailed: '补全元数据失败',
       emptyField: '无',
-      aboutTitle: '关于 PromptClip',
-      aboutDescription: '本地优先的 AI 提示词管理工具',
-      aboutParagraphOne:
-        'PromptClip 用于整理、检索和复用日常工作中的 Prompt。数据直接读写你选择的本地 Markdown 文件夹，不依赖后端服务或云端数据库。',
-      aboutParagraphTwoPrefix: '笔记内容以 Markdown 保存，标签、收藏和设置等工作区配置保存在',
-      aboutParagraphTwoSuffix: '中，便于随文件夹一起备份、迁移和版本管理。',
+      aboutTitle: 'PromptClip',
+      aboutDescription: '为 AI 时代而构建的个人 Prompt 工作空间',
+      aboutIntroParagraphs: [
+        'AI 对话随时会消失在信息流里。但真正重要的 Prompt、思考与工作流，本就不该随之消散。',
+        'PromptClip 让这些内容在你的文件系统中持续生长：快速记录，便捷检索，持续复用，长期演化。',
+      ],
+      aboutFileTitle: 'File over app / 文件，高于应用',
+      aboutFileParagraphs: [
+        'PromptClip 将内容存储为完全开放的 Markdown 文件。',
+        '你可以用任意编辑器打开、修改它们，也可以像普通文件一样进行备份、同步、迁移与版本管理。',
+        '它能够与 Obsidian 等 Markdown 笔记工具自然协同，不将你的数据锁在任何封闭平台里。',
+      ],
+      aboutLocalTitle: 'Local First / 本地优先',
+      aboutLocalParagraphs: [
+        '所有文件直接留在你自己的设备上。',
+        '无需云端数据库，无需账号系统，不绑定任何在线平台。',
+        '你的数据，百分之百属于你。',
+      ],
+      aboutCommitment:
+        '以上是一种自我保障的承诺，工具可能会消失，数据永远属于你。',
     },
     metadataFields: {
       id: 'ID',
@@ -481,12 +495,26 @@ export const messages = {
       repairSucceeded: (count: number) => `已補全 ${count} 個檔案`,
       repairFailed: '補全元資料失敗',
       emptyField: '無',
-      aboutTitle: '關於 PromptClip',
-      aboutDescription: '本地優先的 AI 提示詞管理工具',
-      aboutParagraphOne:
-        'PromptClip 用於整理、檢索和複用日常工作中的 Prompt。資料直接讀寫你選擇的本地 Markdown 資料夾，不依賴後端服務或雲端資料庫。',
-      aboutParagraphTwoPrefix: '筆記內容以 Markdown 儲存，標籤、收藏和設定等工作區設定儲存在',
-      aboutParagraphTwoSuffix: '中，便於隨資料夾一起備份、遷移和版本管理。',
+      aboutTitle: 'PromptClip',
+      aboutDescription: '為 AI 時代而構建的個人 Prompt 工作空間',
+      aboutIntroParagraphs: [
+        'AI 對話隨時會消失在資訊流裡。但真正重要的 Prompt、思考與工作流，本就不該隨之消散。',
+        'PromptClip 讓這些內容在你的檔案系統中持續生長：快速記錄，便捷檢索，持續複用，長期演化。',
+      ],
+      aboutFileTitle: 'File over app / 文件，高於應用',
+      aboutFileParagraphs: [
+        'PromptClip 將內容儲存為完全開放的 Markdown 檔案。',
+        '你可以用任意編輯器開啟、修改它們，也可以像普通檔案一樣進行備份、同步、遷移與版本管理。',
+        '它能夠與 Obsidian 等 Markdown 筆記工具自然協同，不將你的資料鎖在任何封閉平台裡。',
+      ],
+      aboutLocalTitle: 'Local First / 本地優先',
+      aboutLocalParagraphs: [
+        '所有檔案直接留在你自己的裝置上。',
+        '無需雲端資料庫，無需帳號系統，不綁定任何線上平台。',
+        '你的資料，百分之百屬於你。',
+      ],
+      aboutCommitment:
+        '以上是一種自我保障的承諾，工具可能會消失，資料永遠屬於你。',
     },
     metadataFields: {
       id: 'ID',
@@ -734,14 +762,26 @@ export const messages = {
       repairSucceeded: (count: number) => `Filled metadata for ${count} files`,
       repairFailed: 'Failed to fill metadata',
       emptyField: 'None',
-      aboutTitle: 'About PromptClip',
-      aboutDescription: 'A local-first AI prompt manager',
-      aboutParagraphOne:
-        'PromptClip helps you organize, search, and reuse prompts from your daily work. Data is read from and written to the local Markdown folder you choose, without backend services or cloud databases.',
-      aboutParagraphTwoPrefix:
-        'Notes are saved as Markdown. Workspace configuration such as tags, favorites, and settings is saved in',
-      aboutParagraphTwoSuffix:
-        'so it can be backed up, moved, and versioned with the folder.',
+      aboutTitle: 'PromptClip',
+      aboutDescription: 'A personal Prompt workspace built for the AI era',
+      aboutIntroParagraphs: [
+        'AI conversations can disappear into the stream at any moment. The Prompts, thinking, and workflows that matter should not disappear with them.',
+        'PromptClip lets these materials keep growing in your file system: quick to capture, easy to search, ready to reuse, and able to evolve over time.',
+      ],
+      aboutFileTitle: 'File over app',
+      aboutFileParagraphs: [
+        'PromptClip stores content as fully open Markdown files.',
+        'You can open and edit them with any editor, and back them up, sync them, migrate them, or version them like ordinary files.',
+        'It works naturally with Markdown note tools such as Obsidian and does not lock your data inside any closed platform.',
+      ],
+      aboutLocalTitle: 'Local First',
+      aboutLocalParagraphs: [
+        'All files stay directly on your own device.',
+        'No cloud database, no account system, and no binding to any online platform.',
+        'Your data belongs entirely to you.',
+      ],
+      aboutCommitment:
+        'This is a commitment to self-preservation: tools may disappear, but your data remains yours.',
     },
     metadataFields: {
       id: 'ID',

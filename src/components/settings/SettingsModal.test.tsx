@@ -159,9 +159,10 @@ describe('SettingsModal', () => {
       />
     );
 
-    expect(markup).toContain('关于 PromptClip');
-    expect(markup).toContain('本地优先');
-    expect(markup).toContain('.promptclip.json');
+    expect(markup).toContain('为 AI 时代而构建的个人 Prompt 工作空间');
+    expect(markup).toContain('File over app / 文件，高于应用');
+    expect(markup).toContain('快速记录，便捷检索，持续复用，长期演化');
+    expect(markup).toContain('工具可能会消失，数据永远属于你');
   });
 
   it('renders settings in English', () => {

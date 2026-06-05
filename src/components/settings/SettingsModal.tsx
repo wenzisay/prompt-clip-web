@@ -625,16 +625,47 @@ function AboutSettings({ locale }: { locale: Locale }) {
         <p className="mt-1 text-sm text-muted">{t.settings.aboutDescription}</p>
       </div>
 
-      <div className="space-y-4 text-sm leading-6 text-muted">
-        <p>{t.settings.aboutParagraphOne}</p>
-        <p>
-          {t.settings.aboutParagraphTwoPrefix}
-          <span className="mx-1 rounded bg-surface-dim px-1.5 py-0.5 font-mono text-xs">
-            .promptclip.json
-          </span>
-          {t.settings.aboutParagraphTwoSuffix}
+      <div className="space-y-6 text-sm leading-6 text-muted">
+        <section className="space-y-3">
+          {t.settings.aboutIntroParagraphs.map((paragraph, index) => (
+            <p key={paragraph} className={index === 1 ? 'font-medium text-fg' : undefined}>
+              {paragraph}
+            </p>
+          ))}
+        </section>
+
+        <AboutSection
+          title={t.settings.aboutFileTitle}
+          paragraphs={t.settings.aboutFileParagraphs}
+        />
+        <AboutSection
+          title={t.settings.aboutLocalTitle}
+          paragraphs={t.settings.aboutLocalParagraphs}
+        />
+
+        <p className="border-t border-surface pt-4 font-medium text-fg">
+          {t.settings.aboutCommitment}
         </p>
       </div>
     </div>
+  );
+}
+
+function AboutSection({
+  title,
+  paragraphs,
+}: {
+  title: string;
+  paragraphs: readonly string[];
+}) {
+  return (
+    <section>
+      <h4 className="text-sm font-semibold text-fg">{title}</h4>
+      <div className="mt-2 space-y-2">
+        {paragraphs.map((paragraph) => (
+          <p key={paragraph}>{paragraph}</p>
+        ))}
+      </div>
+    </section>
   );
 }
