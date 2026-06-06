@@ -44,6 +44,24 @@ describe('messages', () => {
     expect(messages['en-US'].settings.shareAuthorTitle).toBe('Share author');
   });
 
+  it('contains the landing feature card copy', () => {
+    const app = messages['zh-CN'].app;
+
+    expect(app.featureLocalTitle).toBe('Local First');
+    expect(app.featureLocalDescription).toEqual([
+      '数据存储在本地，隐私安全，数据只属于你。',
+    ]);
+    expect(app.featureFastTitle).toBe('File over app');
+    expect(app.featureFastDescription).toEqual([
+      '采用完全开放的 Markdown 文件存储数据，自由迁移。',
+    ]);
+    expect(app.featureMarkdownTitle).toBe('多端APP');
+    expect(app.featureMarkdownDescription).toEqual([
+      'Web App、iOS（iPhone/iOS）、Windows、Mac。',
+    ]);
+    expect(messages['en-US'].app.featureMarkdownTitle).toBe('Multi-platform apps');
+  });
+
   it('contains Japanese labels and exposes Japanese as a selectable locale', () => {
     expect(LOCALE_OPTIONS).toContainEqual({ value: 'ja-JP', label: '日本語' });
 
