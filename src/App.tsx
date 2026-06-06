@@ -3,6 +3,7 @@
  */
 
 import { WelcomeScreen } from '@/components/WelcomeScreen';
+import { AboutPage } from '@/components/about';
 import { Sidebar, TopBar, DetailPanel } from '@/components/layout';
 import { PromptGrid, CreateModal, DeleteConfirm } from '@/components/prompt';
 import { CommandPalette } from '@/components/command';
@@ -29,6 +30,20 @@ const ShareImageModal = lazy(() =>
     default: module.ShareImageModal,
   }))
 );
+
+export function isAboutPath(pathname: string): boolean {
+  const normalizedPathname = pathname.replace(/\/+$/, '') || '/';
+
+  return normalizedPathname === '/about';
+}
+
+function getCurrentPathname(): string {
+  if (typeof window === 'undefined') {
+    return '/';
+  }
+
+  return window.location.pathname;
+}
 
 function AppContent() {
   const { isAuthorized, workspace, initialize } = useFileStore();
@@ -162,6 +177,18 @@ function AppContent() {
   );
 }
 
-export default function App() {
+interface AppRouterProps {
+  pathname?: string;
+}
+
+export function AppRouter({ pathname = getCurrentPathname() }: AppRouterProps) {
+  if (isAboutPath(pathname)) {
+    return <AboutPage />;
+  }
+
   return <AppContent />;
+}
+
+export default function App() {
+  return <AppRouter />;
 }

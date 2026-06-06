@@ -3,4 +3,5 @@
  */
 
 export * from './WelcomeScreen';
+export * from './about';
 export * from './share';
