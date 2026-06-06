@@ -1,5 +1,5 @@
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { WelcomeScreen } from './WelcomeScreen';
 
 const directoryPickerState = vi.hoisted(() => ({
@@ -19,7 +19,18 @@ vi.mock('@/hooks/useDirectoryPicker', () => ({
   }),
 }));
 
+function installTauriRuntime(): void {
+  Object.defineProperty(window, '__TAURI_INTERNALS__', {
+    configurable: true,
+    value: {},
+  });
+}
+
 describe('WelcomeScreen', () => {
+  afterEach(() => {
+    Reflect.deleteProperty(window, '__TAURI_INTERNALS__');
+  });
+
   it('renders the landing page content for choosing a data directory', () => {
     directoryPickerState.isSupported = true;
     directoryPickerState.isLoading = false;
@@ -30,9 +41,9 @@ describe('WelcomeScreen', () => {
     expect(markup).toContain('Manage faster');
     expect(markup).toContain('Your personal prompt manager');
     expect(markup).toContain('Choose data folder');
-    expect(markup).toContain('Local storage');
-    expect(markup).toContain('Fast access');
-    expect(markup).toContain('Markdown support');
+    expect(markup).toContain('Local First');
+    expect(markup).toContain('File over app');
+    expect(markup).toContain('Multi-platform apps');
   });
 
   it('uses compact feature cards on the landing page', () => {
@@ -42,6 +53,23 @@ describe('WelcomeScreen', () => {
 
     expect(markup).toContain('min-h-[136px]');
     expect(markup).toContain('h-16 w-16');
+  });
+
+  it('links feature cards to the about page in web browsers', () => {
+    directoryPickerState.isSupported = true;
+
+    const markup = renderToStaticMarkup(<WelcomeScreen />);
+
+    expect(markup).toContain('href="/about"');
+  });
+
+  it('does not link feature cards in the desktop client', () => {
+    directoryPickerState.isSupported = true;
+    installTauriRuntime();
+
+    const markup = renderToStaticMarkup(<WelcomeScreen />);
+
+    expect(markup).not.toContain('href="/about"');
   });
 
   it('renders an unsupported browser warning above the button when file access is unavailable', () => {

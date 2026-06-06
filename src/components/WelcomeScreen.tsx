@@ -6,11 +6,58 @@
 
 import { useDirectoryPicker } from '@/hooks/useDirectoryPicker';
 import { useTranslation } from '@/i18n';
+import { isTauriRuntime } from '@/services/fileRepository/tauriFileRepository';
+
+const FEATURE_CARD_CLASS_NAME =
+  'min-h-[136px] self-start rounded-[14px] border border-white/75 bg-white/58 p-5 ' +
+  'shadow-[0_18px_48px_rgba(76,84,140,0.09)] backdrop-blur';
+
+interface FeatureCardData {
+  icon: string;
+  title: string;
+  description: readonly string[];
+  iconClass: string;
+}
+
+function FeatureCardContent({ feature }: { feature: FeatureCardData }) {
+  return (
+    <>
+      <div className="flex items-start gap-5">
+        <div
+          className={
+            `flex h-16 w-16 shrink-0 items-center justify-center rounded-xl ` +
+            feature.iconClass
+          }
+        >
+          <span className="material-symbols-outlined text-[30px]">
+            {feature.icon}
+          </span>
+        </div>
+        <div className="pt-1">
+          <h2 className="mb-2 text-[1.08rem] font-bold text-[#0b1235]">
+            {feature.title}
+          </h2>
+          <p className="text-[0.9rem] font-medium leading-5 text-[#6d789b]">
+            {feature.description.map((line) => (
+              <span key={line} className="block">
+                {line}
+              </span>
+            ))}
+          </p>
+        </div>
+      </div>
+      <span className="material-symbols-outlined mt-4 block text-[24px] text-[#7b86ad]">
+        arrow_forward
+      </span>
+    </>
+  );
+}
 
 export function WelcomeScreen() {
   const { t } = useTranslation();
   const { isSupported, isLoading, error, openDirectory } = useDirectoryPicker();
-  const featureCards = [
+  const shouldLinkFeatureCards = !isTauriRuntime();
+  const featureCards: FeatureCardData[] = [
     {
       icon: 'lock',
       title: t.app.featureLocalTitle,
@@ -18,13 +65,13 @@ export function WelcomeScreen() {
       iconClass: 'bg-[#edf0ff] text-[#2f55f6]',
     },
     {
-      icon: 'bolt',
+      icon: 'draft',
       title: t.app.featureFastTitle,
       description: t.app.featureFastDescription,
       iconClass: 'bg-[#f3e4ff] text-[#8f39eb]',
     },
     {
-      icon: 'description',
+      icon: 'devices',
       title: t.app.featureMarkdownTitle,
       description: t.app.featureMarkdownDescription,
       iconClass: 'bg-[#fff0e9] text-[#f36b18]',
@@ -125,33 +172,23 @@ export function WelcomeScreen() {
 
         <div className="hidden items-start gap-6 pb-8 lg:grid lg:grid-cols-3">
           {featureCards.map((feature) => (
-            <article
-              key={feature.title}
-              className="min-h-[136px] self-start rounded-[14px] border border-white/75 bg-white/58 p-5 shadow-[0_18px_48px_rgba(76,84,140,0.09)] backdrop-blur"
-            >
-              <div className="flex items-start gap-5">
-                <div className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-xl ${feature.iconClass}`}>
-                  <span className="material-symbols-outlined text-[30px]">
-                    {feature.icon}
-                  </span>
-                </div>
-                <div className="pt-1">
-                  <h2 className="mb-2 text-[1.08rem] font-bold text-[#0b1235]">
-                    {feature.title}
-                  </h2>
-                  <p className="text-[0.9rem] font-medium leading-5 text-[#6d789b]">
-                    {feature.description.map((line) => (
-                      <span key={line} className="block">
-                        {line}
-                      </span>
-                    ))}
-                  </p>
-                </div>
-              </div>
-              <span className="material-symbols-outlined mt-4 block text-[24px] text-[#7b86ad]">
-                arrow_forward
-              </span>
-            </article>
+            shouldLinkFeatureCards ? (
+              <a
+                key={feature.title}
+                href="/about"
+                className={
+                  `${FEATURE_CARD_CLASS_NAME} group transition hover:-translate-y-0.5 ` +
+                  'hover:bg-white/70 focus:outline-none focus:ring-2 focus:ring-[#3147ff] ' +
+                  'focus:ring-offset-4'
+                }
+              >
+                <FeatureCardContent feature={feature} />
+              </a>
+            ) : (
+              <article key={feature.title} className={FEATURE_CARD_CLASS_NAME}>
+                <FeatureCardContent feature={feature} />
+              </article>
+            )
           ))}
         </div>
       </main>
