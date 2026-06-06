@@ -21,6 +21,11 @@ const kickerClassName = [
   'mb-7 font-mono text-[13px] font-medium uppercase leading-none',
   'tracking-[0] text-muted',
 ].join(' ');
+const homeLinkClassName = [
+  'mb-8 inline-flex items-center gap-1.5 font-mono text-xs font-medium',
+  'leading-none text-muted transition hover:text-fg focus:outline-none',
+  'focus:ring-2 focus:ring-accent focus:ring-offset-4',
+].join(' ');
 const titleClassName = [
   'font-display text-[38px] font-bold leading-none tracking-[0] text-fg',
   'sm:text-[44px]',
@@ -48,6 +53,13 @@ interface AboutSectionData {
   title: string;
   paragraphs: readonly string[];
 }
+
+const aboutHomeLinkByLocale: Record<Locale, string> = {
+  'zh-CN': '返回主页',
+  'zh-TW': '返回首頁',
+  'en-US': 'Back home',
+  'ja-JP': 'ホームへ戻る',
+};
 
 function splitIntroParagraph(paragraph: string): { lead: string; sentence: string | null } {
   const chineseSeparatorIndex = paragraph.indexOf('：');
@@ -128,6 +140,12 @@ export function AboutPageContent({ locale }: AboutPageContentProps) {
     <div className={pageClassName}>
       <main className={mainClassName}>
         <article className={articleClassName}>
+          <a href="/" className={homeLinkClassName}>
+            <span className="material-symbols-outlined text-[17px] leading-none">
+              arrow_back
+            </span>
+            <span>{aboutHomeLinkByLocale[locale]}</span>
+          </a>
           <p className={kickerClassName}>About</p>
 
           <header>

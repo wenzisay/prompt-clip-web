@@ -7,6 +7,8 @@ describe('AboutPageContent', () => {
     const markup = renderToStaticMarkup(<AboutPageContent locale="zh-CN" />);
 
     expect(markup).toContain('About');
+    expect(markup).toContain('href="/"');
+    expect(markup).toContain('返回主页');
     expect(markup).toContain('PromptClip');
     expect(markup).toContain('为 AI 时代而构建的个人 Prompt 工作空间');
     expect(markup).toContain('快速记录，便捷检索，持续复用，长期演化');
