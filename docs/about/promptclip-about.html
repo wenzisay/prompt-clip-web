@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PromptClip · About</title>
+  <meta name="description" content="PromptClip：为 AI 时代而构建的个人 Prompt 工作空间。" />
+  <style>
+    :root {
+      --bg: #f7f4ee;
+      --paper: #fffefa;
+      --text: #24211d;
+      --muted: #77716a;
+      --line: #e8e1d6;
+      --strong-line: #d8cebf;
+      --max-width: 720px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      background: var(--bg);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    body {
+      margin: 0;
+      font-family: ui-serif, "Noto Serif SC", "Source Han Serif SC", "Songti SC", SimSun, serif;
+      font-size: 18px;
+      line-height: 1.95;
+    }
+
+    .page {
+      max-width: 840px;
+      margin: 56px auto;
+      padding: 0 24px;
+    }
+
+    .paper {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      padding: 72px 72px 64px;
+    }
+
+    .kicker {
+      margin: 0 0 28px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 13px;
+      line-height: 1;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    h1,
+    h2,
+    p {
+      margin: 0;
+    }
+
+    h1 {
+      font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 44px;
+      line-height: 1.08;
+      letter-spacing: -0.04em;
+      font-weight: 680;
+    }
+
+    .subtitle {
+      margin-top: 14px;
+      font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 20px;
+      line-height: 1.55;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+
+    .intro {
+      margin-top: 42px;
+      padding-top: 36px;
+      border-top: 1px solid var(--strong-line);
+    }
+
+    p + p {
+      margin-top: 18px;
+    }
+
+    strong {
+      font-weight: 700;
+    }
+
+    .sentence {
+      margin-top: 24px;
+      font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 18px;
+      line-height: 1.75;
+      font-weight: 650;
+      letter-spacing: -0.015em;
+    }
+
+    section {
+      margin-top: 52px;
+      padding-top: 34px;
+      border-top: 1px solid var(--line);
+    }
+
+    h2 {
+      margin-bottom: 22px;
+      font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 20px;
+      line-height: 1.35;
+      letter-spacing: -0.02em;
+      font-weight: 650;
+    }
+
+    h2 .cn {
+      color: var(--muted);
+      font-weight: 520;
+    }
+
+    .final {
+      margin-top: 56px;
+      padding-top: 30px;
+      border-top: 1px solid var(--strong-line);
+      font-size: 20px;
+      line-height: 1.85;
+    }
+
+    .footer {
+      margin-top: 56px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 12px;
+      line-height: 1.6;
+      color: var(--muted);
+    }
+
+    @media (max-width: 720px) {
+      body {
+        font-size: 17px;
+        line-height: 1.9;
+      }
+
+      .page {
+        margin: 0;
+        padding: 0;
+      }
+
+      .paper {
+        min-height: 100vh;
+        border: 0;
+        padding: 48px 24px 56px;
+      }
+
+      h1 {
+        font-size: 38px;
+      }
+
+      .subtitle {
+        font-size: 18px;
+      }
+
+      .intro {
+        margin-top: 34px;
+        padding-top: 28px;
+      }
+
+      section {
+        margin-top: 42px;
+        padding-top: 28px;
+      }
+
+      .final {
+        margin-top: 44px;
+        font-size: 18px;
+      }
+    }
+
+    @media print {
+      html,
+      body {
+        background: #fff;
+      }
+
+      .page {
+        margin: 0;
+        max-width: none;
+        padding: 0;
+      }
+
+      .paper {
+        border: 0;
+        padding: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <article class="paper">
+      <p class="kicker">About</p>
+
+      <h1>PromptClip</h1>
+      <p class="subtitle">为 AI 时代而构建的个人 Prompt 工作空间</p>
+
+      <div class="intro">
+        <p>AI 对话随时会消失在信息流里。<br />但真正重要的 Prompt、思考与工作流，本就不该随之消散。</p>
+
+        <p>PromptClip 让这些内容在你的文件系统中持续生长：</p>
+        <p class="sentence">快速记录，便捷检索，持续复用，长期演化。</p>
+      </div>
+
+      <section>
+        <h2>File over app <span class="cn">/ 文件，高于应用</span></h2>
+
+        <p>PromptClip 将内容存储为完全开放的 Markdown 文件。</p>
+
+        <p>你可以用任意编辑器打开、修改它们，<br />也可以像普通文件一样进行备份、同步、迁移与版本管理。</p>
+
+        <p>它能够与 Obsidian 等 Markdown 笔记工具自然协同，<br />不将你的数据锁在任何封闭平台里。</p>
+      </section>
+
+      <section>
+        <h2>Local First <span class="cn">/ 本地优先</span></h2>
+
+        <p>所有文件直接留在你自己的设备上。</p>
+
+        <p>无需云端数据库，无需账号系统，<br />不绑定任何在线平台。</p>
+
+        <p><strong>你的数据，百分之百属于你。</strong></p>
+      </section>
+
+      <p class="final">以上是一种自我保障的承诺，工具可能会消失，数据永远属于你。</p>
+
+      <p class="footer">PromptClip · Local-first personal prompt workspace</p>
+    </article>
+  </main>
+</body>
+</html>
