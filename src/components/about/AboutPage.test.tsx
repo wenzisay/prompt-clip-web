@@ -1,8 +1,13 @@
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { AboutPageContent } from './AboutPage';
 
 describe('AboutPageContent', () => {
+  afterEach(() => {
+    cleanup();
+  });
+
   it('renders the standalone about copy from the imported HTML page', () => {
     const markup = renderToStaticMarkup(<AboutPageContent locale="zh-CN" />);
 
@@ -30,5 +35,26 @@ describe('AboutPageContent', () => {
 
     expect(markup).toContain('href="/privacy"');
     expect(markup).toContain('隐私政策');
+  });
+
+  it('switches the visible about copy to English', () => {
+    render(<AboutPageContent locale="zh-CN" />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'English' }));
+
+    expect(
+      screen.getByRole('heading', {
+        level: 1,
+        name: 'PromptClip',
+      })
+    ).toBeTruthy();
+    expect(
+      screen.getByText('A personal Prompt workspace built for the AI era')
+    ).toBeTruthy();
+    expect(screen.getByText('Back home')).toBeTruthy();
+    expect(screen.getByText('Privacy policy')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'English' }).getAttribute('aria-pressed')).toBe(
+      'true'
+    );
   });
 });

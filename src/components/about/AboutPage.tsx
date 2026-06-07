@@ -1,5 +1,7 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { messages, useTranslation, type Locale } from '@/i18n';
+
+type AboutPageLanguage = 'zh-CN' | 'en-US';
 
 const FOOTER_TEXT = 'PromptClip · Local-first personal prompt workspace';
 
@@ -22,10 +24,17 @@ const kickerClassName = [
   'tracking-[0] text-muted',
 ].join(' ');
 const homeLinkClassName = [
-  'mb-8 inline-flex items-center gap-1.5 font-mono text-xs font-medium',
+  'inline-flex items-center gap-1.5 font-mono text-xs font-medium',
   'leading-none text-muted transition hover:text-fg focus:outline-none',
   'focus:ring-2 focus:ring-accent focus:ring-offset-4',
 ].join(' ');
+const navClassName = 'mb-8 flex items-center justify-between gap-4';
+const languageToggleClassName = [
+  'inline-flex rounded-lg border border-border bg-surfaceDim p-1',
+  'focus-within:ring-2 focus-within:ring-accent focus-within:ring-offset-2',
+].join(' ');
+const languageButtonClassName =
+  'rounded-md px-3 py-1.5 font-mono text-xs font-medium leading-none transition focus:outline-none';
 const privacyLinkClassName = [
   'mt-2 inline-block font-mono text-xs leading-5 text-muted transition',
   'hover:text-fg focus:outline-none focus:ring-2 focus:ring-accent',
@@ -72,6 +81,18 @@ const aboutPrivacyLinkByLocale: Record<Locale, string> = {
   'en-US': 'Privacy policy',
   'ja-JP': 'プライバシーポリシー',
 };
+
+function toAboutPageLanguage(locale: Locale): AboutPageLanguage {
+  return locale === 'en-US' ? 'en-US' : 'zh-CN';
+}
+
+function getLanguageButtonClassName(isActive: boolean): string {
+  if (isActive) {
+    return `${languageButtonClassName} bg-accent text-white shadow-card`;
+  }
+
+  return `${languageButtonClassName} text-muted hover:text-fg`;
+}
 
 function splitIntroParagraph(paragraph: string): { lead: string; sentence: string | null } {
   const chineseSeparatorIndex = paragraph.indexOf('：');
@@ -134,7 +155,10 @@ function syncAboutDocumentMetadata(locale: Locale, description: string): () => v
 export type { AboutPageContentProps };
 
 export function AboutPageContent({ locale }: AboutPageContentProps) {
-  const t = messages[locale];
+  const [pageLocale, setPageLocale] = useState<AboutPageLanguage>(() =>
+    toAboutPageLanguage(locale)
+  );
+  const t = messages[pageLocale];
   const introParagraphs = t.settings.aboutIntroParagraphs;
   const introHighlight = splitIntroParagraph(introParagraphs[1] ?? '');
   const sections: AboutSectionData[] = [
@@ -148,16 +172,40 @@ export function AboutPageContent({ locale }: AboutPageContentProps) {
     },
   ];
 
+  useEffect(() => {
+    return syncAboutDocumentMetadata(pageLocale, t.settings.aboutDescription);
+  }, [pageLocale, t.settings.aboutDescription]);
+
   return (
     <div className={pageClassName}>
       <main className={mainClassName}>
         <article className={articleClassName}>
-          <a href="/" className={homeLinkClassName}>
-            <span className="material-symbols-outlined text-[17px] leading-none">
-              arrow_back
-            </span>
-            <span>{aboutHomeLinkByLocale[locale]}</span>
-          </a>
+          <nav className={navClassName} aria-label="About">
+            <a href="/" className={homeLinkClassName}>
+              <span className="material-symbols-outlined text-[17px] leading-none">
+                arrow_back
+              </span>
+              <span>{aboutHomeLinkByLocale[pageLocale]}</span>
+            </a>
+            <div className={languageToggleClassName} aria-label="切换关于页面语言">
+              <button
+                type="button"
+                className={getLanguageButtonClassName(pageLocale === 'zh-CN')}
+                aria-pressed={pageLocale === 'zh-CN'}
+                onClick={() => setPageLocale('zh-CN')}
+              >
+                中文
+              </button>
+              <button
+                type="button"
+                className={getLanguageButtonClassName(pageLocale === 'en-US')}
+                aria-pressed={pageLocale === 'en-US'}
+                onClick={() => setPageLocale('en-US')}
+              >
+                English
+              </button>
+            </div>
+          </nav>
           <p className={kickerClassName}>About</p>
 
           <header>
@@ -201,7 +249,7 @@ export function AboutPageContent({ locale }: AboutPageContentProps) {
 
           <p className="mt-12 font-mono text-xs leading-5 text-muted">{FOOTER_TEXT}</p>
           <a href="/privacy" className={privacyLinkClassName}>
-            {aboutPrivacyLinkByLocale[locale]}
+            {aboutPrivacyLinkByLocale[pageLocale]}
           </a>
         </article>
       </main>
@@ -210,11 +258,7 @@ export function AboutPageContent({ locale }: AboutPageContentProps) {
 }
 
 export function AboutPage() {
-  const { locale, t } = useTranslation();
-
-  useEffect(() => {
-    return syncAboutDocumentMetadata(locale, t.settings.aboutDescription);
-  }, [locale, t.settings.aboutDescription]);
+  const { locale } = useTranslation();
 
   return <AboutPageContent locale={locale} />;
 }
