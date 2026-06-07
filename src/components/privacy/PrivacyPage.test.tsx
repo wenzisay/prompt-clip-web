@@ -16,7 +16,7 @@ describe('PrivacyPageContent', () => {
     expect(markup).toContain('隐私政策');
     expect(markup).toContain('最后更新：2026 年 6 月 7 日');
     expect(markup).toContain('你的 Prompt、笔记、批注、标签和工作流内容属于你');
-    expect(markup).toContain('wenziii@outlook.com');
+    expect(markup).toContain('promptclip@outlook.com');
     expect(markup).toContain('h-screen');
     expect(markup).toContain('overflow-y-auto');
   });

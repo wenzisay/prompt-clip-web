@@ -32,7 +32,7 @@ export interface PrivacyPageContentProps {
   initialLanguage?: PrivacyLanguage;
 }
 
-const contactEmail = 'wenziii@outlook.com';
+const contactEmail = 'promptclip@outlook.com';
 
 const privacyCopyByLanguage: Record<PrivacyLanguage, PrivacyCopy> = {
   zh: {
