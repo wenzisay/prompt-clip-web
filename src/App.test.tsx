@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { AppRouter, isAboutPath } from './App';
+import { AppRouter, isAboutPath, isPrivacyPath } from './App';
 
 describe('isAboutPath', () => {
   it('matches the about route with an optional trailing slash', () => {
@@ -21,5 +21,25 @@ describe('AppRouter', () => {
 
     expect(markup).toContain('PromptClip · Local-first personal prompt workspace');
     expect(markup).toContain('File over app');
+  });
+
+  it('renders the standalone privacy page for /privacy', () => {
+    const markup = renderToStaticMarkup(<AppRouter pathname="/privacy" />);
+
+    expect(markup).toContain('隐私政策');
+    expect(markup).toContain('本地优先，文件属于你');
+  });
+});
+
+describe('isPrivacyPath', () => {
+  it('matches the privacy route with an optional trailing slash', () => {
+    expect(isPrivacyPath('/privacy')).toBe(true);
+    expect(isPrivacyPath('/privacy/')).toBe(true);
+  });
+
+  it('does not match other routes', () => {
+    expect(isPrivacyPath('/')).toBe(false);
+    expect(isPrivacyPath('/privacy-policy')).toBe(false);
+    expect(isPrivacyPath('/prompts/privacy')).toBe(false);
   });
 });

@@ -4,4 +4,5 @@
 
 export * from './WelcomeScreen';
 export * from './about';
+export * from './privacy';
 export * from './share';
