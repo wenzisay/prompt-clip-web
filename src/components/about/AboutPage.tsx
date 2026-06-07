@@ -26,6 +26,11 @@ const homeLinkClassName = [
   'leading-none text-muted transition hover:text-fg focus:outline-none',
   'focus:ring-2 focus:ring-accent focus:ring-offset-4',
 ].join(' ');
+const privacyLinkClassName = [
+  'mt-2 inline-block font-mono text-xs leading-5 text-muted transition',
+  'hover:text-fg focus:outline-none focus:ring-2 focus:ring-accent',
+  'focus:ring-offset-4',
+].join(' ');
 const titleClassName = [
   'font-display text-[38px] font-bold leading-none tracking-[0] text-fg',
   'sm:text-[44px]',
@@ -59,6 +64,13 @@ const aboutHomeLinkByLocale: Record<Locale, string> = {
   'zh-TW': '返回首頁',
   'en-US': 'Back home',
   'ja-JP': 'ホームへ戻る',
+};
+
+const aboutPrivacyLinkByLocale: Record<Locale, string> = {
+  'zh-CN': '隐私政策',
+  'zh-TW': '隱私政策',
+  'en-US': 'Privacy policy',
+  'ja-JP': 'プライバシーポリシー',
 };
 
 function splitIntroParagraph(paragraph: string): { lead: string; sentence: string | null } {
@@ -188,6 +200,9 @@ export function AboutPageContent({ locale }: AboutPageContentProps) {
           <p className={finalParagraphClassName}>{t.settings.aboutCommitment}</p>
 
           <p className="mt-12 font-mono text-xs leading-5 text-muted">{FOOTER_TEXT}</p>
+          <a href="/privacy" className={privacyLinkClassName}>
+            {aboutPrivacyLinkByLocale[locale]}
+          </a>
         </article>
       </main>
     </div>

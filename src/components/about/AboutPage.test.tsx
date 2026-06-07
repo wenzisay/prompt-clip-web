@@ -24,4 +24,11 @@ describe('AboutPageContent', () => {
     expect(markup).toContain('h-screen');
     expect(markup).toContain('overflow-y-auto');
   });
+
+  it('links to the privacy page at the bottom of the article', () => {
+    const markup = renderToStaticMarkup(<AboutPageContent locale="zh-CN" />);
+
+    expect(markup).toContain('href="/privacy"');
+    expect(markup).toContain('隐私政策');
+  });
 });
