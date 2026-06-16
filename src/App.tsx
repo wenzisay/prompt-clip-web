@@ -55,7 +55,7 @@ function getCurrentPathname(): string {
 function AppContent() {
   const { isAuthorized, workspace, initialize } = useFileStore();
   const { modalType, selectedPromptId } = useUIStore();
-  const { prompts } = usePromptStore();
+  const { prompts, isLoading: isPromptLoading } = usePromptStore();
   const { locale, resetSettings, setHistorySettings, setShareAuthorName } = useSettingsStore();
   const { setTags } = useTagStore();
 
@@ -139,7 +139,7 @@ function AppContent() {
 
           {/* Prompt 网格区域（虚拟化滚动容器内置在 PromptGrid） */}
           <div className="flex-1 min-h-0 px-6 pb-6 pt-4 bg-bg">
-            <PromptGrid />
+            <PromptGrid isLoading={isPromptLoading} />
           </div>
         </main>
       </div>

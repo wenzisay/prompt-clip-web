@@ -22,15 +22,15 @@
 - **标签系统** — 支持层级标签（如 `coding/python`），标签树可视化，支持重命名、删除、置顶
 - **全文搜索** — 基于 FlexSearch 的三索引加权搜索（标题 +10 / 内容 +5 / 标签 +3），毫秒级响应
 - **命令面板** — `Cmd+K` 快速访问所有功能，支持模糊匹配；无匹配时自动回退到全文搜索
-- **批注系统** — 每条 Prompt 可附带文字批注和图片附件，独立存放在 `.promptclip/annotations/`
+- **批注系统** — 每条 Prompt 可附带文字批注和图片附件，独立存放在 `_promptclip/annotations/`
 - **分享图片** — 渲染 Prompt 为可分享的 PNG 卡片（极简白 / 深色 / 淡彩边框三套模板）
 - **多格式导出** — JSON、CSV、Markdown ZIP 三种格式，导出范围可选「选中 / 当前筛选 / 全部」
-- **历史版本** — 可选开启；启用后每次编辑自动保存到 `.history/`（默认最多 10 个，按保留天数清理）
+- **历史版本** — 可选开启；启用后每次编辑自动保存到 `_promptclip/.history/`（默认最多 10 个，按保留天数清理）
 - **元数据自愈** — 从 Obsidian 等外部工具导入的 `.md` 可在设置中一键扫描并补全缺失的 PromptClip frontmatter
 - **稳定 ID 迁移** — 首次加载会为缺 ID 的旧文件生成稳定 ID 并写回 frontmatter，方便历史/回收/批注系统关联
 - **两级加载** — 首屏只读文件头（frontmatter + 预览片段）保证可交互，正文由 `requestIdleCallback` 后台分批补全
 - **虚拟化列表** — 5K 级别工作区下用 `@tanstack/react-virtual` 渲染可视行，DOM 节点数与列表总长无关
-- **安全删除** — 文件移入 `.trash/`（带时间戳），批注 sidecar 同步迁移
+- **安全删除** — 文件移入 `_promptclip/.trash/`（带时间戳），批注 sidecar 同步迁移
 - **桌面端** — 基于 Tauri 2 的原生桌面应用，支持系统托盘、单实例运行、关闭即隐藏
 - **多语言** — 内置 `zh-CN` / `zh-TW` / `en-US` 三种语言，启动时按浏览器语言自动选择
 - **键盘优先** — 完整快捷键支持，可脱离鼠标高效操作
@@ -128,7 +128,7 @@ npm run tauri:build
 1. 启动应用后，点击「选择目录」按钮，选择一个本地文件夹作为 Prompt 存储目录
 2. 目录中的 `.md` 文件会被自动识别和加载（首屏只解析头部，正文后台补全）
 3. 每个文件对应一个 Prompt，元数据通过 YAML frontmatter 存储
-4. 应用会写入工作区级配置文件 `.promptclip.json`，记录置顶标签、历史版本设置、分享作者名等
+4. 应用会写入工作区级配置文件 `_promptclip/promptclip.config.json`，记录置顶标签、历史版本设置、分享作者名等
 
 ### 创建与编辑 Prompt
 
@@ -175,7 +175,7 @@ npm run tauri:build
 ### 历史版本（可选）
 
 - 在「设置 → 历史版本」中开启；默认关闭
-- 开启后每次编辑 Prompt 自动在 `.history/<id>.<timestamp>.md` 写入快照
+- 开启后每次编辑 Prompt 自动在 `_promptclip/.history/<id>.<timestamp>.md` 写入快照
 - 单条 Prompt 最多保留 `MAX_HISTORY_VERSIONS`（10）份，超过部分按时间淘汰
 - 可在 Prompt 详情面板中查看、复制、恢复历史版本
 
@@ -205,11 +205,11 @@ pinned: false
 
 | 路径 | 用途 |
 |------|------|
-| `.history/` | 历史版本快照（`.md`），仅在「设置」中开启后写入 |
-| `.trash/` | 已删除的文件，文件名带时间戳 |
-| `.promptclip.json` | 工作区配置（置顶标签、历史版本设置、分享作者名） |
-| `.promptclip/annotations/<promptId>.json` | Prompt 批注 sidecar 文件 |
-| `.promptclip/assets/<promptId>/<annotationId>/...` | 批注附带的图片二进制文件 |
+| `_promptclip/.history/` | 历史版本快照（`.md`），仅在「设置」中开启后写入 |
+| `_promptclip/.trash/` | 已删除的文件，文件名带时间戳 |
+| `_promptclip/promptclip.config.json` | 工作区配置（置顶标签、历史版本设置、分享作者名） |
+| `_promptclip/annotations/<promptId>.json` | Prompt 批注 sidecar 文件 |
+| `_promptclip/assets/<promptId>/<annotationId>/...` | 批注附带的图片二进制文件 |
 
 ## 键盘快捷键
 
@@ -263,12 +263,12 @@ src/
 │   ├── exportTargetService.ts  # 浏览器下载 vs Tauri 原生保存对话框
 │   ├── annotationService.ts    # 批注 sidecar 读写
 │   ├── shareImageService.ts    # 分享图渲染（html-to-image / html2canvas）
-│   ├── folderConfigService.ts  # `.promptclip.json` 读写
+│   ├── folderConfigService.ts  # `_promptclip/promptclip.config.json` 读写
 │   └── metadataRepairService.ts# 补全 Obsidian 导入文件的 frontmatter
 ├── stores/                 # Zustand 状态管理
 │   ├── fileStore.ts        # 工作区状态（persist → localStorage）
 │   ├── promptStore.ts      # Prompt 列表 / 过滤 / 筛选
-│   ├── tagStore.ts         # 标签树 / 置顶（置顶持久化到 .promptclip.json）
+│   ├── tagStore.ts         # 标签树 / 置顶（置顶持久化到 _promptclip/promptclip.config.json）
 │   ├── uiStore.ts          # UI 状态（选中 / 模态框 / Toast）
 │   ├── settingsStore.ts    # 设置（persist → localStorage）
 │   └── annotationStore.ts  # 批注状态
@@ -315,12 +315,12 @@ src/
 | Web 端 `FileSystemDirectoryHandle` | IndexedDB | `FileRepository` 内部 |
 | 桌面端 `WorkspaceRef.path` | 运行时内存 + 单实例窗口 | Tauri 主进程 |
 | `settingsStore.locale` | localStorage | `promptclip-settings` key |
-| 置顶标签 / 历史版本设置 / 分享作者名 | 工作区文件 | `.promptclip.json` |
+| 置顶标签 / 历史版本设置 / 分享作者名 | 工作区文件 | `_promptclip/promptclip.config.json` |
 | 标签 / Prompt 数据 | 用户目录 | `.md` 文件 + YAML frontmatter |
-| 批注 sidecar | 用户目录 | `.promptclip/annotations/<promptId>.json` |
-| 批注图片 | 用户目录 | `.promptclip/assets/<promptId>/<annotationId>/...` |
-| 历史快照（可选） | 用户目录 | `.history/<id>.<timestamp>.md` |
-| 已删除 | 用户目录 | `.trash/<id>.<timestamp>.md` |
+| 批注 sidecar | 用户目录 | `_promptclip/annotations/<promptId>.json` |
+| 批注图片 | 用户目录 | `_promptclip/assets/<promptId>/<annotationId>/...` |
+| 历史快照（可选） | 用户目录 | `_promptclip/.history/<id>.<timestamp>.md` |
+| 已删除 | 用户目录 | `_promptclip/.trash/<id>.<timestamp>.md` |
 
 > 切换语言会自动在 `promptclip-settings` 中持久化；切回桌面端时 `fileStore` 仅记住「曾经授权过」，真正的工作区句柄每次启动时通过 `fileRepository.restoreDirectory()` 重新读取。
 

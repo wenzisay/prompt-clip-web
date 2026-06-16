@@ -53,7 +53,7 @@ describe('AnnotationService', () => {
       createdAt: now.toISOString(),
       updatedAt: now.toISOString(),
     });
-    expect(repository.dumpFiles()[`.promptclip/annotations/${promptId}.json`])
+    expect(repository.dumpFiles()[`_promptclip/annotations/${promptId}.json`])
       .toContain('客服回复');
   });
 
@@ -80,7 +80,7 @@ describe('AnnotationService', () => {
       size: 3,
     });
     expect(annotation.attachments[0].path).toContain(
-      `.promptclip/assets/${promptId}/${annotation.id}/`
+      `_promptclip/assets/${promptId}/${annotation.id}/`
     );
     expect(repository.dumpBinaryFiles()[annotation.attachments[0].path])
       .toEqual([1, 2, 3]);
@@ -240,13 +240,13 @@ describe('AnnotationService', () => {
       `${promptId}.2026-05-30-100000`
     );
 
-    expect(repository.dumpFiles()[`.promptclip/annotations/${promptId}.json`]).toBeUndefined();
-    expect(repository.dumpFiles()[`.trash/annotations/${promptId}.2026-05-30-100000.json`])
+    expect(repository.dumpFiles()[`_promptclip/annotations/${promptId}.json`]).toBeUndefined();
+    expect(repository.dumpFiles()[`_promptclip/.trash/annotations/${promptId}.2026-05-30-100000.json`])
       .toContain('删除时带走');
     expect(repository.dumpBinaryFiles()[annotation.attachments[0].path]).toBeUndefined();
     expect(
       repository.dumpBinaryFiles()[
-        `.trash/assets/${promptId}.2026-05-30-100000/${annotation.id}/${annotation.attachments[0].id}.png`
+        `_promptclip/.trash/assets/${promptId}.2026-05-30-100000/${annotation.id}/${annotation.attachments[0].id}.png`
       ]
     ).toEqual([7]);
   });

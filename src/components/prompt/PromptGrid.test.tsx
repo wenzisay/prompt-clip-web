@@ -102,6 +102,21 @@ describe('PromptGrid virtualization', () => {
     expect(grid).toBeTruthy();
   });
 
+  it('shows loading state instead of empty state while prompts are loading', () => {
+    usePromptStore.setState({
+      prompts: [],
+      filteredPrompts: [],
+      filter: { searchQuery: '', tag: undefined, favoritesOnly: false, recentOnly: false },
+      isLoading: true,
+      error: null,
+    });
+
+    render(<PromptGrid isLoading />);
+
+    expect(screen.queryByText('没有找到 Prompts')).toBeNull();
+    expect(screen.queryByText('尝试调整搜索条件或创建一个新的 Prompt')).toBeNull();
+  });
+
   it('raises the virtual row that contains an open card menu', async () => {
     const { container } = render(<PromptGrid />);
     for (let i = 0; i < 10; i += 1) {

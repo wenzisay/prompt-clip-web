@@ -88,10 +88,10 @@ export async function loadPrompts(
   repository: FileRepository,
   workspace: WorkspaceRef
 ): Promise<Prompt[]> {
-  const entries = await repository.listFiles(
+  const entries = (await repository.listFiles(
     workspace,
     [...CONFIG.FILE_SYSTEM.SUPPORTED_EXTENSIONS]
-  );
+  )).filter(isUserPromptEntry);
   const headResults = await mapWithConcurrency(
     entries,
     MAX_CONCURRENT_PROMPT_READS,
@@ -860,10 +860,10 @@ async function collectExistingStableIds(
   repository: FileRepository,
   workspace: WorkspaceRef
 ): Promise<Set<string>> {
-  const entries = await repository.listFiles(
+  const entries = (await repository.listFiles(
     workspace,
     [...CONFIG.FILE_SYSTEM.SUPPORTED_EXTENSIONS]
-  );
+  )).filter(isUserPromptEntry);
   const stableIds = new Set<string>();
 
   for (const entry of entries) {
@@ -916,6 +916,13 @@ function isHistoryEntryForPrompt(entry: FileEntry, stableId: string): boolean {
     `^${escapedPromptId}\\.\\d{4}-\\d{2}-\\d{2}-\\d{6}\\.md$`
   );
   return filenamePattern.test(entry.name);
+}
+
+function isUserPromptEntry(entry: FileEntry): boolean {
+  return (
+    entry.path !== CONFIG.FILE_SYSTEM.APP_DATA_DIR &&
+    !entry.path.startsWith(`${CONFIG.FILE_SYSTEM.APP_DATA_DIR}/`)
+  );
 }
 
 function extractFrontmatterBlockTags(content: string): string[] | null {

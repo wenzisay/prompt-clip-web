@@ -47,6 +47,41 @@ describe('PromptService repository integration', () => {
     expect(prompts[0].preview).toBe('Body');
   });
 
+  it('does not load markdown files from PromptClip metadata directories', async () => {
+    const repository = createFakeFileRepository({
+      files: {
+        'visible.md': [
+          '---',
+          'id: "11111111111111111"',
+          'title: Visible',
+          '---',
+          '',
+          'Visible body',
+        ].join('\n'),
+        '_promptclip/.history/22222222222222222.2026-05-17-010000.md': [
+          '---',
+          'id: "22222222222222222"',
+          'title: History',
+          '---',
+          '',
+          'History body',
+        ].join('\n'),
+        '_promptclip/.trash/33333333333333333.2026-05-17-030000.md': [
+          '---',
+          'id: "33333333333333333"',
+          'title: Trash',
+          '---',
+          '',
+          'Trash body',
+        ].join('\n'),
+      },
+    });
+
+    const prompts = await PromptService.loadPrompts(repository, workspace);
+
+    expect(prompts.map((prompt) => prompt.title)).toEqual(['Visible']);
+  });
+
   it('reads prompt files with bounded concurrency', async () => {
     const files = Object.fromEntries(
       Array.from({ length: 25 }, (_, index) => [
@@ -394,8 +429,8 @@ describe('PromptService repository integration', () => {
 
     const files = repository.dumpFiles();
     expect(files['11111111111111111.md']).toBeUndefined();
-    expect(Object.keys(files)).toContain('.trash/11111111111111111.2026-05-17-030000.md');
-    expect(Object.keys(files).some((path) => path.startsWith('.history/'))).toBe(false);
+    expect(Object.keys(files)).toContain('_promptclip/.trash/11111111111111111.2026-05-17-030000.md');
+    expect(Object.keys(files).some((path) => path.startsWith('_promptclip/.history/'))).toBe(false);
     expect(Object.values(files).join('\n')).not.toContain('id: "11111111111111111"');
     expect(consoleError).toHaveBeenCalledWith(
       expect.stringContaining('Cannot create history for non-persisted prompt id: 11111111111111111')
@@ -429,7 +464,7 @@ describe('PromptService repository integration', () => {
       expect(updated.filePath).toBe('My Prompt Renamed.md');
       expect(await repository.exists(workspace, 'My Prompt.md')).toBe(false);
       expect(await repository.exists(workspace, 'My Prompt Renamed.md')).toBe(true);
-      expect(Object.keys(repository.dumpFiles()).some((path) => path.startsWith('.history/'))).toBe(
+      expect(Object.keys(repository.dumpFiles()).some((path) => path.startsWith('_promptclip/.history/'))).toBe(
         false
       );
     }
@@ -444,7 +479,7 @@ describe('PromptService repository integration', () => {
       const repository = createFakeFileRepository({
         now: () => new Date(),
         files: {
-          '.promptclip.json': JSON.stringify({
+          '_promptclip/promptclip.config.json': JSON.stringify({
             historyVersions: {
               enabled: true,
               retentionDays: 30,
@@ -487,10 +522,10 @@ describe('PromptService repository integration', () => {
 
       expect(await repository.exists(workspace, 'My Prompt Renamed.md')).toBe(false);
       expect(Object.keys(repository.dumpFiles())).toContain(
-        `.history/${created.id}.2026-05-17-010000.md`
+        `_promptclip/.history/${created.id}.2026-05-17-010000.md`
       );
       expect(Object.keys(repository.dumpFiles())).toContain(
-        `.trash/${created.id}.2026-05-17-030000.md`
+        `_promptclip/.trash/${created.id}.2026-05-17-030000.md`
       );
     }
   );
@@ -520,14 +555,14 @@ describe('PromptService repository integration', () => {
     await PromptService.deletePrompt(repository, workspace, created);
 
     const trashBase = `${created.id}.2026-05-17-030000`;
-    expect(repository.dumpFiles()[`.trash/${trashBase}.md`]).toContain('Annotated Prompt');
-    expect(repository.dumpFiles()[`.trash/annotations/${trashBase}.json`])
+    expect(repository.dumpFiles()[`_promptclip/.trash/${trashBase}.md`]).toContain('Annotated Prompt');
+    expect(repository.dumpFiles()[`_promptclip/.trash/annotations/${trashBase}.json`])
       .toContain('使用效果不错');
-    expect(repository.dumpFiles()[`.promptclip/annotations/${created.id}.json`]).toBeUndefined();
+    expect(repository.dumpFiles()[`_promptclip/annotations/${created.id}.json`]).toBeUndefined();
     expect(repository.dumpBinaryFiles()[attachment.path]).toBeUndefined();
     expect(
       repository.dumpBinaryFiles()[
-        `.trash/assets/${trashBase}/${annotations.annotations[0].id}/${attachment.id}.png`
+        `_promptclip/.trash/assets/${trashBase}/${annotations.annotations[0].id}/${attachment.id}.png`
       ]
     ).toEqual([1, 2]);
   });
@@ -558,7 +593,7 @@ describe('PromptService repository integration', () => {
 
     expect(updated.id).toBe('legacy');
     expect(repository.dumpFiles()['legacy.md']).not.toContain('id: "legacy"');
-    expect(Object.keys(repository.dumpFiles()).some((path) => path.startsWith('.history/'))).toBe(
+    expect(Object.keys(repository.dumpFiles()).some((path) => path.startsWith('_promptclip/.history/'))).toBe(
       false
     );
     expect(consoleError).toHaveBeenCalledWith(
@@ -580,7 +615,7 @@ describe('PromptService repository integration', () => {
       createPromptFixture({ id: 'legacy', filePath: 'legacy.md' })
     );
 
-    expect(Object.keys(repository.dumpFiles()).some((path) => path.startsWith('.history/'))).toBe(
+    expect(Object.keys(repository.dumpFiles()).some((path) => path.startsWith('_promptclip/.history/'))).toBe(
       false
     );
     expect(consoleError).toHaveBeenCalledWith(
@@ -601,7 +636,7 @@ describe('PromptService repository integration', () => {
       createPromptFixture({ filePath: 'Stable.md' })
     );
 
-    expect(Object.keys(repository.dumpFiles()).some((path) => path.startsWith('.history/'))).toBe(
+    expect(Object.keys(repository.dumpFiles()).some((path) => path.startsWith('_promptclip/.history/'))).toBe(
       false
     );
   });
@@ -626,9 +661,9 @@ describe('PromptService repository integration', () => {
     );
 
     expect(Object.keys(repository.dumpFiles())).toContain(
-      '.trash/Legacy Title.2026-05-17-030000.md'
+      '_promptclip/.trash/Legacy Title.2026-05-17-030000.md'
     );
-    expect(Object.keys(repository.dumpFiles())).not.toContain('.trash/legacy.2026-05-17-030000.md');
+    expect(Object.keys(repository.dumpFiles())).not.toContain('_promptclip/.trash/legacy.2026-05-17-030000.md');
   });
 
   it('does not create history for copy count and pinned updates', async () => {
@@ -642,7 +677,7 @@ describe('PromptService repository integration', () => {
     await PromptService.incrementCopyCount(repository, workspace, created);
     await PromptService.togglePinned(repository, workspace, created);
 
-    expect(Object.keys(repository.dumpFiles()).some((path) => path.startsWith('.history/'))).toBe(
+    expect(Object.keys(repository.dumpFiles()).some((path) => path.startsWith('_promptclip/.history/'))).toBe(
       false
     );
   });
@@ -847,10 +882,10 @@ describe('PromptService repository integration', () => {
   it('matches history versions by exact stable id filename pattern', async () => {
     const repository = createFakeFileRepository({
       files: {
-        '.history/11111111111111111.2026-05-17-010000.md': 'Stable',
-        '.history/11111111111111111.extra.2026-05-17-010000.md': 'Extra delimiter',
-        '.history/x11111111111111111.2026-05-17-010000.md': 'Prefix',
-        '.history/11111111111111111.2026-05-17-0100.md': 'Bad timestamp',
+        '_promptclip/.history/11111111111111111.2026-05-17-010000.md': 'Stable',
+        '_promptclip/.history/11111111111111111.extra.2026-05-17-010000.md': 'Extra delimiter',
+        '_promptclip/.history/x11111111111111111.2026-05-17-010000.md': 'Prefix',
+        '_promptclip/.history/11111111111111111.2026-05-17-0100.md': 'Bad timestamp',
       },
     });
 
@@ -867,8 +902,8 @@ describe('PromptService repository integration', () => {
   it('does not match old path-based history files for stable id queries', async () => {
     const repository = createFakeFileRepository({
       files: {
-        '.history/foo.2026-05-17-010000.md': 'Old path history',
-        '.history/foo%2Ebar.2026-05-17-010000.md': 'Old encoded history',
+        '_promptclip/.history/foo.2026-05-17-010000.md': 'Old path history',
+        '_promptclip/.history/foo%2Ebar.2026-05-17-010000.md': 'Old encoded history',
       },
     });
 
@@ -884,7 +919,7 @@ describe('PromptService repository integration', () => {
   it('does not match history files when queried with non-stable ids', async () => {
     const repository = createFakeFileRepository({
       files: {
-        '.history/foo.2026-05-17-010000.md': 'Old path history',
+        '_promptclip/.history/foo.2026-05-17-010000.md': 'Old path history',
       },
     });
 
@@ -896,7 +931,7 @@ describe('PromptService repository integration', () => {
   it('loads history versions with parsed content and edited times', async () => {
     const repository = createFakeFileRepository({
       files: {
-        '.history/11111111111111111.2026-05-17-010000.md': [
+        '_promptclip/.history/11111111111111111.2026-05-17-010000.md': [
           '---',
           'id: "11111111111111111"',
           'title: First History',
@@ -908,7 +943,7 @@ describe('PromptService repository integration', () => {
           '',
           'First body',
         ].join('\n'),
-        '.history/11111111111111111.2026-05-17-020000.md': [
+        '_promptclip/.history/11111111111111111.2026-05-17-020000.md': [
           '---',
           'id: "11111111111111111"',
           'title: Latest History',
@@ -950,7 +985,7 @@ describe('PromptService repository integration', () => {
     const repository = createFakeFileRepository({
       now: () => new Date(),
       files: {
-        '.promptclip.json': JSON.stringify({
+        '_promptclip/promptclip.config.json': JSON.stringify({
           historyVersions: {
             enabled: true,
             retentionDays: 30,
@@ -969,7 +1004,7 @@ describe('PromptService repository integration', () => {
           '',
           'Current body',
         ].join('\n'),
-        '.history/11111111111111111.2026-05-17-010000.md': [
+        '_promptclip/.history/11111111111111111.2026-05-17-010000.md': [
           '---',
           'id: "11111111111111111"',
           'title: Restored',
@@ -1008,9 +1043,9 @@ describe('PromptService repository integration', () => {
     expect(repository.dumpFiles()['Restored.md']).toContain('id: "11111111111111111"');
     expect(repository.dumpFiles()['Current.md']).toBeUndefined();
     expect(Object.keys(repository.dumpFiles())).toContain(
-      '.history/11111111111111111.2026-05-17-030000.md'
+      '_promptclip/.history/11111111111111111.2026-05-17-030000.md'
     );
-    expect(repository.dumpFiles()['.history/11111111111111111.2026-05-17-030000.md']).toContain(
+    expect(repository.dumpFiles()['_promptclip/.history/11111111111111111.2026-05-17-030000.md']).toContain(
       'Current body'
     );
   });
