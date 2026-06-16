@@ -24,10 +24,34 @@ describe('FolderConfigService', () => {
     }
   });
 
-  it('normalizes invalid pinned tags', async () => {
+  it('does not read legacy root config files', async () => {
     const repository = createFakeFileRepository({
       files: {
         '.promptclip.json': JSON.stringify({
+          pinnedTags: ['legacy'],
+          shareAuthorName: '旧配置',
+          historyVersions: {
+            enabled: true,
+            retentionDays: 365,
+          },
+        }),
+      },
+    });
+
+    await expect(FolderConfigService.readFolderConfig(repository, workspace)).resolves.toEqual({
+      historyVersions: {
+        enabled: false,
+        retentionDays: 30,
+      },
+      pinnedTags: [],
+      shareAuthorName: '',
+    });
+  });
+
+  it('normalizes invalid pinned tags', async () => {
+    const repository = createFakeFileRepository({
+      files: {
+        '_promptclip/promptclip.config.json': JSON.stringify({
           pinnedTags: ['ai', 'ai', 1, 'work'],
         }),
       },
@@ -46,7 +70,7 @@ describe('FolderConfigService', () => {
   it('normalizes history version settings', async () => {
     const repository = createFakeFileRepository({
       files: {
-        '.promptclip.json': JSON.stringify({
+        '_promptclip/promptclip.config.json': JSON.stringify({
           historyVersions: {
             enabled: true,
             retentionDays: 365,
@@ -68,7 +92,7 @@ describe('FolderConfigService', () => {
   it('normalizes share author name', async () => {
     const repository = createFakeFileRepository({
       files: {
-        '.promptclip.json': JSON.stringify({
+        '_promptclip/promptclip.config.json': JSON.stringify({
           shareAuthorName: '  周文超  ',
         }),
       },
@@ -87,7 +111,7 @@ describe('FolderConfigService', () => {
   it('writes pinned tags to config file', async () => {
     const repository = createFakeFileRepository();
     await FolderConfigService.updatePinnedTags(repository, workspace, ['ai', 'work']);
-    const content = await repository.readText(workspace, '.promptclip.json');
+    const content = await repository.readText(workspace, '_promptclip/promptclip.config.json');
     expect(JSON.parse(content)).toEqual({
       historyVersions: {
         enabled: false,
@@ -101,7 +125,7 @@ describe('FolderConfigService', () => {
   it('updates history version settings while keeping pinned tags and share author', async () => {
     const repository = createFakeFileRepository({
       files: {
-        '.promptclip.json': JSON.stringify({
+        '_promptclip/promptclip.config.json': JSON.stringify({
           pinnedTags: ['ai'],
           shareAuthorName: '周文超',
         }),
@@ -113,7 +137,7 @@ describe('FolderConfigService', () => {
       retentionDays: 90,
     });
 
-    const content = await repository.readText(workspace, '.promptclip.json');
+    const content = await repository.readText(workspace, '_promptclip/promptclip.config.json');
     expect(JSON.parse(content)).toEqual({
       historyVersions: {
         enabled: true,
@@ -127,7 +151,7 @@ describe('FolderConfigService', () => {
   it('updates share author name while keeping other config', async () => {
     const repository = createFakeFileRepository({
       files: {
-        '.promptclip.json': JSON.stringify({
+        '_promptclip/promptclip.config.json': JSON.stringify({
           pinnedTags: ['ai'],
           historyVersions: {
             enabled: true,
@@ -139,7 +163,7 @@ describe('FolderConfigService', () => {
 
     await FolderConfigService.updateShareAuthorName(repository, workspace, '  周文超  ');
 
-    const content = await repository.readText(workspace, '.promptclip.json');
+    const content = await repository.readText(workspace, '_promptclip/promptclip.config.json');
     expect(JSON.parse(content)).toEqual({
       historyVersions: {
         enabled: true,

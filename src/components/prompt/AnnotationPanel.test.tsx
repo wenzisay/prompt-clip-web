@@ -12,7 +12,7 @@ const annotation: PromptAnnotation = {
       type: 'image',
       name: 'result.png',
       mimeType: 'image/png',
-      path: '.promptclip/assets/prompt/annotation/result.png',
+      path: '_promptclip/assets/prompt/annotation/result.png',
       size: 1024,
       createdAt: '2026-05-30T10:00:00.000Z',
     },

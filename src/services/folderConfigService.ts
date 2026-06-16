@@ -6,8 +6,7 @@
 
 import type { WorkspaceRef } from '@/types/file';
 import type { FileRepository } from '@/services/fileRepository';
-
-const CONFIG_FILENAME = '.promptclip.json';
+import { CONFIG } from '@/constants/config';
 
 export interface FolderConfig {
   historyVersions: HistoryVersionSettings;
@@ -73,11 +72,11 @@ export async function readFolderConfig(
   workspace: WorkspaceRef
 ): Promise<FolderConfig> {
   try {
-    if (!await repository.exists(workspace, CONFIG_FILENAME)) {
+    if (!await repository.exists(workspace, CONFIG.FILE_SYSTEM.CONFIG_FILE)) {
       return DEFAULT_CONFIG;
     }
 
-    const content = await repository.readText(workspace, CONFIG_FILENAME);
+    const content = await repository.readText(workspace, CONFIG.FILE_SYSTEM.CONFIG_FILE);
     return normalizeConfig(JSON.parse(content));
   } catch (error) {
     if (error instanceof Error && error.name !== 'NotFoundError') {
@@ -91,7 +90,7 @@ export async function folderConfigExists(
   repository: FileRepository,
   workspace: WorkspaceRef
 ): Promise<boolean> {
-  return await repository.exists(workspace, CONFIG_FILENAME);
+  return await repository.exists(workspace, CONFIG.FILE_SYSTEM.CONFIG_FILE);
 }
 
 export async function writeFolderConfig(
@@ -100,9 +99,10 @@ export async function writeFolderConfig(
   config: FolderConfig
 ): Promise<void> {
   const normalizedConfig = normalizeConfig(config);
+  await repository.mkdir(workspace, CONFIG.FILE_SYSTEM.APP_DATA_DIR);
   await repository.writeText(
     workspace,
-    CONFIG_FILENAME,
+    CONFIG.FILE_SYSTEM.CONFIG_FILE,
     `${JSON.stringify(normalizedConfig, null, 2)}\n`
   );
 }
