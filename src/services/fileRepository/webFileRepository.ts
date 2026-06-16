@@ -317,7 +317,17 @@ async function writeBinary(
 
 async function exists(_workspace: WorkspaceRef, path: string): Promise<boolean> {
   const root = await requireSavedDirectoryHandle();
-  const { directory, name } = await resolveParentDirectory(root, path, false);
+  let directory: FileSystemDirectoryHandle;
+  let name: string;
+
+  try {
+    ({ directory, name } = await resolveParentDirectory(root, path, false));
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      return false;
+    }
+    throw error;
+  }
 
   try {
     await directory.getFileHandle(name);
@@ -330,6 +340,15 @@ async function exists(_workspace: WorkspaceRef, path: string): Promise<boolean> 
       return false;
     }
   }
+}
+
+function isNotFoundError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'name' in error &&
+    error.name === 'NotFoundError'
+  );
 }
 
 async function getFileHandleIfExists(

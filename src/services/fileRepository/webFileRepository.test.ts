@@ -60,6 +60,7 @@ class FakeFileHandle implements FileSystemFileHandle {
 class FakeDirectoryHandle implements FileSystemDirectoryHandle {
   readonly kind = 'directory';
   private readonly files = new Map<string, string>();
+  private readonly directories = new Map<string, FakeDirectoryHandle>();
 
   constructor(readonly name: string) {}
 
@@ -81,8 +82,23 @@ class FakeDirectoryHandle implements FileSystemDirectoryHandle {
     );
   }
 
-  async getDirectoryHandle(): Promise<FileSystemDirectoryHandle> {
-    throw new DOMException('Not found', 'NotFoundError');
+  async getDirectoryHandle(
+    name: string,
+    options?: { create?: boolean }
+  ): Promise<FileSystemDirectoryHandle> {
+    const key = name.toLowerCase();
+    const existing = this.directories.get(key);
+    if (existing) {
+      return existing;
+    }
+
+    if (!options?.create) {
+      throw new DOMException('Not found', 'NotFoundError');
+    }
+
+    const directory = new FakeDirectoryHandle(name);
+    this.directories.set(key, directory);
+    return directory;
   }
 
   async removeEntry(name: string): Promise<void> {
@@ -94,12 +110,20 @@ class FakeDirectoryHandle implements FileSystemDirectoryHandle {
   }
 
   async *entries(): AsyncIterableIterator<[string, FileSystemHandle]> {
+    for (const [directoryName, directory] of this.directories.entries()) {
+      yield [directoryName, directory];
+    }
+
     for (const fileName of this.files.keys()) {
       yield [fileName, await this.getFileHandle(fileName)];
     }
   }
 
   async *values(): AsyncIterableIterator<FileSystemHandle> {
+    for (const directory of this.directories.values()) {
+      yield directory;
+    }
+
     for (const fileName of this.files.keys()) {
       yield await this.getFileHandle(fileName);
     }
@@ -273,6 +297,18 @@ describe('webFileRepository', () => {
     await webFileRepository.move(workspace!, 'a.md', 'A.md');
 
     await expect(webFileRepository.readText(workspace!, 'a.md')).resolves.toBe('content');
+  });
+
+  it('returns false when checking a file under a missing parent directory', async () => {
+    const directory = new FakeDirectoryHandle('Prompts');
+    installWindow(directory, new FakeIndexedDB(true));
+
+    const workspace = await webFileRepository.selectDirectory();
+    expect(workspace).not.toBeNull();
+
+    await expect(
+      webFileRepository.exists(workspace!, '_promptclip/promptclip.config.json')
+    ).resolves.toBe(false);
   });
 
   it('waits for IndexedDB write transactions to complete before selectDirectory resolves', async () => {
