@@ -15,6 +15,8 @@ interface UIState {
 
   /** 当前打开的模态框类型 */
   modalType: ModalType;
+  /** 待删除的 Prompt ID */
+  deletingPromptId: string | null;
   /** 命令面板是否打开 */
   isCommandPaletteOpen: boolean;
   /** 是否正在加载 */
@@ -35,7 +37,7 @@ interface UIState {
   toggleSelectAll: (promptIds: string[]) => void;
 
   /** 打开模态框 */
-  openModal: (type: ModalType) => void;
+  openModal: (type: ModalType, promptId?: string) => void;
   /** 关闭模态框 */
   closeModal: () => void;
 
@@ -58,6 +60,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   selectedPromptId: null,
   selectedPromptIds: [],
   modalType: null,
+  deletingPromptId: null,
   isCommandPaletteOpen: false,
   isLoading: false,
   toasts: [],
@@ -103,15 +106,16 @@ export const useUIStore = create<UIState>((set, get) => ({
     });
   },
 
-  openModal: (type) => {
+  openModal: (type, promptId) => {
     set({
       modalType: type,
+      deletingPromptId: type === 'delete' && promptId ? promptId : null,
       isDetailOpen: type === 'create' || type === 'edit' ? false : get().isDetailOpen,
     });
   },
 
   closeModal: () => {
-    set({ modalType: null });
+    set({ modalType: null, deletingPromptId: null });
   },
 
   openCommandPalette: () => {

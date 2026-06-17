@@ -9,6 +9,7 @@ import { Sidebar, TopBar, DetailPanel } from '@/components/layout';
 import { PromptGrid, CreateModal, DeleteConfirm } from '@/components/prompt';
 import { CommandPalette } from '@/components/command';
 import { SettingsModal } from '@/components/settings';
+import { RecycleModal } from '@/components/recycle';
 import { useFileStore } from '@/stores/fileStore';
 import { useUIStore } from '@/stores/uiStore';
 import { usePromptStore } from '@/stores/promptStore';
@@ -54,7 +55,7 @@ function getCurrentPathname(): string {
 
 function AppContent() {
   const { isAuthorized, workspace, initialize } = useFileStore();
-  const { modalType, selectedPromptId } = useUIStore();
+  const { modalType, selectedPromptId, deletingPromptId } = useUIStore();
   const { prompts, isLoading: isPromptLoading } = usePromptStore();
   const { locale, resetSettings, setHistorySettings, setShareAuthorName } = useSettingsStore();
   const { setTags } = useTagStore();
@@ -124,7 +125,7 @@ function AppContent() {
   const editingPromptId = modalType === 'edit' ? selectedPromptId : null;
 
   // 获取要删除的 Prompt 信息
-  const deletingPrompt = prompts.find((p) => p.id === selectedPromptId);
+  const deletingPrompt = prompts.find((p) => p.id === deletingPromptId);
 
   // 已授权时显示主界面
   return (
@@ -180,6 +181,9 @@ function AppContent() {
           <ShareImageModal />
         </Suspense>
       )}
+
+      {/* 回收站 */}
+      <RecycleModal />
     </div>
   );
 }
