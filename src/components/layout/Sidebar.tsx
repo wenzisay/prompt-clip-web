@@ -68,6 +68,20 @@ export function Sidebar() {
         </div>
       )}
 
+      {/* 回收站入口 */}
+      {!isCollapsed && (
+        <div className="px-3 py-2 border-t border-border">
+          <button
+            type="button"
+            onClick={() => openModal('recycleBin')}
+            className="w-full flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-surface-dim transition-colors text-left"
+          >
+            <span className="material-symbols-outlined text-muted">delete</span>
+            <span className="text-sm text-fg">{t.recycle.title}</span>
+          </button>
+        </div>
+      )}
+
       {/* 底部状态 */}
       {!isCollapsed && (
         <div className="px-3 py-3 border-t border-border">

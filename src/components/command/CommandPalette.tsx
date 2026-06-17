@@ -66,6 +66,16 @@ export function createBaseCommands(
       },
       category: 'action',
     },
+    {
+      id: 'open-recycle-bin',
+      label: t.recycle.commandOpen,
+      icon: 'delete',
+      action: () => {
+        closeCommandPalette();
+        openModal('recycleBin');
+      },
+      category: 'action',
+    },
   ];
 }
 
