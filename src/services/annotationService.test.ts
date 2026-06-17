@@ -250,4 +250,19 @@ describe('AnnotationService', () => {
       ]
     ).toEqual([7]);
   });
+
+  it('skips missing annotation files when repository existence is stale', async () => {
+    const repository = createFakeFileRepository();
+    vi.spyOn(repository, 'exists').mockResolvedValue(true);
+    vi.spyOn(repository, 'move').mockRejectedValue(new Error('文件不存在或已被移动'));
+
+    await expect(
+      AnnotationService.movePromptAnnotationsToTrash(
+        repository,
+        workspace,
+        promptId,
+        `${promptId}.2026-05-30-100000`
+      )
+    ).resolves.toBeUndefined();
+  });
 });

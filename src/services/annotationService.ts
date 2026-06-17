@@ -157,23 +157,20 @@ export async function movePromptAnnotationsToTrash(
   const sourceAnnotationPath = annotationPath(promptId);
   const sourceAssetPath = promptAssetDirectory(promptId);
 
-  if (await repository.exists(workspace, sourceAnnotationPath)) {
-    await repository.mkdir(workspace, joinPath(CONFIG.FILE_SYSTEM.TRASH_DIR, 'annotations'));
-    await repository.move(
-      workspace,
-      sourceAnnotationPath,
-      joinPath(CONFIG.FILE_SYSTEM.TRASH_DIR, 'annotations', `${trashBase}.json`)
-    );
-  }
-
-  if (await repository.exists(workspace, sourceAssetPath)) {
-    await repository.mkdir(workspace, joinPath(CONFIG.FILE_SYSTEM.TRASH_DIR, 'assets'));
-    await repository.move(
-      workspace,
-      sourceAssetPath,
-      joinPath(CONFIG.FILE_SYSTEM.TRASH_DIR, 'assets', trashBase)
-    );
-  }
+  await moveIfExists(
+    repository,
+    workspace,
+    sourceAnnotationPath,
+    joinPath(CONFIG.FILE_SYSTEM.TRASH_DIR, 'annotations'),
+    joinPath(CONFIG.FILE_SYSTEM.TRASH_DIR, 'annotations', `${trashBase}.json`)
+  );
+  await moveIfExists(
+    repository,
+    workspace,
+    sourceAssetPath,
+    joinPath(CONFIG.FILE_SYSTEM.TRASH_DIR, 'assets'),
+    joinPath(CONFIG.FILE_SYSTEM.TRASH_DIR, 'assets', trashBase)
+  );
 }
 
 /**
@@ -331,6 +328,29 @@ async function removeIfExists(
 ): Promise<void> {
   if (await repository.exists(workspace, path)) {
     await repository.remove(workspace, path);
+  }
+}
+
+async function moveIfExists(
+  repository: FileRepository,
+  workspace: WorkspaceRef,
+  from: string,
+  targetDirectory: string,
+  to: string
+): Promise<void> {
+  if (!(await repository.exists(workspace, from))) {
+    return;
+  }
+
+  await repository.mkdir(workspace, targetDirectory);
+
+  try {
+    await repository.move(workspace, from, to);
+  } catch (error) {
+    if (isMissingFileError(error)) {
+      return;
+    }
+    throw error;
   }
 }
 
