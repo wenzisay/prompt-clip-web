@@ -81,6 +81,48 @@ export function PromptMarkdownEditorField({
           id="prompt-content"
           value={value}
           onChange={(event) => onChange(event.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Tab') {
+              e.preventDefault();
+              const target = e.target as HTMLTextAreaElement;
+              const start = target.selectionStart;
+              const end = target.selectionEnd;
+
+              if (e.shiftKey) {
+                // Shift+Tab: 减少缩进
+                const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+                const lineEnd = value.indexOf('\n', start);
+                const lineEndIndex = lineEnd === -1 ? value.length : lineEnd;
+                const line = value.substring(lineStart, lineEndIndex);
+
+                // 检查行首的缩进（tab 或空格）
+                const leadingTab = line.startsWith('\t');
+                const leadingSpaces = line.match(/^(\s+)/)?.[0] || '';
+                const hasIndent = leadingTab || leadingSpaces.length >= 2;
+
+                if (hasIndent) {
+                  const indentToRemove = leadingTab ? '\t' : '  ';
+                  const newValue =
+                    value.substring(0, lineStart) +
+                    line.substring(indentToRemove.length) +
+                    value.substring(lineEndIndex);
+                  onChange(newValue);
+                  const newSelectionStart = Math.max(start - indentToRemove.length, lineStart);
+                  requestAnimationFrame(() => {
+                    target.selectionStart = target.selectionEnd = newSelectionStart;
+                  });
+                }
+              } else {
+                // Tab: 增加缩进
+                const newValue =
+                  value.substring(0, start) + '\t' + value.substring(end);
+                onChange(newValue);
+                requestAnimationFrame(() => {
+                  target.selectionStart = target.selectionEnd = start + 1;
+                });
+              }
+            }
+          }}
           placeholder={t.app.contentPlaceholder}
           className={`${editorClassName} resize-none rounded-lg border border-[var(--border-strong)] bg-surface-container px-4 py-3 font-mono text-sm leading-6 text-fg shadow-inner transition-colors placeholder:text-muted focus:border-accent focus:bg-surface focus:outline-none focus:ring-2 focus:ring-accent-soft disabled:cursor-not-allowed disabled:opacity-60`}
           disabled={disabled}
