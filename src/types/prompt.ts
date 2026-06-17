@@ -104,3 +104,26 @@ export interface PromptMetadata {
   pinned?: boolean;
   pinnedAt?: string;
 }
+
+/**
+ * 回收站中的被删除 Prompt 项
+ *
+ * 注意：不包含原始 prompt id。trashBase 的前缀可能是 stableId
+ * （17 位数字），也可能是 legacy basename（标题派生），无法可靠反推。
+ * 恢复时需要先 move md 文件并触发 stableId 重新分配，再用新 stableId
+ * 作为批注/附件的目标 id。
+ */
+export interface DeletedPrompt {
+  /** 回收站内文件名基础（不含扩展名），如 "abc123.2025-01-15-103045" */
+  trashBase: string;
+  /** 在回收站中的完整路径，如 "_promptclip/.trash/abc123.2025-01-15-103045.md" */
+  filePath: string;
+  /** frontmatter 中的 title；缺失时回退到 basename */
+  title: string;
+  /** 预览文本（前 N 字符） */
+  preview: string;
+  /** 删除时间，从 trashBase 尾部 timestamp 解析 */
+  deletedAt: Date;
+  /** 是否存在关联批注 JSON */
+  hasAnnotations: boolean;
+}

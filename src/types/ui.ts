@@ -5,7 +5,15 @@
 /**
  * 模态框类型
  */
-export type ModalType = 'create' | 'edit' | 'delete' | 'export' | 'settings' | 'share' | null;
+export type ModalType =
+  | 'create'
+  | 'edit'
+  | 'delete'
+  | 'export'
+  | 'settings'
+  | 'share'
+  | 'recycleBin'
+  | null;
 
 /**
  * 面板状态

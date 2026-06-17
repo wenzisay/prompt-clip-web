@@ -30,6 +30,8 @@ export interface ModalProps {
   closeOnOverlayClick?: boolean;
   /** 按 ESC 键是否关闭 */
   closeOnEscape?: boolean;
+  /** 遮罩是否模糊背景。用于多层 Modal 时突出前景。 */
+  blur?: boolean;
 }
 
 const maxWidthClasses: Record<NonNullable<ModalProps['maxWidth']>, string> = {
@@ -53,6 +55,7 @@ export function Modal({
   closeLabel = messages[DEFAULT_LOCALE].app.close,
   closeOnOverlayClick = true,
   closeOnEscape = true,
+  blur = false,
 }: ModalProps) {
   // ESC 键关闭
   useEffect(() => {
@@ -85,6 +88,7 @@ export function Modal({
       <Overlay
         isOpen={isOpen}
         onClose={closeOnOverlayClick ? onClose : undefined}
+        blur={blur}
       />
 
       <div

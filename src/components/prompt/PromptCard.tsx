@@ -147,8 +147,7 @@ export const PromptCard = memo(function PromptCard({
   // 删除
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setSelectedPrompt(prompt.id);
-    openModal('delete');
+    openModal('delete', prompt.id);
     setMenuOpen(false);
   };
 

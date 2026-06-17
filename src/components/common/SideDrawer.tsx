@@ -53,6 +53,8 @@ export interface SideDrawerProps {
   resizeTitle?: string;
   panelClassName?: string;
   bodyClassName?: string;
+  overlayZIndex?: number;
+  panelZIndex?: number;
 }
 
 export function SideDrawer({
@@ -69,6 +71,8 @@ export function SideDrawer({
   resizeTitle = messages[DEFAULT_LOCALE].app.dragResize,
   panelClassName = '',
   bodyClassName = '',
+  overlayZIndex = 40,
+  panelZIndex = 40,
 }: SideDrawerProps) {
   const [drawerWidth, setDrawerWidth] = useState(getInitialDrawerWidth);
   const [isResizing, setIsResizing] = useState(false);
@@ -145,6 +149,7 @@ export function SideDrawer({
       <Overlay
         isOpen={isOpen}
         onClose={closeOnOverlayClick ? onClose : undefined}
+        zIndex={overlayZIndex}
         blur
       />
 
@@ -155,7 +160,7 @@ export function SideDrawer({
           z-40 flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full'}
           ${panelClassName}
         `}
-        style={{ width: drawerWidth }}
+        style={{ width: drawerWidth, zIndex: panelZIndex }}
         aria-modal="true"
         role="dialog"
       >
