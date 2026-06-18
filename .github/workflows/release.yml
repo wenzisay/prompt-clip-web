@@ -1,57 +1,102 @@
 name: Release
+
 on:
   push:
     tags:
-      - 'v*'
-  workflow_dispatch:
+      - 'v*.*.*'
 
 jobs:
-  release:
+  build:
     permissions:
-      contents: write
+      contents: read
     strategy:
       fail-fast: false
       matrix:
-        platform: [macos-latest, ubuntu-20.04, windows-latest]
+        include:
+          - name: macos-arm64
+            platform: macos-latest
+            rust_targets: aarch64-apple-darwin
+            args: '--target aarch64-apple-darwin'
+            artifact_paths: |
+              src-tauri/target/aarch64-apple-darwin/release/bundle/**/*.dmg
+              src-tauri/target/aarch64-apple-darwin/release/bundle/**/*.tar.gz
+              src-tauri/target/aarch64-apple-darwin/release/bundle/**/*.sig
+
+          - name: macos-x64
+            platform: macos-15-intel
+            rust_targets: x86_64-apple-darwin
+            args: '--target x86_64-apple-darwin'
+            artifact_paths: |
+              src-tauri/target/x86_64-apple-darwin/release/bundle/**/*.dmg
+              src-tauri/target/x86_64-apple-darwin/release/bundle/**/*.tar.gz
+              src-tauri/target/x86_64-apple-darwin/release/bundle/**/*.sig
+
+          - name: windows-x64
+            platform: windows-latest
+            rust_targets: ''
+            args: ''
+            artifact_paths: |
+              src-tauri/target/release/bundle/**/*.exe
+              src-tauri/target/release/bundle/**/*.msi
+              src-tauri/target/release/bundle/**/*.zip
+              src-tauri/target/release/bundle/**/*.sig
+
     runs-on: ${{ matrix.platform }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install dependencies (ubuntu only)
-        if: matrix.platform == 'ubuntu-20.04'
-        # You can remove libayatana-appindicator3-dev if you don't use the system tray feature.
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev libayatana-appindicator3-dev librsvg2-dev
-
-      - name: Rust setup
+      - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_targets }}
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
           workspaces: './src-tauri -> target'
 
-      - name: Sync node version and setup cache
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 'lts/*'
-          cache: 'yarn' # Set this to npm, yarn or pnpm.
+          node-version: 20
+          cache: 'npm'
 
       - name: Install frontend dependencies
-        # If you don't have `beforeBuildCommand` configured you may want to build your frontend here too.
-        run: yarn install # Change this to npm, yarn or pnpm.
+        run: npm ci
 
-      - name: Build the app
-        uses: tauri-apps/tauri-action@v0
+      - name: Build Tauri app
+        run: npm run tauri:build -- ${{ matrix.args }}
 
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
         with:
-          tagName: ${{ github.ref_name }} # This only works if your workflow triggers on new tags.
-          releaseName: 'App Name v__VERSION__' # tauri-action replaces \_\_VERSION\_\_ with the app version.
-          releaseBody: 'See the assets to download and install this version.'
-          releaseDraft: true
+          name: ${{ matrix.name }}
+          path: ${{ matrix.artifact_paths }}
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: 'PromptClip ${{ github.ref_name }}'
+          body: 'See the assets to download this version and install.'
+          draft: true
           prerelease: false
+          fail_on_unmatched_files: true
+          files: |
+            artifacts/**/*
