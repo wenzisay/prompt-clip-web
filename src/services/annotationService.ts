@@ -355,14 +355,25 @@ async function moveIfExists(
 }
 
 function isMissingFileError(error: unknown): boolean {
-  if (!isErrorLike(error)) {
+  const message = getErrorMessage(error);
+  if (!message) {
     return false;
   }
 
   return (
-    error.name === 'NotFoundError' ||
-    /不存在|not found|no such file|could not be found/i.test(error.message)
+    (isErrorLike(error) && error.name === 'NotFoundError') ||
+    /不存在|not found|no such file|could not be found/i.test(message)
   );
+}
+
+function getErrorMessage(error: unknown): string | null {
+  if (typeof error === 'string') {
+    return error;
+  }
+  if (isErrorLike(error)) {
+    return error.message;
+  }
+  return null;
 }
 
 function isErrorLike(error: unknown): error is { name: string; message: string } {
