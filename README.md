@@ -6,12 +6,18 @@
 </p>
 
 <p align="center">
+  简体中文 | <a href="./README.en.md">English</a>
+</p>
+
+<p align="center">
   <a href="#特性">特性</a> •
+  <a href="#截图预览">截图</a> •
   <a href="#环境要求">环境要求</a> •
   <a href="#安装与构建">安装</a> •
   <a href="#使用指南">使用</a> •
+  <a href="#技术架构">架构</a> •
   <a href="#开发">开发</a> •
-  <a href="#技术架构">架构</a>
+  <a href="#贡献">贡献</a>
 </p>
 
 ---
@@ -26,14 +32,20 @@
 - **分享图片** — 渲染 Prompt 为可分享的 PNG 卡片（极简白 / 深色 / 淡彩边框三套模板）
 - **多格式导出** — JSON、CSV、Markdown ZIP 三种格式，导出范围可选「选中 / 当前筛选 / 全部」
 - **历史版本** — 可选开启；启用后每次编辑自动保存到 `_promptclip/.history/`（默认最多 10 个，按保留天数清理）
+- **回收站** — 删除的文件进入 `_promptclip/.trash/`（带时间戳），批注 sidecar 一并迁移；可在回收站中查看、恢复、彻底删除或一键清空
 - **元数据自愈** — 从 Obsidian 等外部工具导入的 `.md` 可在设置中一键扫描并补全缺失的 PromptClip frontmatter
 - **稳定 ID 迁移** — 首次加载会为缺 ID 的旧文件生成稳定 ID 并写回 frontmatter，方便历史/回收/批注系统关联
 - **两级加载** — 首屏只读文件头（frontmatter + 预览片段）保证可交互，正文由 `requestIdleCallback` 后台分批补全
 - **虚拟化列表** — 5K 级别工作区下用 `@tanstack/react-virtual` 渲染可视行，DOM 节点数与列表总长无关
-- **安全删除** — 文件移入 `_promptclip/.trash/`（带时间戳），批注 sidecar 同步迁移
 - **桌面端** — 基于 Tauri 2 的原生桌面应用，支持系统托盘、单实例运行、关闭即隐藏
-- **多语言** — 内置 `zh-CN` / `zh-TW` / `en-US` 三种语言，启动时按浏览器语言自动选择
+- **多语言** — 内置 `zh-CN` / `zh-TW` / `en-US` / `ja-JP` 四种语言，启动时按浏览器语言自动探测，可在「设置」中手动切换
 - **键盘优先** — 完整快捷键支持，可脱离鼠标高效操作
+
+## 截图预览
+
+> 📌 界面截图整理中，后续将在此补充：主界面、命令面板、批注面板、分享卡片三套模板。
+>
+> 分享卡片样式规格见 [`docs/分享图/SPEC.md`](./docs/分享图/SPEC.md)。
 
 ## 环境要求
 
@@ -119,7 +131,7 @@ npm run tauri:build
 
 ### CI 多平台构建
 
-项目配置了 GitHub Actions 工作流（`.github/workflows/release.yml`），推送 `v*` tag 时自动触发，为 macOS（aarch64 + x86_64）和 Windows 构建安装包并创建 Draft Release。
+项目配置了 GitHub Actions 工作流（`.github/workflows/release.yml`），推送 `v*.*.*` tag 时自动触发，为 macOS（aarch64 + x86_64）和 Windows 构建安装包并创建 Draft Release。
 
 ## 使用指南
 
@@ -171,6 +183,12 @@ npm run tauri:build
 - 支持格式：JSON、CSV、Markdown ZIP
 - 导出范围：选中的 Prompt、当前筛选结果、全部
 - 桌面端使用原生保存对话框，Web 端走浏览器下载
+
+### 回收站
+
+- 删除的 Prompt 移入 `_promptclip/.trash/`（文件名带时间戳），批注 sidecar 同步迁移，不会立即从磁盘消失
+- 在侧边栏打开「回收站」可查看已删除条目
+- 支持**恢复**（还原到原目录）、**彻底删除**（永久移除单个文件）、**清空回收站**（批量清空）
 
 ### 历史版本（可选）
 
@@ -236,7 +254,7 @@ pinned: false
 | 构建 | Vite 6 |
 | 状态管理 | Zustand 5 |
 | 样式 | Tailwind CSS 3.4（自定义 token：`accent` / `secondary` / `tertiary` / `bg` / `surface` / `surfaceContainer` / `surfaceHigh` / `surfaceDim` / `fg` / `muted`） |
-| 国际化 | 自研 i18n，支持 `zh-CN` / `zh-TW` / `en-US`，启动时按浏览器语言自动选择 |
+| 国际化 | 自研 i18n，支持 `zh-CN` / `zh-TW` / `en-US` / `ja-JP`，启动时按浏览器语言自动探测（fallback `en-US`） |
 | 搜索 | FlexSearch 0.7（标题 +10 / 内容 +5 / 标签 +3 加权合并） |
 | Markdown | Marked 15 |
 | 列表虚拟化 | `@tanstack/react-virtual` 3.x |
@@ -255,16 +273,17 @@ src/
 ├── i18n/                   # 自研 i18n（messages.ts + useTranslation hook）
 ├── services/               # 业务逻辑层
 │   ├── fileRepository/     # 文件系统抽象：webFileRepository / tauriFileRepository / fakeFileRepository
-│   ├── promptService.ts    # Prompt CRUD + 两级加载 + 历史版本
-│   ├── promptLazyLoader.ts # 后台分批补全 content
-│   ├── searchService.ts    # FlexSearch 三索引
-│   ├── tagService.ts       # 标签解析 / 树构建 / 重命名
-│   ├── exportService.ts    # JSON / CSV / Markdown ZIP 导出
+│   ├── promptService.ts        # Prompt CRUD + 两级加载 + 历史版本
+│   ├── promptLazyLoader.ts     # 后台分批补全 content
+│   ├── searchService.ts        # FlexSearch 三索引
+│   ├── tagService.ts           # 标签解析 / 树构建 / 重命名
+│   ├── exportService.ts        # JSON / CSV / Markdown ZIP 导出
 │   ├── exportTargetService.ts  # 浏览器下载 vs Tauri 原生保存对话框
 │   ├── annotationService.ts    # 批注 sidecar 读写
 │   ├── shareImageService.ts    # 分享图渲染（html-to-image / html2canvas）
 │   ├── folderConfigService.ts  # `_promptclip/promptclip.config.json` 读写
-│   └── metadataRepairService.ts# 补全 Obsidian 导入文件的 frontmatter
+│   ├── metadataRepairService.ts# 补全 Obsidian 导入文件的 frontmatter
+│   └── recycleService.ts       # 回收站：查看 / 恢复 / 彻底删除 / 清空
 ├── stores/                 # Zustand 状态管理
 │   ├── fileStore.ts        # 工作区状态（persist → localStorage）
 │   ├── promptStore.ts      # Prompt 列表 / 过滤 / 筛选
@@ -290,6 +309,9 @@ src/
 │   ├── settings/           #   设置（SettingsModal）
 │   ├── export/             #   导出（ExportModal）
 │   ├── share/              #   分享图（ShareImageModal / ShareCardPreview）
+│   ├── recycle/            #   回收站（RecycleModal / RecycleList / RecycleCard / RecycleDetailDrawer）
+│   ├── about/              #   关于页（AboutPage）
+│   ├── privacy/            #   隐私说明页（PrivacyPage）
 │   └── WelcomeScreen.tsx   #   未授权欢迎页
 └── App.tsx                 # 根组件
 ```
@@ -363,21 +385,30 @@ npm run test
 npm run test:ui
 ```
 
-测试与源文件同目录，命名为 `*.test.ts` / `*.test.tsx`，覆盖：服务（`promptService` / `searchService` / `promptLazyLoader` / `annotationService` / `shareImageService` / `exportService` / `fileRepository` / `folderConfigService` / `metadataRepairService`）、store（`promptStore` / `annotationStore` / `settingsStore`）、组件（`PromptCard` / `PromptGrid` / `CreateModal` / `HistoryModal` / `AnnotationPanel` / `MarkdownPreviewEditor` / `MarkdownModeToggle` / `PromptMarkdownEditorField` / `ShareCardPreview` / `SettingsModal` / `CommandPalette` / `TopBar` / `DetailPanel` / `WelcomeScreen`）与工具函数。
+测试与源文件同目录，命名为 `*.test.ts` / `*.test.tsx`，覆盖：服务（`promptService` / `searchService` / `promptLazyLoader` / `annotationService` / `shareImageService` / `exportService` / `fileRepository` / `folderConfigService` / `metadataRepairService` / `recycleService`）、store（`promptStore` / `annotationStore` / `settingsStore`）、组件（`PromptCard` / `PromptGrid` / `CreateModal` / `HistoryModal` / `AnnotationPanel` / `MarkdownPreviewEditor` / `MarkdownModeToggle` / `PromptMarkdownEditorField` / `ShareCardPreview` / `SettingsModal` / `CommandPalette` / `TopBar` / `DetailPanel` / `WelcomeScreen`）与工具函数。
 
-## Roadmap
+## 贡献
 
-详见 [TODO.md](./TODO.md)：
+欢迎提 Issue 和 PR。本地开发：
 
-- [ ] 回收站 UI
-- [ ] 归档（从索引移除但保留文件）
-- [ ] 文件加载并行化（worker / chunked）
-- [ ] FlexSearch 索引持久化到 IndexedDB
-- [ ] 多版本 / 分身（如中英双语、Codex 版、Claude 版）
-- [ ] 文件监听（`visibilitychange` 刷新 / `lastModified` 轮询 / `FileSystemObserver`）
-- [ ] 多设备同步机制（见 `docs/promptclip-sync-design.md`）
-- [ ] Web / 桌面端同时打开同一文件夹的锁冲突处理
+```bash
+npm install         # 安装依赖
+npm run dev         # Web 开发（localhost:5173）
+npm run tauri:dev   # 桌面端开发（需 Rust）
+npm run test        # 运行测试
+npm run lint        # 代码检查
+npm run type-check  # 类型检查
+```
+
+约定：
+
+- 遵循现有目录分层与依赖方向（`types → constants → utils → services → stores → hooks → components`），禁止反向依赖
+- 新增模块时同步更新对应目录的 `index.ts` barrel 文件
+- 新增用户可见文字需通过 i18n 在四种语言（`zh-CN` / `zh-TW` / `en-US` / `ja-JP`）中补全翻译
+- 提交前请确保 `npm run lint`、`npm run type-check`、`npm run test` 均通过
+
+
 
 ## License
 
-[MIT](./LICENSE)
+[AGPL-3.0](./LICENSE)
