@@ -2,8 +2,9 @@
 
 <p align="center">
   <strong>A local-first AI prompt manager</strong><br>
-  All data stays on your device — no sign-up, no cloud, no database
-</p>
+  All data stays on your device — no sign-up, no cloud, no database<br>
+  Cross-platform support: The desktop version supports Web, macOS, Linux, and Windows; the mobile version supports iOS. （The mobile app is not open source.
+</p>）
 
 <p align="center">
   <a href="./README.md">简体中文</a> | English
@@ -43,9 +44,32 @@
 
 ## Screenshots
 
-> 📌 Screenshots are being prepared — main UI, command palette, annotation panel, and the three share-card templates will be added here.
->
-> Share-card specs: [`docs/分享图/SPEC.md`](./docs/分享图/SPEC.md).
+Welcome page:
+![Welcome page](docs/screenshot/bettershot_1781858716926.jpg)
+
+Select data directory:
+![Select data directory](docs/screenshot/bettershot_1781858760022.jpg)
+
+Main interface:
+![Main interface](docs/screenshot/bettershot_1781858807574.jpg)
+
+Quick switch:
+![Quick switch](docs/screenshot/bettershot_1781858845948.jpg)
+
+Prompt annotations:
+![Prompt annotations](docs/screenshot/bettershot_1781859115578.jpg)
+
+History versions:
+![History versions](docs/screenshot/bettershot_1781859135574.jpg)
+
+Share card:
+![Share card](docs/screenshot/bettershot_1781859201346.jpg)
+
+iPhone:
+![iPhone](docs/screenshot/IMG_5179.jpg)
+
+iPad:
+![iPad](docs/screenshot/Picsew_20260619173759.jpg)
 
 ## Requirements
 
@@ -327,7 +351,7 @@ Dependency direction: `types → constants → utils → services → stores →
 5. `usePromptLazyLoad` starts background idle loading, batching 50 concurrent `ensureContent` → `patchPromptContent` → `addContentToIndex`
 6. On workspace switch or component unmount, `cancelLazyContentLoad()` stops further batches; in-flight batches discard stale results via a generation tag
 7. The tag tree is built dynamically from all prompts' `tags` field; filtering / search / view switches are handled by `promptStore.applyFilter`
-8. **No file watching** — external file changes require a page refresh (see `TODO.md` for options like FileSystemObserver)
+8. **No file watching** — external file changes require a page refresh to take effect
 
 ### Persistence strategy
 
@@ -385,8 +409,6 @@ npm run test
 npm run test:ui
 ```
 
-Tests live next to their sources as `*.test.ts` / `*.test.tsx`, covering: services (`promptService` / `searchService` / `promptLazyLoader` / `annotationService` / `shareImageService` / `exportService` / `fileRepository` / `folderConfigService` / `metadataRepairService` / `recycleService`), stores (`promptStore` / `annotationStore` / `settingsStore`), components (`PromptCard` / `PromptGrid` / `CreateModal` / `HistoryModal` / `AnnotationPanel` / `MarkdownPreviewEditor` / `MarkdownModeToggle` / `PromptMarkdownEditorField` / `ShareCardPreview` / `SettingsModal` / `CommandPalette` / `TopBar` / `DetailPanel` / `WelcomeScreen`), and utils.
-
 ## Contributing
 
 Issues and PRs are welcome. Local development:
@@ -407,18 +429,6 @@ Conventions:
 - Any user-visible text must be added through i18n in all four languages (`zh-CN` / `zh-TW` / `en-US` / `ja-JP`)
 - Before submitting, make sure `npm run lint`, `npm run type-check`, and `npm run test` all pass
 
-## Roadmap
-
-See [TODO.md](./TODO.md):
-
-- [ ] Archive (remove from index but keep the file)
-- [ ] Parallelized file loading (worker / chunked)
-- [ ] Persist FlexSearch index to IndexedDB
-- [ ] Variants / personas (e.g. bilingual, Codex edition, Claude edition)
-- [ ] File watching (`visibilitychange` refresh / `lastModified` polling / `FileSystemObserver`)
-- [ ] Multi-device sync (see `docs/promptclip-sync-design.md`)
-- [ ] Lock conflict handling when Web and Desktop open the same folder
-
 ## License
 
-[MIT](./LICENSE)
+[AGPL-3.0](./LICENSE)

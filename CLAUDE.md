@@ -2,7 +2,7 @@
 
 ## 项目概述
 
-PromptClip 是一个纯前端的 AI 提示词管理工具。用户通过浏览器 File System Access API 选择本地目录，应用直接读写 `.md` 文件（YAML frontmatter + Markdown 正文）。无后端、无数据库、无路由。
+PromptClip 是一个 AI 提示词管理工具。Web 端为纯前端应用，用户通过浏览器 File System Access API 选择本地目录，应用直接读写 `.md` 文件（YAML frontmatter + Markdown 正文）。桌面端基于 Tauri 2 封装同一套前端。无后端服务、无数据库、无路由。
 
 ## 常用命令
 
@@ -13,6 +13,8 @@ npm run type-check   # 仅类型检查 (tsc --noEmit)
 npm run lint         # ESLint 检查 src/
 npm run test         # Vitest 测试
 npm run test:ui      # Vitest 可视化界面
+npm run tauri:dev    # 桌面端开发（需 Rust）
+npm run tauri:build  # 构建桌面端安装包
 ```
 
 ## 架构
@@ -20,10 +22,12 @@ npm run test:ui      # Vitest 可视化界面
 ```
 src/
 ├── types/           # TypeScript 类型定义（数据模型）
-├── constants/       # 静态配置（CONFIG, KEYBINDINGS, DEFAULTS）
+├── constants/       # 静态配置（CONFIG, KEYBINDINGS, DEFAULTS, shareTemplates）
 ├── utils/           # 纯函数工具（无副作用）
-├── services/        # 业务逻辑层（文件IO、搜索、标签、导出）
-├── stores/          # Zustand 状态管理（fileStore, promptStore, tagStore, uiStore, settingsStore）
+├── i18n/            # 自研 i18n（messages.ts + useTranslation hook）
+├── services/        # 业务逻辑层（文件IO、搜索、标签、批注、分享图、导出、回收站、历史版本）
+│   └── fileRepository/  # 文件系统抽象：web / tauri / fake（测试）
+├── stores/          # Zustand 状态管理（fileStore, promptStore, tagStore, uiStore, settingsStore, annotationStore）
 ├── hooks/           # React Hooks
 ├── components/      # React 组件
 │   ├── common/      #   通用 UI 基础组件
@@ -31,7 +35,12 @@ src/
 │   ├── prompt/      #   Prompt 领域组件
 │   ├── tag/         #   标签领域组件
 │   ├── command/     #   命令面板
-│   └── export/      #   导出功能
+│   ├── export/      #   导出功能
+│   ├── share/       #   分享图
+│   ├── recycle/     #   回收站
+│   ├── settings/    #   设置
+│   ├── about/       #   关于页
+│   └── privacy/     #   隐私说明页
 └── App.tsx          # 根组件，编排布局和 store
 ```
 
@@ -94,8 +103,8 @@ export const useXxxStore = create<XxxState>()((set, get) => ({ ... }));
 ### 样式
 
 - Tailwind CSS 3.4，纯 utility class，不使用 CSS Modules 或 CSS-in-JS
-- 自定义主题 token 定义在 `tailwind.config.js`（颜色: `accent`, `surface`, `fg`, `muted` 等）
-- 图标使用 Material Symbols Outlined（Google Fonts CDN）
+- 自定义主题 token 定义在 `tailwind.config.js`（颜色: `accent`, `secondary`, `tertiary`, `surface`, `fg`, `muted` 等）
+- 图标使用 Material Symbols Outlined（字体文件已内置在 `public/fonts/`）
 
 ### Barrel 文件
 
@@ -109,8 +118,10 @@ export const useXxxStore = create<XxxState>()((set, get) => ({ ... }));
 
 ## 测试
 
-- 使用 Vitest，当前无测试文件
-- 测试文件应与源文件同目录，命名为 `*.test.ts` 或 `*.test.tsx`
+- 使用 Vitest 2 + jsdom + `@testing-library/react`
+- 测试文件与源文件同目录，命名为 `*.test.ts` 或 `*.test.tsx`
+- 已覆盖：services（`promptService` / `searchService` / `promptLazyLoader` / `annotationService` / `shareImageService` / `exportService` / `fileRepository` / `folderConfigService` / `metadataRepairService` / `recycleService`）、stores（`promptStore` / `annotationStore` / `settingsStore`）、组件与工具函数
+- 运行：`npm run test`，可视化界面 `npm run test:ui`
 
 ## UI 语言与国际化
 
@@ -118,9 +129,12 @@ export const useXxxStore = create<XxxState>()((set, get) => ({ ... }));
 
 ### 支持的语言
 
-- `zh-CN` — 简体中文（默认）
+- `zh-CN` — 简体中文
 - `zh-TW` — 繁体中文
-- `en-US` — 英文
+- `en-US` — English
+- `ja-JP` — 日本語
+
+启动时按浏览器语言自动探测（`detectInitialLocale`），fallback 为 `en-US`；可在「设置」中手动切换。
 
 ### 使用方式
 
@@ -135,7 +149,7 @@ function Component() {
 
 ### 新增翻译
 
-所有用户可见文字必须通过 i18n 添加翻译，在 `src/i18n/messages.ts` 中为三种语言分别添加对应条目。
+所有用户可见文字必须通过 i18n 添加翻译，在 `src/i18n/messages.ts` 中为四种语言（`zh-CN` / `zh-TW` / `en-US` / `ja-JP`）分别添加对应条目。
 
 ### 翻译类型
 
@@ -150,7 +164,3 @@ function Component() {
 4. 同时构建 FlexSearch 内存索引（标题 + 内容 + 标签三个加权索引）
 5. 从所有 Prompt 的 tags 字段动态提取标签树
 6. **无文件监听**——手动在文件夹中增删文件需刷新页面才能生效
-
-## 已知优化项
-
-见 `TODO.md`：文件加载并行化、FlexSearch 索引持久化、文件系统变更监听。

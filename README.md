@@ -2,7 +2,8 @@
 
 <p align="center">
   <strong>本地优先的 AI 提示词管理工具</strong><br>
-  数据完全存储在本地，无需注册、无需云端、无需数据库
+  数据完全存储在本地，无需注册、无需云端、无需数据库<br>
+  跨平台支持：桌面端支持web、macos、linux、windows，移动端支持iOS（移动端未开放源代码）。
 </p>
 
 <p align="center">
@@ -43,9 +44,33 @@
 
 ## 截图预览
 
-> 📌 界面截图整理中，后续将在此补充：主界面、命令面板、批注面板、分享卡片三套模板。
->
-> 分享卡片样式规格见 [`docs/分享图/SPEC.md`](./docs/分享图/SPEC.md)。
+欢迎页：
+![欢迎页](docs/screenshot/bettershot_1781858716926.jpg)
+
+选择数据目录：
+![选择数据目录](docs/screenshot/bettershot_1781858760022.jpg)
+
+主界面：
+![主界面](docs/screenshot/bettershot_1781858807574.jpg)
+
+快速切换：
+![快速切换](docs/screenshot/bettershot_1781858845948.jpg)
+
+提示词批注：
+![提示词批注](docs/screenshot/bettershot_1781859115578.jpg)
+
+历史版本：
+![历史版本](docs/screenshot/bettershot_1781859135574.jpg)
+
+分享卡片：
+![分享卡片](docs/screenshot/bettershot_1781859201346.jpg)
+
+iPhone版：
+![iPhone版](docs/screenshot/IMG_5179.jpg)
+
+iPad版：
+![iPad版](docs/screenshot/Picsew_20260619173759.jpg)
+
 
 ## 环境要求
 
@@ -327,7 +352,7 @@ src/
 5. `usePromptLazyLoad` 启动后台 idle 加载，每批 50 条并发 `ensureContent` → `patchPromptContent` → `addContentToIndex`
 6. 切换 workspace、组件卸载时 `cancelLazyContentLoad()` 中止后续批次；进行中批次靠 generation 标识丢弃过期结果
 7. 从所有 Prompt 的 tags 字段动态构建标签树；筛选 / 搜索 / 视图切换由 `promptStore.applyFilter` 完成
-8. **无文件监听** — 外部修改文件后需刷新页面（FileSystemObserver 等方案见 `TODO.md`）
+8. **无文件监听** — 外部修改文件后需刷新页面才能生效
 
 ### 持久化策略
 
@@ -385,7 +410,6 @@ npm run test
 npm run test:ui
 ```
 
-测试与源文件同目录，命名为 `*.test.ts` / `*.test.tsx`，覆盖：服务（`promptService` / `searchService` / `promptLazyLoader` / `annotationService` / `shareImageService` / `exportService` / `fileRepository` / `folderConfigService` / `metadataRepairService` / `recycleService`）、store（`promptStore` / `annotationStore` / `settingsStore`）、组件（`PromptCard` / `PromptGrid` / `CreateModal` / `HistoryModal` / `AnnotationPanel` / `MarkdownPreviewEditor` / `MarkdownModeToggle` / `PromptMarkdownEditorField` / `ShareCardPreview` / `SettingsModal` / `CommandPalette` / `TopBar` / `DetailPanel` / `WelcomeScreen`）与工具函数。
 
 ## 贡献
 
