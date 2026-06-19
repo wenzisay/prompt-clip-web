@@ -3,8 +3,8 @@
 <p align="center">
   <strong>A local-first AI prompt manager</strong><br>
   All data stays on your device — no sign-up, no cloud, no database<br>
-  Cross-platform support: The desktop version supports Web, macOS, Linux, and Windows; the mobile version supports iOS. （The mobile app is not open source.
-</p>）
+  Cross-platform support: The desktop version supports Web, macOS, Linux, and Windows; the mobile version supports iOS.
+</p>
 
 <p align="center">
   <a href="./README.md">简体中文</a> | English
@@ -70,6 +70,12 @@ iPhone:
 
 iPad:
 ![iPad](docs/screenshot/Picsew_20260619173759.jpg)
+
+## Online App & Platform Status
+
+- Web App: https://www.promptclip.online/
+- The iOS version is not yet available on the Apple Store. Please stay tuned.
+- The mobile app (iOS) is not open source.
 
 ## Requirements
 

@@ -3,7 +3,7 @@
 <p align="center">
   <strong>本地优先的 AI 提示词管理工具</strong><br>
   数据完全存储在本地，无需注册、无需云端、无需数据库<br>
-  跨平台支持：桌面端支持web、macos、linux、windows，移动端支持iOS（移动端未开放源代码）。
+  跨平台支持：桌面端支持web、macos、linux、windows，移动端支持iOS。
 </p>
 
 <p align="center">
@@ -71,6 +71,11 @@ iPhone版：
 iPad版：
 ![iPad版](docs/screenshot/Picsew_20260619173759.jpg)
 
+## 在线体验与平台状态
+
+- Web App 地址：https://www.promptclip.online/
+- iOS 版暂未上架 Apple Store，请等待。
+- 移动端 App（iOS）未开放源代码。
 
 ## 环境要求
 
