@@ -22,3 +22,16 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Secrets / environment
+.env
+.env.*
+!.env.example
+
+# Local AI tooling & personal config
+.claude/
+.codex/
+.mcp.json
+
+# Local dev working docs (TDD workflow artifacts)
+IMPLEMENTATION_PLAN.md
