@@ -3,6 +3,11 @@
   "version": "1.0.0",
   "description": "个人 Prompt 管理工具 - AI 提示词管理应用",
   "license": "AGPL-3.0-only",
+  "author": "wenzisay",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wenzisay/prompt-clip-web.git"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite",
