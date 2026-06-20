@@ -5,6 +5,7 @@
 import { WelcomeScreen } from '@/components/WelcomeScreen';
 import { AboutPage } from '@/components/about';
 import { PrivacyPage } from '@/components/privacy';
+import { SupportPage } from '@/components/support';
 import { Sidebar, TopBar, DetailPanel } from '@/components/layout';
 import { PromptGrid, CreateModal, DeleteConfirm } from '@/components/prompt';
 import { CommandPalette } from '@/components/command';
@@ -43,6 +44,12 @@ export function isPrivacyPath(pathname: string): boolean {
   const normalizedPathname = pathname.replace(/\/+$/, '') || '/';
 
   return normalizedPathname === '/privacy';
+}
+
+export function isSupportPath(pathname: string): boolean {
+  const normalizedPathname = pathname.replace(/\/+$/, '') || '/';
+
+  return normalizedPathname === '/support';
 }
 
 function getCurrentPathname(): string {
@@ -199,6 +206,10 @@ export function AppRouter({ pathname = getCurrentPathname() }: AppRouterProps) {
 
   if (isPrivacyPath(pathname)) {
     return <PrivacyPage />;
+  }
+
+  if (isSupportPath(pathname)) {
+    return <SupportPage />;
   }
 
   return <AppContent />;
