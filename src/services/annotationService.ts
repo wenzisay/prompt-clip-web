@@ -362,7 +362,7 @@ function isMissingFileError(error: unknown): boolean {
 
   return (
     (isErrorLike(error) && error.name === 'NotFoundError') ||
-    /不存在|not found|no such file|could not be found/i.test(message)
+    /不存在|找不到指定的文件|not found|no such file|could not be found|os error 2/i.test(message)
   );
 }
 
