@@ -160,4 +160,39 @@ describe('ShareCardPreview', () => {
 
     expect(markup).not.toContain('Note');
   });
+
+  it('places the author beside the logo at the bottom with a thin divider', () => {
+    const markup = renderToStaticMarkup(
+      <ShareCardPreview
+        authorName="周文超"
+        locale="zh-CN"
+        options={{ ...baseOptions, showAuthor: true, showLogo: true }}
+        prompt={prompt}
+        templateId="minimal"
+      />
+    );
+
+    // 作者已从顶部移除，位于标题之后
+    expect(markup.indexOf('周文超')).toBeGreaterThan(markup.indexOf('分享标题'));
+    // 作者位于 logo（PromptClip）左侧
+    expect(markup.indexOf('周文超')).toBeLessThan(markup.indexOf('PromptClip'));
+    // 两者之间有细竖线分隔符
+    expect(markup).toContain('w-px');
+  });
+
+  it('omits the author divider when only the logo is shown', () => {
+    const markup = renderToStaticMarkup(
+      <ShareCardPreview
+        authorName="周文超"
+        locale="zh-CN"
+        options={{ ...baseOptions, showLogo: true }}
+        prompt={prompt}
+        templateId="minimal"
+      />
+    );
+
+    expect(markup).toContain('PromptClip');
+    expect(markup).not.toContain('周文超');
+    expect(markup).not.toContain('w-px');
+  });
 });

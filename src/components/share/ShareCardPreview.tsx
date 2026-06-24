@@ -44,10 +44,6 @@ export function ShareCardPreview({
       <article
         className={`relative w-full overflow-hidden rounded-lg px-12 py-11 ${template.cardClassName}`}
       >
-        {shouldShowAuthor && (
-          <div className="mb-7 text-lg font-medium opacity-75">{authorName.trim()}</div>
-        )}
-
         <h1
           className={`mb-7 break-words text-4xl font-semibold leading-tight ${template.titleClassName}`}
           style={{ overflowWrap: 'anywhere' }}
@@ -119,14 +115,22 @@ export function ShareCardPreview({
           </section>
         )}
 
-        {options.showLogo && (
-          <div className="mt-10 flex items-center justify-end gap-2 text-sm font-medium opacity-75">
-            <img
-              src={promptClipLogo}
-              alt=""
-              className={`h-7 w-7 rounded-md ${template.logoClassName}`}
-            />
-            <span>PromptClip</span>
+        {(shouldShowAuthor || options.showLogo) && (
+          <div className="mt-10 flex items-center justify-end gap-3 text-sm font-medium opacity-75">
+            {shouldShowAuthor && <span>{authorName.trim()}</span>}
+            {shouldShowAuthor && options.showLogo && (
+              <span className="h-3 w-px bg-current opacity-40" aria-hidden="true" />
+            )}
+            {options.showLogo && (
+              <>
+                <img
+                  src={promptClipLogo}
+                  alt=""
+                  className={`h-7 w-7 rounded-md ${template.logoClassName}`}
+                />
+                <span>PromptClip</span>
+              </>
+            )}
           </div>
         )}
       </article>
