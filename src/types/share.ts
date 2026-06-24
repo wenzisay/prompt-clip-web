@@ -21,4 +21,8 @@ export interface ShareImageOptions {
   showLogo: boolean;
   showTags: boolean;
   renderMarkdown: boolean;
+  /** 是否在分享图中包含批注区块 */
+  includeAnnotations: boolean;
+  /** 选中包含的批注 ID（顺序无关，渲染时保持批注原始顺序） */
+  selectedAnnotationIds: string[];
 }

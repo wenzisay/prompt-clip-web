@@ -8,6 +8,8 @@ export const DEFAULT_SHARE_IMAGE_OPTIONS: ShareImageOptions = {
   showLogo: true,
   showTags: true,
   renderMarkdown: true,
+  includeAnnotations: false,
+  selectedAnnotationIds: [],
 };
 
 export const SHARE_TEMPLATES: ShareTemplate[] = [

@@ -1,12 +1,15 @@
 import { describe, expect, it, vi } from 'vitest';
 import html2canvas from 'html2canvas';
 import { toBlob } from 'html-to-image';
+import type { PromptAnnotation } from '@/types/annotation';
 import {
+  binaryToDataUrl,
   buildShareImageFilename,
   copyBlobToClipboard,
   getShareContentPreview,
   getShareImageRenderOptions,
   renderShareNodeToBlob,
+  selectShareAnnotations,
 } from './shareImageService';
 
 vi.mock('html-to-image', () => ({
@@ -18,6 +21,54 @@ vi.mock('html2canvas', () => ({
 }));
 
 describe('shareImageService', () => {
+  function makeAnnotation(id: string, text: string): PromptAnnotation {
+    return {
+      id,
+      text,
+      attachments: [],
+      createdAt: '2026-06-24T00:00:00.000Z',
+      updatedAt: '2026-06-24T00:00:00.000Z',
+    };
+  }
+
+  describe('selectShareAnnotations', () => {
+    it('returns an empty list when no ids are selected', () => {
+      const annotations = [makeAnnotation('a1', '一'), makeAnnotation('a2', '二')];
+
+      expect(selectShareAnnotations(annotations, [])).toEqual([]);
+    });
+
+    it('keeps the original annotation order, not the selection order', () => {
+      const annotations = [makeAnnotation('a1', '一'), makeAnnotation('a2', '二'), makeAnnotation('a3', '三')];
+
+      const selected = selectShareAnnotations(annotations, ['a3', 'a1']);
+
+      expect(selected.map((item) => item.id)).toEqual(['a1', 'a3']);
+    });
+
+    it('returns every annotation when all ids are selected', () => {
+      const annotations = [makeAnnotation('a1', '一'), makeAnnotation('a2', '二')];
+
+      expect(selectShareAnnotations(annotations, ['a1', 'a2'])).toEqual(annotations);
+    });
+
+    it('ignores selection ids that no longer exist', () => {
+      const annotations = [makeAnnotation('a1', '一')];
+
+      expect(selectShareAnnotations(annotations, ['a1', 'gone']).map((item) => item.id)).toEqual(['a1']);
+    });
+  });
+
+  describe('binaryToDataUrl', () => {
+    it('converts a byte array into a base64 data url', async () => {
+      const data = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+
+      const dataUrl = await binaryToDataUrl(data, 'image/png');
+
+      expect(dataUrl).toBe('data:image/png;base64,iVBORw==');
+    });
+  });
+
   it('truncates share content to 2000 characters', () => {
     const preview = getShareContentPreview(`${'一'.repeat(2000)}后续内容`);
 

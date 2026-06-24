@@ -2,6 +2,7 @@ import { toBlob } from 'html-to-image';
 import type { Options } from 'html-to-image/lib/types';
 import html2canvas from 'html2canvas';
 import { SHARE_CONTENT_CHARACTER_LIMIT } from '@/constants/shareTemplates';
+import type { PromptAnnotation } from '@/types/annotation';
 
 export interface ShareContentPreview {
   content: string;
@@ -20,6 +21,34 @@ export function getShareContentPreview(content: string): ShareContentPreview {
     content: content.slice(0, SHARE_CONTENT_CHARACTER_LIMIT),
     isTruncated: true,
   };
+}
+
+/**
+ * 按选中的批注 ID 过滤批注，保持批注在原数组中的顺序（而非勾选顺序）。
+ */
+export function selectShareAnnotations(
+  annotations: PromptAnnotation[],
+  selectedIds: string[]
+): PromptAnnotation[] {
+  if (selectedIds.length === 0) {
+    return [];
+  }
+
+  const idSet = new Set(selectedIds);
+  return annotations.filter((annotation) => idSet.has(annotation.id));
+}
+
+/**
+ * 将二进制附件内容转换为 base64 data URL，便于在分享图中内联渲染与导出。
+ * 使用 FileReader 而非 btoa+spread，避免大数组栈溢出。
+ */
+export function binaryToDataUrl(data: Uint8Array, mimeType: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(new Blob([data], { type: mimeType }));
+  });
 }
 
 export function buildShareImageFilename(title: string): string {
@@ -121,10 +150,12 @@ export async function copyBlobToClipboard(
 }
 
 export const ShareImageService = {
+  binaryToDataUrl,
   buildShareImageFilename,
   copyBlobToClipboard,
   downloadBlob,
   getShareContentPreview,
   getShareImageRenderOptions,
   renderShareNodeToBlob,
+  selectShareAnnotations,
 } as const;

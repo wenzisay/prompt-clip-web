@@ -12,8 +12,10 @@ import { usePromptStore } from '@/stores/promptStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useFileStore } from '@/stores/fileStore';
+import { AnnotationService } from '@/services/annotationService';
 import { PromptService } from '@/services/promptService';
 import { fileRepository } from '@/services/fileRepository';
+import type { PromptAnnotation } from '@/types/annotation';
 import type { ShareImageOptions, ShareTemplateId } from '@/types/share';
 import { ShareCardPreview } from './ShareCardPreview';
 
@@ -30,8 +32,14 @@ export function ShareImageModal() {
   const [options, setOptions] = useState<ShareImageOptions>(DEFAULT_SHARE_IMAGE_OPTIONS);
   const [status, setStatus] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [annotations, setAnnotations] = useState<PromptAnnotation[]>([]);
+  const [annotationImageUrls, setAnnotationImageUrls] = useState<Record<string, string>>({});
   const exportRef = useRef<HTMLDivElement>(null);
   const isOpen = modalType === 'share' && Boolean(prompt);
+
+  const selectedAnnotations = options.includeAnnotations
+    ? ShareImageService.selectShareAnnotations(annotations, options.selectedAnnotationIds)
+    : [];
 
   useEffect(() => {
     if (!isOpen || !prompt) return;
@@ -52,10 +60,65 @@ export function ShareImageModal() {
     };
   }, [isOpen, prompt, workspace, updatePrompt]);
 
+  // 分享图自加载批注，避免依赖 annotationStore 单例的当前状态（可能对应别的 prompt）。
+  useEffect(() => {
+    if (!isOpen || !prompt || !workspace) return;
+
+    let cancelled = false;
+    AnnotationService.loadAnnotations(fileRepository, workspace, prompt.id)
+      .then((file) => {
+        if (cancelled) return;
+        setAnnotations(file.annotations);
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        setAnnotations([]);
+        console.error('Failed to load annotations for share:', error);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, prompt, workspace]);
+
+  // 选中批注的图片附件转为 data URL，供分享图内联渲染与导出。
+  useEffect(() => {
+    const selected = options.includeAnnotations
+      ? ShareImageService.selectShareAnnotations(annotations, options.selectedAnnotationIds)
+      : [];
+    if (!workspace || selected.length === 0) {
+      setAnnotationImageUrls({});
+      return;
+    }
+
+    let cancelled = false;
+    const attachments = selected.flatMap((annotation) => annotation.attachments);
+    Promise.all(
+      attachments.map(async (attachment) => {
+        const data = await AnnotationService.readAttachment(fileRepository, workspace, attachment);
+        const url = await ShareImageService.binaryToDataUrl(data, attachment.mimeType);
+        return [attachment.id, url] as const;
+      })
+    )
+      .then((entries) => {
+        if (cancelled) return;
+        setAnnotationImageUrls(Object.fromEntries(entries));
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        setAnnotationImageUrls({});
+        console.error('Failed to load annotation images for share:', error);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [options.includeAnnotations, options.selectedAnnotationIds, annotations, workspace]);
+
   const handleClose = () => {
     setTemplateId('minimal');
     setOptions(DEFAULT_SHARE_IMAGE_OPTIONS);
     setStatus(null);
+    setAnnotations([]);
+    setAnnotationImageUrls({});
     closeModal();
   };
 
@@ -138,7 +201,11 @@ export function ShareImageModal() {
               </div>
             </div>
 
-            <ShareImageOptionsPanel options={options} onChange={setOptions} />
+            <ShareImageOptionsPanel
+              annotations={annotations}
+              options={options}
+              onChange={setOptions}
+            />
           </aside>
 
           <div className="min-w-0">
@@ -146,6 +213,8 @@ export function ShareImageModal() {
             <div className="max-h-[58vh] overflow-y-auto rounded-lg border border-border bg-surface-dim">
               <div className="share-card-preview-scale">
                 <ShareCardPreview
+                  annotations={selectedAnnotations}
+                  annotationImageUrls={annotationImageUrls}
                   authorName={shareAuthorName}
                   locale={locale}
                   options={options}
@@ -188,6 +257,8 @@ export function ShareImageModal() {
             aria-hidden="true"
           >
             <ShareCardPreview
+              annotations={selectedAnnotations}
+              annotationImageUrls={annotationImageUrls}
               authorName={shareAuthorName}
               locale={locale}
               options={options}
@@ -203,11 +274,33 @@ export function ShareImageModal() {
 
 interface ShareImageOptionsPanelProps {
   options: ShareImageOptions;
+  annotations: PromptAnnotation[];
   onChange: (options: ShareImageOptions) => void;
 }
 
-function ShareImageOptionsPanel({ options, onChange }: ShareImageOptionsPanelProps) {
+function ShareImageOptionsPanel({ options, annotations, onChange }: ShareImageOptionsPanelProps) {
   const { t } = useTranslation();
+  const hasAnnotations = annotations.length > 0;
+
+  // 打开「包含批注」时若尚未选择任何批注，则默认全选当前 Prompt 的所有批注。
+  const handleIncludeAnnotationsChange = (checked: boolean) => {
+    if (checked && options.selectedAnnotationIds.length === 0 && hasAnnotations) {
+      onChange({
+        ...options,
+        includeAnnotations: true,
+        selectedAnnotationIds: annotations.map((annotation) => annotation.id),
+      });
+      return;
+    }
+    onChange({ ...options, includeAnnotations: checked });
+  };
+
+  const handleAnnotationToggle = (id: string, checked: boolean) => {
+    const next = checked
+      ? [...options.selectedAnnotationIds, id]
+      : options.selectedAnnotationIds.filter((item) => item !== id);
+    onChange({ ...options, selectedAnnotationIds: next });
+  };
 
   return (
     <div>
@@ -233,6 +326,44 @@ function ShareImageOptionsPanel({ options, onChange }: ShareImageOptionsPanelPro
           label={t.app.renderMarkdown}
           onChange={(checked) => onChange({ ...options, renderMarkdown: checked })}
         />
+        <ShareOptionSwitch
+          checked={options.includeAnnotations && hasAnnotations}
+          disabled={!hasAnnotations}
+          label={t.app.shareIncludeAnnotations}
+          onChange={handleIncludeAnnotationsChange}
+        />
+        {!hasAnnotations && (
+          <p className="text-xs text-muted">{t.app.shareNoAnnotations}</p>
+        )}
+        {options.includeAnnotations && hasAnnotations && (
+          <div className="mt-1 space-y-1 border-t border-border pt-2">
+            {annotations.map((annotation) => {
+              const isSelected = options.selectedAnnotationIds.includes(annotation.id);
+              return (
+                <label
+                  key={annotation.id}
+                  className="flex items-start gap-2 text-sm text-fg"
+                >
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={(event) => handleAnnotationToggle(annotation.id, event.target.checked)}
+                    className="mt-0.5 h-4 w-4 shrink-0 accent-accent"
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="line-clamp-2 break-words">{annotation.text}</span>
+                    {annotation.attachments.length > 0 && (
+                      <span className="mt-0.5 inline-flex items-center gap-1 text-xs text-muted">
+                        <span className="material-symbols-outlined text-sm">image</span>
+                        {annotation.attachments.length}
+                      </span>
+                    )}
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -241,16 +372,22 @@ function ShareImageOptionsPanel({ options, onChange }: ShareImageOptionsPanelPro
 interface ShareOptionSwitchProps {
   checked: boolean;
   label: string;
+  disabled?: boolean;
   onChange: (checked: boolean) => void;
 }
 
-function ShareOptionSwitch({ checked, label, onChange }: ShareOptionSwitchProps) {
+function ShareOptionSwitch({ checked, label, disabled = false, onChange }: ShareOptionSwitchProps) {
   return (
-    <label className="flex items-center justify-between gap-3 text-sm text-fg">
+    <label
+      className={`flex items-center justify-between gap-3 text-sm text-fg ${
+        disabled ? 'cursor-not-allowed opacity-50' : ''
+      }`}
+    >
       <span>{label}</span>
       <input
         type="checkbox"
         checked={checked}
+        disabled={disabled}
         onChange={(event) => onChange(event.target.checked)}
         className="h-4 w-4 accent-accent"
       />

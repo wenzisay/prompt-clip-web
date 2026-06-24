@@ -51,6 +51,19 @@ describe('AnnotationService', () => {
     expect(file.promptId).toBe(promptId);
   });
 
+  it('treats Windows Tauri missing file errors as empty annotations', async () => {
+    vi.setSystemTime(now);
+    const repository = createFakeFileRepository();
+    vi.spyOn(repository, 'readText').mockRejectedValue(
+      '系统找不到指定的文件。 (os error 2)'
+    );
+
+    const file = await AnnotationService.loadAnnotations(repository, workspace, promptId);
+
+    expect(file.annotations).toEqual([]);
+    expect(file.promptId).toBe(promptId);
+  });
+
   it('creates a text annotation in the prompt sidecar JSON', async () => {
     vi.setSystemTime(now);
     const repository = createFakeFileRepository();
