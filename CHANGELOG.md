@@ -1,0 +1,51 @@
+# Changelog
+
+本项目所有重要变更均会记录在此文件中。
+
+格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，并遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
+
+## [Unreleased]
+
+### Added
+
+- **分享图支持批注**：可在分享卡片中选择性包含 Prompt 批注（文字与图片附件）。新增「包含批注」开关，逐条勾选（默认全选），选中的批注渲染在正文下方，以「Note」细线分隔。
+- **支持页**：新增双语（中 / 英）支持 / 帮助页面。
+
+### Changed
+
+- **分享图作者位置**：作者名称从卡片顶部移至底部右侧，紧邻 PromptClip logo；两者同时显示时以细竖线分隔。
+
+### Fixed
+
+- **批注**：处理 Windows 下 Tauri sidecar 缺失导致的报错，批注面板可优雅降级。
+
+## [1.0.0] - 2026-06-19
+
+首个稳定版本。本地优先的 AI 提示词管理工具——数据完全存储在本地，以 `.md` 文件形式，无需注册、无需云端、无需数据库。
+
+### Added
+
+- Prompt 以 `.md` 文件本地存储（YAML frontmatter + Markdown 正文），可被任意工具编辑
+- 层级标签系统，可视化标签树（重命名、删除、置顶）
+- 加权全文搜索（FlexSearch；标题 +10 / 内容 +5 / 标签 +3），毫秒级响应
+- 命令面板（`Cmd / Ctrl + K`），模糊匹配，无匹配时回退全文搜索
+- Prompt 批注（文字 + 图片附件），独立存放于 `_promptclip/annotations/`
+- 分享图片导出（极简白 / 深色 / 淡彩边框三套模板）为 PNG
+- 多格式导出（JSON、CSV、Markdown ZIP），可选导出范围（选中 / 当前筛选 / 全部）
+- 可选历史版本，每次编辑自动保存（按保留天数 / 数量清理）
+- 回收站（查看、恢复、彻底删除、一键清空），批注 sidecar 一并迁移
+- 元数据自愈：为 Obsidian 等外部编辑的 `.md` 一键补全缺失的 frontmatter
+- 稳定 ID 迁移：旧文件首次加载自动生成并写回稳定 ID
+- 两级懒加载 + 虚拟化列表，适配大型工作区（5K 级别）
+- 多语言界面（zh-CN / zh-TW / en-US / ja-JP），按浏览器语言自动探测
+- 跨平台：Web、macOS、Linux、Windows 桌面；iOS 移动端
+
+## [0.1.0-beta.7] - 2026-06-18
+
+1.0.0 前的最后一个预发布版本。
+
+> `0.1.0-beta.1` ~ `0.1.0-beta.6`（2026-05-19 ~ 2026-06-18）为更早的迭代预发布版本，逐步形成 1.0.0 的完整功能集。
+
+[Unreleased]: https://github.com/wenzisay/prompt-clip-web/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/wenzisay/prompt-clip-web/releases/tag/v1.0.0
+[0.1.0-beta.7]: https://github.com/wenzisay/prompt-clip-web/releases/tag/v0.1.0-beta-7
