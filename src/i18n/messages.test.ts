@@ -76,4 +76,27 @@ describe('messages', () => {
     expect(messages['ja-JP'].settings.languageTitle).toBe('言語');
     expect(messages['ja-JP'].settings.shareAuthorTitle).toBe('共有作者');
   });
+
+  it.each(['zh-CN', 'zh-TW', 'en-US', 'ja-JP'] as const)(
+    'exposes client download copy in %s',
+    (locale) => {
+      const app = messages[locale].app;
+
+      // 防漏译：四种语言都必须提供下载入口文案
+      expect(typeof app.downloadClientDivider).toBe('string');
+      expect(app.downloadClientDivider.length).toBeGreaterThan(0);
+      expect(app.downloadIOS).toBe('iOS App');
+      expect(typeof app.downloadDesktop).toBe('string');
+      expect(app.downloadDesktop.length).toBeGreaterThan(0);
+    }
+  );
+
+  it('contains the client download copy for the landing page', () => {
+    expect(messages['zh-CN'].app.downloadClientDivider).toBe('或下载客户端');
+    expect(messages['zh-CN'].app.downloadDesktop).toBe('桌面版');
+    expect(messages['en-US'].app.downloadClientDivider).toBe(
+      'Or download the apps'
+    );
+    expect(messages['en-US'].app.downloadDesktop).toBe('Desktop');
+  });
 });

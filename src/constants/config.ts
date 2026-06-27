@@ -55,4 +55,13 @@ export const CONFIG = {
     /** 最大最近记录数 */
     MAX_RECENT_ITEMS: 20,
   },
+
+  /** 客户端下载入口（仅 Web 端展示，桌面端 Tauri 打包的就是同一套前端） */
+  DOWNLOAD: {
+    /** GitHub Release 页面 — 桌面版（Windows / macOS）安装包 */
+    GITHUB_RELEASES_URL: 'https://github.com/wenzisay/prompt-clip-web/releases',
+    /** iOS App Store 页面 */
+    IOS_APP_STORE_URL:
+      'https://apps.apple.com/cn/app/promptclip-%E6%8F%90%E7%A4%BA%E8%AF%8D%E5%A4%B9%E5%AD%90/id6780934190',
+  },
 } as const;
