@@ -35,3 +35,7 @@ dist-ssr
 
 # Local dev working docs (TDD workflow artifacts)
 IMPLEMENTATION_PLAN.md
+
+# Font subsetting tooling (Material Symbols subset script)
+scripts/.venv-fonttools/
+scripts/.icon-glyph-names.txt
