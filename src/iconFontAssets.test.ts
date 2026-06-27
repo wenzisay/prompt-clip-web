@@ -14,4 +14,11 @@ describe('icon font assets', () => {
     expect(indexCss).toContain("font-family: 'Material Symbols Outlined'");
     expect(indexCss).toContain('/fonts/material-symbols-outlined.woff2');
   });
+
+  it('should keep fallback ligature text from expanding icon layout', () => {
+    const indexCss = readFileSync(join(rootDir, 'src/index.css'), 'utf8');
+
+    expect(indexCss).toContain('width: 1em');
+    expect(indexCss).toContain('overflow: hidden');
+  });
 });

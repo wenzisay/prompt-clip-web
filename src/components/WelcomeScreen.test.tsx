@@ -55,6 +55,17 @@ describe('WelcomeScreen', () => {
     expect(markup).toContain('h-16 w-16');
   });
 
+  it('keeps the directory button label on one line while icon fonts load', () => {
+    directoryPickerState.isSupported = true;
+    directoryPickerState.isLoading = false;
+    directoryPickerState.error = null;
+
+    const markup = renderToStaticMarkup(<WelcomeScreen />);
+
+    expect(markup).toContain('shrink-0');
+    expect(markup).toContain('whitespace-nowrap');
+  });
+
   it('links feature cards to the about page in web browsers', () => {
     directoryPickerState.isSupported = true;
 
