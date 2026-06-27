@@ -11,6 +11,12 @@
 </p>
 
 <p align="center">
+  <a href="https://apps.apple.com/cn/app/promptclip-%E6%8F%90%E7%A4%BA%E8%AF%8D%E5%A4%B9%E5%AD%90/id6780934190">
+    <img src="https://tools.applemediaservices.com/api/badges/download-on-the-app-store/black/zh-cn?size=250x83" alt="在 App Store 下载 PromptClip" height="40" />
+  </a>
+</p>
+
+<p align="center">
   <a href="#特性">特性</a> •
   <a href="#截图预览">截图</a> •
   <a href="#环境要求">环境要求</a> •
@@ -74,7 +80,7 @@ iPad版：
 ## 在线体验与平台状态
 
 - Web App 地址：https://www.promptclip.online/
-- iOS 版暂未上架 Apple Store，请等待。
+- iOS 版已上架 App Store：[下载 PromptClip](https://apps.apple.com/cn/app/promptclip-%E6%8F%90%E7%A4%BA%E8%AF%8D%E5%A4%B9%E5%AD%90/id6780934190)
 - 移动端 App（iOS）未开放源代码。
 
 ## 环境要求

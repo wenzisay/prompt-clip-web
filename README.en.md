@@ -11,6 +11,12 @@
 </p>
 
 <p align="center">
+  <a href="https://apps.apple.com/cn/app/promptclip-%E6%8F%90%E7%A4%BA%E8%AF%8D%E5%A4%B9%E5%AD%90/id6780934190">
+    <img src="https://tools.applemediaservices.com/api/badges/download-on-the-app-store/black/en-us?size=250x83" alt="Download PromptClip on the App Store" height="40" />
+  </a>
+</p>
+
+<p align="center">
   <a href="#features">Features</a> •
   <a href="#screenshots">Screenshots</a> •
   <a href="#requirements">Requirements</a> •
@@ -74,7 +80,7 @@ iPad:
 ## Online App & Platform Status
 
 - Web App: https://www.promptclip.online/
-- The iOS version is not yet available on the Apple Store. Please stay tuned.
+- The iOS version is now available on the App Store: [Download PromptClip](https://apps.apple.com/cn/app/promptclip-%E6%8F%90%E7%A4%BA%E8%AF%8D%E5%A4%B9%E5%AD%90/id6780934190)
 - The mobile app (iOS) is not open source.
 
 ## Requirements

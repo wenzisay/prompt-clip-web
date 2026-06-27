@@ -100,4 +100,35 @@ describe('WelcomeScreen', () => {
     // Button is disabled
     expect(markup).toContain('disabled');
   });
+
+  it('renders iOS and desktop download links below the directory button on the web', () => {
+    directoryPickerState.isSupported = true;
+    directoryPickerState.isLoading = false;
+    directoryPickerState.error = null;
+
+    const markup = renderToStaticMarkup(<WelcomeScreen />);
+
+    // iOS App Store 与 GitHub Release 链接
+    expect(markup).toContain('apps.apple.com');
+    expect(markup).toContain(
+      'https://github.com/wenzisay/prompt-clip-web/releases'
+    );
+    // 外链安全属性
+    expect(markup).toContain('target="_blank"');
+    expect(markup).toContain('rel="noopener noreferrer"');
+    // 品牌 SVG 图标（Apple / GitHub，内联，不受字体子集限制）与全语言一致的文案
+    expect(markup).toContain('<svg');
+    expect(markup).toContain('iOS App');
+  });
+
+  it('does not render the download entry in the desktop client', () => {
+    directoryPickerState.isSupported = true;
+    installTauriRuntime();
+
+    const markup = renderToStaticMarkup(<WelcomeScreen />);
+
+    expect(markup).not.toContain('apps.apple.com');
+    expect(markup).not.toContain('prompt-clip-web/releases');
+    expect(markup).not.toContain('iOS App');
+  });
 });
