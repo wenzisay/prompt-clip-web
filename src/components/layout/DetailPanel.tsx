@@ -95,6 +95,12 @@ export function DetailPanel() {
     openModal('edit');
   };
 
+  // 打开分享模态框（详情页已选中当前 prompt，直接复用 selectedPromptId）
+  const handleShare = () => {
+    if (!selectedPrompt) return;
+    openModal('share');
+  };
+
   const handleScrollToAnnotations = () => {
     annotationSectionRef.current?.scrollIntoView({
       behavior: 'smooth',
@@ -146,6 +152,13 @@ export function DetailPanel() {
               >
                 <span className="material-symbols-outlined text-xl">edit</span>
                 {t.app.edit}
+              </button>
+              <button
+                onClick={handleShare}
+                className="inline-flex h-9 items-center gap-2 rounded-lg border border-gray-200 bg-surface px-3 text-sm font-medium text-fg shadow-card transition-colors hover:bg-surface-dim"
+              >
+                <span className="material-symbols-outlined text-xl">ios_share</span>
+                {t.app.sharePrompt}
               </button>
               <button
                 onClick={handleCopy}

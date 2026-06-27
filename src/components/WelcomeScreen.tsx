@@ -126,11 +126,13 @@ export function WelcomeScreen() {
               disabled={isLoading || !isSupported}
               className="group flex h-[74px] w-full max-w-[425px] items-center justify-between rounded-[10px] bg-[#293cf4] px-8 text-[1.16rem] font-semibold text-white shadow-[0_20px_42px_rgba(41,60,244,0.25)] transition hover:-translate-y-0.5 hover:bg-[#2134e7] focus:outline-none focus:ring-2 focus:ring-[#3147ff] focus:ring-offset-4 disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-55"
             >
-              <span className="flex items-center gap-3">
+              <span className="flex min-w-0 items-center gap-3">
                 <span className={`material-symbols-outlined text-[30px] ${isLoading ? 'animate-spin' : ''}`}>
                   {isLoading ? 'refresh' : 'folder_open'}
                 </span>
-                <span>{isLoading ? t.app.loading : t.app.chooseDataDirectory}</span>
+                <span className="whitespace-nowrap">
+                  {isLoading ? t.app.loading : t.app.chooseDataDirectory}
+                </span>
               </span>
               <span className="material-symbols-outlined text-[28px] transition group-hover:translate-x-1">
                 arrow_forward
