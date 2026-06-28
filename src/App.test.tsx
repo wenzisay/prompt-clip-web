@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { AppRouter, isAboutPath, isPrivacyPath } from './App';
+import { AppRouter, isAboutPath, isPrivacyPath, isSettingsPath } from './App';
 
 describe('isAboutPath', () => {
   it('matches the about route with an optional trailing slash', () => {
@@ -29,6 +29,13 @@ describe('AppRouter', () => {
     expect(markup).toContain('隐私政策');
     expect(markup).toContain('本地优先，文件属于你');
   });
+
+  it('renders the standalone settings page for /settings', () => {
+    const markup = renderToStaticMarkup(<AppRouter pathname="/settings" />);
+
+    expect(markup).toContain('PromptClip');
+    expect(markup).toContain('Settings');
+  });
 });
 
 describe('isPrivacyPath', () => {
@@ -41,5 +48,18 @@ describe('isPrivacyPath', () => {
     expect(isPrivacyPath('/')).toBe(false);
     expect(isPrivacyPath('/privacy-policy')).toBe(false);
     expect(isPrivacyPath('/prompts/privacy')).toBe(false);
+  });
+});
+
+describe('isSettingsPath', () => {
+  it('matches the settings route with an optional trailing slash', () => {
+    expect(isSettingsPath('/settings')).toBe(true);
+    expect(isSettingsPath('/settings/')).toBe(true);
+  });
+
+  it('does not match other routes', () => {
+    expect(isSettingsPath('/')).toBe(false);
+    expect(isSettingsPath('/settings-panel')).toBe(false);
+    expect(isSettingsPath('/prompts/settings')).toBe(false);
   });
 });

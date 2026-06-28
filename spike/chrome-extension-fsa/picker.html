@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>选择目录 · PromptClip Spike</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+        padding: 24px;
+      }
+      h1 { font-size: 20px; margin: 0; }
+      p { color: #717786; max-width: 420px; text-align: center; margin: 0; line-height: 1.6; }
+      button {
+        padding: 14px 28px;
+        font-size: 16px;
+        border: none;
+        background: #0058bc;
+        color: #fff;
+        border-radius: 10px;
+        cursor: pointer;
+      }
+      button:hover { filter: brightness(1.05); }
+      #status { font-size: 14px; min-height: 20px; }
+      #status.ok { color: #1a7f37; }
+      #status.err { color: #cf222e; }
+    </style>
+  </head>
+  <body>
+    <h1>选择 PromptClip 数据目录</h1>
+    <p>此页面是普通扩展标签页（有用户手势），用于触发目录选择器。选择后会持久化目录句柄，侧边栏将自动读取。</p>
+    <button id="pick">选择目录…</button>
+    <div id="status"></div>
+    <script src="picker.js"></script>
+  </body>
+</html>

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PromptClip FSA Spike</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body {
+        margin: 0;
+        padding: 12px;
+        font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+        font-size: 13px;
+      }
+      h1 { font-size: 15px; margin: 0 0 4px; }
+      p.hint { color: #717786; margin: 0 0 12px; font-size: 12px; }
+      button {
+        display: block;
+        width: 100%;
+        margin: 6px 0;
+        padding: 10px;
+        font-size: 13px;
+        border: 1px solid #0058bc;
+        background: #0058bc;
+        color: #fff;
+        border-radius: 8px;
+        cursor: pointer;
+      }
+      button.secondary { background: transparent; color: #0058bc; }
+      button:hover { filter: brightness(1.05); }
+      hr { border: 0; border-top: 1px solid #eae7ea; margin: 12px 0; }
+      pre#log {
+        background: #1b1b1d;
+        color: #eae7ea;
+        padding: 10px;
+        border-radius: 8px;
+        font-family: 'SF Mono', ui-monospace, Menlo, monospace;
+        font-size: 11.5px;
+        line-height: 1.5;
+        white-space: pre-wrap;
+        word-break: break-word;
+        max-height: 60vh;
+        overflow: auto;
+        margin: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>PromptClip · FSA 命门验证</h1>
+    <p class="hint">依次执行 ①②③，观察日志与控制台。</p>
+
+    <button id="btn-direct">① side panel 直接选目录（预期失败）</button>
+    <button id="btn-tab">② 通过 tab 选目录（预期成功）</button>
+    <button id="btn-rw" class="secondary">③ 用已存 handle 测读写（restoreDirectory 闭环）</button>
+    <button id="btn-clear" class="secondary">④ 清空已存 handle</button>
+
+    <hr />
+    <pre id="log"></pre>
+
+    <script src="sidepanel.js"></script>
+  </body>
+</html>

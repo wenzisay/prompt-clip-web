@@ -170,6 +170,7 @@ export function CreateModal({ editingPromptId }: CreateModalProps) {
 
       closeModal();
     } catch (err) {
+      console.error('[PromptClip] Failed to save prompt:', err);
       setError(formatSaveErrorMessage(err));
     } finally {
       setIsSaving(false);

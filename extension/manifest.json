@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "PromptClip",
+  "version": "0.1.0",
+  "description": "AI 提示词管理 - 本地 .md 文件，浏览器侧边栏随取随用",
+  "minimum_chrome_version": "114",
+  "permissions": ["sidePanel"],
+  "action": {
+    "default_title": "打开 PromptClip"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  }
+}

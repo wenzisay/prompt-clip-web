@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "PromptClip FSA Spike",
+  "version": "0.0.1",
+  "description": "命门验证：File System Access API 在 Chrome 扩展侧边栏的可行性",
+  "minimum_chrome_version": "114",
+  "permissions": ["sidePanel", "tabs"],
+  "action": {
+    "default_title": "打开 PromptClip Spike 侧边栏"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  }
+}

@@ -6,6 +6,7 @@ const directoryPickerState = vi.hoisted(() => ({
   error: null as string | null,
   isLoading: false,
   isSupported: true,
+  pendingWorkspace: null as { id: string; name: string; platform: 'web' } | null,
 }));
 
 vi.mock('@/hooks/useDirectoryPicker', () => ({
@@ -14,6 +15,7 @@ vi.mock('@/hooks/useDirectoryPicker', () => ({
     isSupported: directoryPickerState.isSupported,
     isLoading: directoryPickerState.isLoading,
     error: directoryPickerState.error,
+    pendingWorkspace: directoryPickerState.pendingWorkspace,
     openDirectory: vi.fn(),
     clearDirectory: vi.fn(),
   }),
@@ -35,6 +37,7 @@ describe('WelcomeScreen', () => {
     directoryPickerState.isSupported = true;
     directoryPickerState.isLoading = false;
     directoryPickerState.error = null;
+    directoryPickerState.pendingWorkspace = null;
 
     const markup = renderToStaticMarkup(<WelcomeScreen />);
 
@@ -48,6 +51,7 @@ describe('WelcomeScreen', () => {
 
   it('uses compact feature cards on the landing page', () => {
     directoryPickerState.isSupported = true;
+    directoryPickerState.pendingWorkspace = null;
 
     const markup = renderToStaticMarkup(<WelcomeScreen />);
 
@@ -59,6 +63,7 @@ describe('WelcomeScreen', () => {
     directoryPickerState.isSupported = true;
     directoryPickerState.isLoading = false;
     directoryPickerState.error = null;
+    directoryPickerState.pendingWorkspace = null;
 
     const markup = renderToStaticMarkup(<WelcomeScreen />);
 
@@ -68,6 +73,7 @@ describe('WelcomeScreen', () => {
 
   it('links feature cards to the about page in web browsers', () => {
     directoryPickerState.isSupported = true;
+    directoryPickerState.pendingWorkspace = null;
 
     const markup = renderToStaticMarkup(<WelcomeScreen />);
 
@@ -76,6 +82,7 @@ describe('WelcomeScreen', () => {
 
   it('does not link feature cards in the desktop client', () => {
     directoryPickerState.isSupported = true;
+    directoryPickerState.pendingWorkspace = null;
     installTauriRuntime();
 
     const markup = renderToStaticMarkup(<WelcomeScreen />);
@@ -87,6 +94,7 @@ describe('WelcomeScreen', () => {
     directoryPickerState.isSupported = false;
     directoryPickerState.isLoading = false;
     directoryPickerState.error = null;
+    directoryPickerState.pendingWorkspace = null;
 
     const markup = renderToStaticMarkup(<WelcomeScreen />);
 
@@ -105,6 +113,7 @@ describe('WelcomeScreen', () => {
     directoryPickerState.isSupported = true;
     directoryPickerState.isLoading = false;
     directoryPickerState.error = null;
+    directoryPickerState.pendingWorkspace = null;
 
     const markup = renderToStaticMarkup(<WelcomeScreen />);
 
@@ -123,6 +132,7 @@ describe('WelcomeScreen', () => {
 
   it('does not render the download entry in the desktop client', () => {
     directoryPickerState.isSupported = true;
+    directoryPickerState.pendingWorkspace = null;
     installTauriRuntime();
 
     const markup = renderToStaticMarkup(<WelcomeScreen />);
@@ -130,5 +140,21 @@ describe('WelcomeScreen', () => {
     expect(markup).not.toContain('apps.apple.com');
     expect(markup).not.toContain('prompt-clip-web/releases');
     expect(markup).not.toContain('iOS App');
+  });
+
+  it('offers to use the last selected folder when a saved handle needs permission', () => {
+    directoryPickerState.isSupported = true;
+    directoryPickerState.isLoading = false;
+    directoryPickerState.error = null;
+    directoryPickerState.pendingWorkspace = {
+      id: 'web:Prompts',
+      name: 'Prompts',
+      platform: 'web',
+    };
+
+    const markup = renderToStaticMarkup(<WelcomeScreen />);
+
+    expect(markup).toContain('Use last selected folder');
+    expect(markup).not.toContain('Choose data folder');
   });
 });

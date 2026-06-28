@@ -18,7 +18,10 @@
     "test": "vitest",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
-    "test:ui": "vitest --ui"
+    "test:ui": "vitest --ui",
+    "ext:build": "vite build --config extension/vite.config.ts",
+    "ext:dev": "vite build --config extension/vite.config.ts --watch",
+    "ext:type-check": "tsc -p extension/tsconfig.json --noEmit"
   },
   "dependencies": {
     "@tanstack/react-virtual": "^3.14.0",

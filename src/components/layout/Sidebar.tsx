@@ -3,6 +3,7 @@
  */
 
 import { TagTree } from '@/components/tag/TagTree';
+import { openSettingsPage } from '@/components/settings';
 import { useTranslation } from '@/i18n';
 import { useFileStore } from '@/stores/fileStore';
 import { usePromptStore } from '@/stores/promptStore';
@@ -104,7 +105,7 @@ export function Sidebar() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => openModal('settings')}
+                  onClick={openSettingsPage}
                   className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface-high hover:text-fg"
                   aria-label={t.app.openSettings}
                   title={t.settings.title}

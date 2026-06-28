@@ -12,6 +12,8 @@ interface MutableRequest<T> extends IDBRequest<T> {
 }
 
 class FakeFileHandle implements FileSystemFileHandle {
+  readonly permissionRequests: FileSystemHandlePermissionDescriptor[] = [];
+
   readonly kind = 'file';
 
   constructor(
@@ -52,12 +54,19 @@ class FakeFileHandle implements FileSystemFileHandle {
     return 'granted';
   }
 
-  async requestPermission(): Promise<PermissionState> {
+  async requestPermission(
+    descriptor?: FileSystemHandlePermissionDescriptor
+  ): Promise<PermissionState> {
+    if (descriptor) {
+      this.permissionRequests.push(descriptor);
+    }
     return 'granted';
   }
 }
 
 class FakeDirectoryHandle implements FileSystemDirectoryHandle {
+  readonly permissionRequests: FileSystemHandlePermissionDescriptor[] = [];
+
   readonly kind = 'directory';
   private readonly files = new Map<string, string>();
   private readonly directories = new Map<string, FakeDirectoryHandle>();
@@ -137,7 +146,12 @@ class FakeDirectoryHandle implements FileSystemDirectoryHandle {
     return 'granted';
   }
 
-  async requestPermission(): Promise<PermissionState> {
+  async requestPermission(
+    descriptor?: FileSystemHandlePermissionDescriptor
+  ): Promise<PermissionState> {
+    if (descriptor) {
+      this.permissionRequests.push(descriptor);
+    }
     return 'granted';
   }
 }
@@ -362,5 +376,18 @@ describe('webFileRepository', () => {
       startIn: firstDirectory,
       id: 'promptclip-workspace',
     });
+  });
+
+  it('checks read permission when restoring a saved directory', async () => {
+    const directory = new FakeDirectoryHandle('Prompts');
+    installWindow(directory, new FakeIndexedDB(true));
+
+    const workspace = await webFileRepository.selectDirectory();
+    expect(workspace).not.toBeNull();
+    directory.permissionRequests.length = 0;
+
+    await expect(webFileRepository.verifyPermission(workspace!)).resolves.toBe(true);
+
+    expect(directory.permissionRequests).toEqual([{ mode: 'read' }]);
   });
 });

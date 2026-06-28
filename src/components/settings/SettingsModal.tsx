@@ -23,12 +23,106 @@ import { useTagStore } from '@/stores/tagStore';
 import { useUIStore } from '@/stores/uiStore';
 
 type SettingsTab = 'general' | 'about';
+type SettingsContentLayout = 'modal' | 'page';
 
 const RETENTION_DAY_OPTIONS = [7, 30, 90, 180, 365];
 const MAX_METADATA_ISSUE_PREVIEW_COUNT = 1000;
 
+export function openSettingsPage() {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  window.open('/settings', '_blank', 'noopener,noreferrer');
+}
+
 export function SettingsModal() {
-  const { modalType, closeModal, addToast } = useUIStore();
+  const { modalType, closeModal } = useUIStore();
+  const { t } = useTranslation();
+  const isOpen = modalType === 'settings';
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={closeModal}
+      title={t.settings.title}
+      maxWidth="3xl"
+      closeLabel={t.app.close}
+      className="flex max-h-[calc(100vh-2rem)] flex-col overflow-hidden"
+      contentClassName="flex min-h-0 flex-1 overflow-hidden"
+    >
+      <SettingsPanel isActive={isOpen} onCancel={closeModal} onAfterSave={closeModal} />
+    </Modal>
+  );
+}
+
+export function SettingsPage() {
+  const { t } = useTranslation();
+  const { hasInitialized, initialize, isAuthorized, workspace } = useFileStore();
+
+  useEffect(() => {
+    void initialize();
+  }, [initialize]);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') {
+      return;
+    }
+
+    const previousTitle = document.title;
+    document.title = `PromptClip · ${t.settings.title}`;
+
+    return () => {
+      document.title = previousTitle;
+    };
+  }, [t.settings.title]);
+
+  return (
+    <div className="flex h-screen w-screen flex-col overflow-hidden bg-bg text-fg">
+      <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-surface px-6">
+        <a
+          href="/"
+          className="flex items-center gap-2 text-lg font-bold text-fg transition-colors hover:text-accent"
+        >
+          <span className="material-symbols-outlined text-accent">auto_awesome</span>
+          PromptClip
+        </a>
+        <h1 className="text-sm font-semibold text-muted">{t.settings.title}</h1>
+      </header>
+
+      <main className="min-h-0 flex-1 overflow-hidden px-6 py-6">
+        <div className="mx-auto flex h-full max-w-5xl flex-col overflow-hidden rounded-lg border border-border bg-surface shadow-sm">
+          {!hasInitialized ? (
+            <div className="flex flex-1 items-center justify-center text-muted">
+              <span className="material-symbols-outlined animate-spin text-2xl">refresh</span>
+            </div>
+          ) : !isAuthorized || !workspace ? (
+            <div className="flex flex-1 items-center justify-center px-6 text-sm text-muted">
+              {t.app.noWorkspace}
+            </div>
+          ) : (
+            <SettingsPanel isActive={true} layout="page" onCancel={() => window.close()} />
+          )}
+        </div>
+      </main>
+    </div>
+  );
+}
+
+interface SettingsPanelProps {
+  isActive: boolean;
+  layout?: SettingsContentLayout;
+  onAfterSave?: () => void;
+  onCancel: () => void;
+}
+
+function SettingsPanel({
+  isActive,
+  layout = 'modal',
+  onAfterSave,
+  onCancel,
+}: SettingsPanelProps) {
+  const { addToast } = useUIStore();
   const { workspace } = useFileStore();
   const { locale, t } = useTranslation();
   const setPrompts = usePromptStore((state) => state.setPrompts);
@@ -47,10 +141,8 @@ export function SettingsModal() {
   const [metadataScanResult, setMetadataScanResult] =
     useState<PromptMetadataScanResult | null>(null);
 
-  const isOpen = modalType === 'settings';
-
   useEffect(() => {
-    if (!isOpen || !workspace) return;
+    if (!isActive || !workspace) return;
 
     let isCurrent = true;
     const currentWorkspace = workspace;
@@ -77,7 +169,7 @@ export function SettingsModal() {
     return () => {
       isCurrent = false;
     };
-  }, [isOpen, setStoredHistorySettings, workspace]);
+  }, [isActive, setStoredHistorySettings, workspace]);
 
   const handleSave = async () => {
     if (!workspace) return;
@@ -100,7 +192,7 @@ export function SettingsModal() {
         message: t.settings.saved,
         duration: 2000,
       });
-      closeModal();
+      onAfterSave?.();
     } catch (error) {
       console.warn('Failed to save settings:', error);
       addToast({
@@ -170,39 +262,30 @@ export function SettingsModal() {
   };
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={closeModal}
-      title={t.settings.title}
-      maxWidth="3xl"
-      closeLabel={t.app.close}
-      className="flex max-h-[calc(100vh-2rem)] flex-col overflow-hidden"
-      contentClassName="flex min-h-0 flex-1 overflow-hidden"
-    >
-      <SettingsModalContent
-        activeTab={activeTab}
-        historySettings={historySettings}
-        isRepairingMetadata={isRepairingMetadata}
-        isSaveDisabled={isSaving || !workspace}
-        isSaving={isSaving}
-        isScanningMetadata={isScanningMetadata}
-        locale={locale}
-        metadataScanResult={metadataScanResult}
-        shareAuthorName={shareAuthorName}
-        onCancel={closeModal}
-        onChangeShareAuthorName={setShareAuthorName}
-        onChangeLocale={setLocale}
-        onChangeHistorySettings={setHistorySettings}
-        onRepairMetadata={handleRepairMetadata}
-        onReset={() => {
-          setHistorySettings(DEFAULT_HISTORY_SETTINGS);
-          setShareAuthorName('');
-        }}
-        onSave={handleSave}
-        onScanMetadata={handleScanMetadata}
-        onSelectTab={setActiveTab}
-      />
-    </Modal>
+    <SettingsModalContent
+      activeTab={activeTab}
+      historySettings={historySettings}
+      isRepairingMetadata={isRepairingMetadata}
+      isSaveDisabled={isSaving || !workspace}
+      isSaving={isSaving}
+      isScanningMetadata={isScanningMetadata}
+      layout={layout}
+      locale={locale}
+      metadataScanResult={metadataScanResult}
+      shareAuthorName={shareAuthorName}
+      onCancel={onCancel}
+      onChangeShareAuthorName={setShareAuthorName}
+      onChangeLocale={setLocale}
+      onChangeHistorySettings={setHistorySettings}
+      onRepairMetadata={handleRepairMetadata}
+      onReset={() => {
+        setHistorySettings(DEFAULT_HISTORY_SETTINGS);
+        setShareAuthorName('');
+      }}
+      onSave={handleSave}
+      onScanMetadata={handleScanMetadata}
+      onSelectTab={setActiveTab}
+    />
   );
 }
 
@@ -213,6 +296,7 @@ interface SettingsModalContentProps {
   isSaveDisabled: boolean;
   isSaving: boolean;
   isScanningMetadata?: boolean;
+  layout?: SettingsContentLayout;
   locale: Locale;
   metadataScanResult?: PromptMetadataScanResult | null;
   shareAuthorName: string;
@@ -234,6 +318,7 @@ export function SettingsModalContent({
   isSaveDisabled,
   isSaving,
   isScanningMetadata = false,
+  layout = 'modal',
   locale,
   metadataScanResult = null,
   shareAuthorName,
@@ -248,9 +333,13 @@ export function SettingsModalContent({
   onSelectTab,
 }: SettingsModalContentProps) {
   const t = messages[locale];
+  const rootClassName =
+    layout === 'modal'
+      ? '-mx-6 -my-4 flex min-h-0 flex-1 flex-col overflow-hidden'
+      : 'flex min-h-0 flex-1 flex-col overflow-hidden';
 
   return (
-    <div className="-mx-6 -my-4 flex min-h-0 flex-1 flex-col overflow-hidden">
+    <div className={rootClassName}>
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <nav className="w-52 shrink-0 border-r border-border bg-surface-dim p-4">
           <SettingsTabButton
@@ -367,7 +456,7 @@ function GeneralSettings({
   return (
     <div>
       <div className="mb-6">
-        <h3 className="text-lg font-semibold text-fg">{t.settings.generalTitle}</h3>
+        <h2 className="text-lg font-semibold text-fg">{t.settings.generalTitle}</h2>
         <p className="mt-1 text-sm text-muted">{t.settings.generalDescription}</p>
       </div>
 
@@ -423,7 +512,7 @@ function GeneralSettings({
         <div className="rounded-lg border border-border bg-surface p-5 shadow-sm">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0 flex-1">
-              <h4 className="text-sm font-semibold text-fg">{t.settings.historyTitle}</h4>
+              <h3 className="text-sm font-semibold text-fg">{t.settings.historyTitle}</h3>
               <p className="mt-1 text-sm text-muted">
                 {t.settings.historyDescription}
               </p>
@@ -517,7 +606,7 @@ function MetadataMaintenance({
     <div className="rounded-lg border border-border bg-surface p-5 shadow-sm">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <h4 className="text-sm font-semibold text-fg">{t.settings.maintenanceTitle}</h4>
+          <h3 className="text-sm font-semibold text-fg">{t.settings.maintenanceTitle}</h3>
           <p className="mt-1 text-sm text-muted">
             {t.settings.maintenanceDescription}
           </p>
@@ -621,7 +710,7 @@ function AboutSettings({ locale }: { locale: Locale }) {
   return (
     <div>
       <div className="mb-6">
-        <h3 className="text-lg font-semibold text-fg">{t.settings.aboutTitle}</h3>
+        <h2 className="text-lg font-semibold text-fg">{t.settings.aboutTitle}</h2>
         <p className="mt-1 text-sm text-muted">{t.settings.aboutDescription}</p>
       </div>
 
@@ -660,7 +749,7 @@ function AboutSection({
 }) {
   return (
     <section>
-      <h4 className="text-sm font-semibold text-fg">{title}</h4>
+      <h3 className="text-sm font-semibold text-fg">{title}</h3>
       <div className="mt-2 space-y-2">
         {paragraphs.map((paragraph) => (
           <p key={paragraph}>{paragraph}</p>

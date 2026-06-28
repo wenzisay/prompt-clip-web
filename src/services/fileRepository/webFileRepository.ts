@@ -7,7 +7,8 @@ const DB_NAME = 'promptclip-file-handles';
 const STORE_NAME = 'handles';
 const DIRECTORY_KEY = 'directory';
 const DIRECTORY_PICKER_ID = 'promptclip-workspace';
-const PERMISSION: FileSystemHandlePermissionDescriptor = { mode: 'readwrite' };
+const READ_PERMISSION: FileSystemHandlePermissionDescriptor = { mode: 'read' };
+const READ_WRITE_PERMISSION: FileSystemHandlePermissionDescriptor = { mode: 'readwrite' };
 
 function workspaceFromHandle(handle: FileSystemDirectoryHandle): WorkspaceRef {
   return {
@@ -162,11 +163,24 @@ async function getFileEntry(path: string, handle: FileSystemFileHandle): Promise
   };
 }
 
-async function requireSavedDirectoryHandle(): Promise<FileSystemDirectoryHandle> {
+async function requireSavedDirectoryHandle(
+  permission: FileSystemHandlePermissionDescriptor = READ_PERMISSION
+): Promise<FileSystemDirectoryHandle> {
   const handle = await getSavedDirectoryHandle();
 
   if (!handle) {
     throw new Error('未选择工作目录');
+  }
+
+  // 确保当前会话的文件读写权限处于激活态。Chrome 扩展 side panel 中，从 IndexedDB 恢复的
+  // handle 即便 queryPermission 显示 granted，getDirectoryHandle（遍历子目录）/createWritable
+  // 等操作仍可能抛 NotAllowedError——permission grant 不自动跨会话延续，需经 requestPermission
+  // 激活（已 granted 时静默返回、无需用户手势）。
+  try {
+    await handle.requestPermission(permission);
+  } catch {
+    // 权限为 prompt 且当前无 transient user activation 时 requestPermission 抛 SecurityError，
+    // 忽略；后续操作按实际权限行为，由上层（verifyPermission / UI）引导重新授权。
   }
 
   return handle;
@@ -207,12 +221,12 @@ async function verifyPermission(): Promise<boolean> {
   }
 
   try {
-    if ((await handle.queryPermission(PERMISSION)) === 'granted') {
-      return true;
-    }
-    return (await handle.requestPermission(PERMISSION)) === 'granted';
+    // 启动恢复只需要读权限。写入权限在实际写文件时再申请，避免 readwrite 在扩展
+    // side panel 新会话中需要用户手势，导致已保存目录无法直接进入。
+    return (await handle.requestPermission(READ_PERMISSION)) === 'granted';
   } catch {
-    return false;
+    // 权限为 prompt 且当前无 transient user activation 时 requestPermission 抛 SecurityError。
+    return (await handle.queryPermission(READ_PERMISSION)) === 'granted';
   }
 }
 
@@ -225,7 +239,7 @@ async function listFiles(
   extensions: string[] = [...CONFIG.FILE_SYSTEM.SUPPORTED_EXTENSIONS],
   options?: { includeHiddenDirectories?: boolean }
 ): Promise<FileEntry[]> {
-  const root = await requireSavedDirectoryHandle();
+  const root = await requireSavedDirectoryHandle(READ_PERMISSION);
   const files: FileEntry[] = [];
   const normalizedExtensions = extensions.map((extension) => extension.toLowerCase());
 
@@ -252,7 +266,7 @@ async function listFiles(
 }
 
 async function readText(_workspace: WorkspaceRef, path: string): Promise<string> {
-  const root = await requireSavedDirectoryHandle();
+  const root = await requireSavedDirectoryHandle(READ_PERMISSION);
   const { directory, name } = await resolveParentDirectory(root, path, false);
   const handle = await directory.getFileHandle(name);
   const file = await handle.getFile();
@@ -264,7 +278,7 @@ async function readTextHead(
   path: string,
   byteLimit: number
 ): Promise<string> {
-  const root = await requireSavedDirectoryHandle();
+  const root = await requireSavedDirectoryHandle(READ_PERMISSION);
   const { directory, name } = await resolveParentDirectory(root, path, false);
   const handle = await directory.getFileHandle(name);
   const file = await handle.getFile();
@@ -280,7 +294,7 @@ async function writeText(
   path: string,
   content: string
 ): Promise<FileEntry> {
-  const root = await requireSavedDirectoryHandle();
+  const root = await requireSavedDirectoryHandle(READ_WRITE_PERMISSION);
   const { directory, name } = await resolveParentDirectory(root, path, true);
   const handle = await directory.getFileHandle(name, { create: true });
   const writable = await handle.createWritable();
@@ -292,7 +306,7 @@ async function writeText(
 }
 
 async function readBinary(_workspace: WorkspaceRef, path: string): Promise<Uint8Array> {
-  const root = await requireSavedDirectoryHandle();
+  const root = await requireSavedDirectoryHandle(READ_PERMISSION);
   const { directory, name } = await resolveParentDirectory(root, path, false);
   const handle = await directory.getFileHandle(name);
   const file = await handle.getFile();
@@ -304,7 +318,7 @@ async function writeBinary(
   path: string,
   content: Uint8Array
 ): Promise<FileEntry> {
-  const root = await requireSavedDirectoryHandle();
+  const root = await requireSavedDirectoryHandle(READ_WRITE_PERMISSION);
   const { directory, name } = await resolveParentDirectory(root, path, true);
   const handle = await directory.getFileHandle(name, { create: true });
   const writable = await handle.createWritable();
@@ -316,7 +330,7 @@ async function writeBinary(
 }
 
 async function exists(_workspace: WorkspaceRef, path: string): Promise<boolean> {
-  const root = await requireSavedDirectoryHandle();
+  const root = await requireSavedDirectoryHandle(READ_PERMISSION);
   let directory: FileSystemDirectoryHandle;
   let name: string;
 
@@ -371,7 +385,7 @@ async function move(workspace: WorkspaceRef, from: string, to: string): Promise<
     return;
   }
 
-  const root = await requireSavedDirectoryHandle();
+  const root = await requireSavedDirectoryHandle(READ_WRITE_PERMISSION);
   const sourceHandle = await getFileHandleIfExists(root, source);
 
   if (!sourceHandle) {
@@ -389,7 +403,7 @@ async function move(workspace: WorkspaceRef, from: string, to: string): Promise<
 }
 
 async function mkdir(_workspace: WorkspaceRef, path: string): Promise<void> {
-  const root = await requireSavedDirectoryHandle();
+  const root = await requireSavedDirectoryHandle(READ_WRITE_PERMISSION);
   const normalized = normalizeRelativePath(path);
   const parts = normalized.split('/');
   let directory = root;
@@ -400,7 +414,7 @@ async function mkdir(_workspace: WorkspaceRef, path: string): Promise<void> {
 }
 
 async function remove(_workspace: WorkspaceRef, path: string): Promise<void> {
-  const root = await requireSavedDirectoryHandle();
+  const root = await requireSavedDirectoryHandle(READ_WRITE_PERMISSION);
   const { directory, name } = await resolveParentDirectory(root, path, false);
   await directory.removeEntry(name, { recursive: true });
 }

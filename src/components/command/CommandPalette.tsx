@@ -7,6 +7,7 @@ import { messages, useTranslation, type Locale } from '@/i18n';
 import { useUIStore } from '@/stores/uiStore';
 import { usePromptStore } from '@/stores/promptStore';
 import { Overlay } from '@/components/common';
+import { openSettingsPage } from '@/components/settings';
 
 interface Command {
   id: string;
@@ -62,7 +63,7 @@ export function createBaseCommands(
       icon: 'settings',
       action: () => {
         closeCommandPalette();
-        openModal('settings');
+        openSettingsPage();
       },
       category: 'action',
     },

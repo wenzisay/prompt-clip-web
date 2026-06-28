@@ -9,7 +9,7 @@ import { SupportPage } from '@/components/support';
 import { Sidebar, TopBar, DetailPanel } from '@/components/layout';
 import { PromptGrid, CreateModal, DeleteConfirm } from '@/components/prompt';
 import { CommandPalette } from '@/components/command';
-import { SettingsModal } from '@/components/settings';
+import { SettingsModal, SettingsPage } from '@/components/settings';
 import { RecycleModal } from '@/components/recycle';
 import { useFileStore } from '@/stores/fileStore';
 import { useUIStore } from '@/stores/uiStore';
@@ -52,6 +52,12 @@ export function isSupportPath(pathname: string): boolean {
   return normalizedPathname === '/support';
 }
 
+export function isSettingsPath(pathname: string): boolean {
+  const normalizedPathname = pathname.replace(/\/+$/, '') || '/';
+
+  return normalizedPathname === '/settings';
+}
+
 function getCurrentPathname(): string {
   if (typeof window === 'undefined') {
     return '/';
@@ -61,7 +67,7 @@ function getCurrentPathname(): string {
 }
 
 function AppContent() {
-  const { isAuthorized, workspace, initialize } = useFileStore();
+  const { hasInitialized, isAuthorized, workspace, initialize } = useFileStore();
   const { modalType, selectedPromptId, deletingPromptId } = useUIStore();
   const { prompts, isLoading: isPromptLoading } = usePromptStore();
   const { locale, resetSettings, setHistorySettings, setShareAuthorName } = useSettingsStore();
@@ -124,6 +130,14 @@ function AppContent() {
   useKeyboardShortcuts();
 
   // 未授权时显示欢迎界面
+  if (!hasInitialized) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-bg text-muted">
+        <span className="material-symbols-outlined animate-spin text-2xl">refresh</span>
+      </div>
+    );
+  }
+
   if (!isAuthorized || !workspace) {
     return <WelcomeScreen />;
   }
@@ -210,6 +224,10 @@ export function AppRouter({ pathname = getCurrentPathname() }: AppRouterProps) {
 
   if (isSupportPath(pathname)) {
     return <SupportPage />;
+  }
+
+  if (isSettingsPath(pathname)) {
+    return <SettingsPage />;
   }
 
   return <AppContent />;

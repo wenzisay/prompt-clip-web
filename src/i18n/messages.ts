@@ -187,6 +187,7 @@ export const messages = {
       unsupportedBrowserTitle: '当前浏览器不支持',
       unsupportedBrowserDescription: '读写本地文件。请使用 Chrome 或 Edge 86+ 访问。',
       chooseDataDirectory: '选择数据目录',
+      useLastDataDirectory: '使用上次所选目录',
       localOnlyNote: '所有数据仅存储在本地，不会上传到任何服务器',
       downloadClientDivider: '或下载客户端',
       downloadIOS: 'iOS App',
@@ -474,6 +475,7 @@ export const messages = {
       unsupportedBrowserTitle: '目前瀏覽器不支援',
       unsupportedBrowserDescription: '讀寫本地檔案。請使用 Chrome 或 Edge 86+ 存取。',
       chooseDataDirectory: '選擇資料目錄',
+      useLastDataDirectory: '使用上次所選目錄',
       localOnlyNote: '所有資料僅儲存在本地，不會上傳到任何伺服器',
       downloadClientDivider: '或下載用戶端',
       downloadIOS: 'iOS App',
@@ -765,6 +767,7 @@ export const messages = {
       unsupportedBrowserDescription:
         'Local file read/write requires Chrome or Edge 86+.',
       chooseDataDirectory: 'Choose data folder',
+      useLastDataDirectory: 'Use last selected folder',
       localOnlyNote: 'All data stays on this device and is never uploaded to a server.',
       downloadClientDivider: 'Or download the apps',
       downloadIOS: 'iOS App',
@@ -1062,6 +1065,7 @@ export const messages = {
       unsupportedBrowserDescription:
         'ローカルファイルの読み書きには Chrome または Edge 86+ が必要です。',
       chooseDataDirectory: 'データフォルダを選択',
+      useLastDataDirectory: '前回のフォルダを使用',
       localOnlyNote: 'すべてのデータはローカルにのみ保存され、サーバーにはアップロードされません',
       downloadClientDivider: 'またはアプリをダウンロード',
       downloadIOS: 'iOS App',

@@ -84,7 +84,8 @@ function GitHubLogo({ className }: { className?: string }) {
 
 export function WelcomeScreen() {
   const { t } = useTranslation();
-  const { isSupported, isLoading, error, openDirectory } = useDirectoryPicker();
+  const { isSupported, isLoading, error, pendingWorkspace, openDirectory } =
+    useDirectoryPicker();
   const shouldLinkFeatureCards = !isTauriRuntime();
   const featureCards: FeatureCardData[] = [
     {
@@ -160,7 +161,11 @@ export function WelcomeScreen() {
                   {isLoading ? 'refresh' : 'folder_open'}
                 </span>
                 <span className="whitespace-nowrap">
-                  {isLoading ? t.app.loading : t.app.chooseDataDirectory}
+                  {isLoading
+                    ? t.app.loading
+                    : pendingWorkspace
+                      ? t.app.useLastDataDirectory
+                      : t.app.chooseDataDirectory}
                 </span>
               </span>
               <span className="material-symbols-outlined text-[28px] transition group-hover:translate-x-1">
