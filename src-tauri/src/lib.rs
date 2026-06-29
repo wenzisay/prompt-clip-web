@@ -3,15 +3,28 @@ use std::fs;
 use std::path::{Component, Path, PathBuf};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
-    Arc,
+    Arc, Mutex,
 };
-use std::time::UNIX_EPOCH;
+use std::time::{Duration, UNIX_EPOCH};
 use tauri::menu::MenuBuilder;
 use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent};
 use tauri::Manager;
+use tauri_plugin_global_shortcut::{
+    Builder as ShortcutBuilder, GlobalShortcutExt, Shortcut, ShortcutState,
+};
 
 const MAIN_WINDOW_LABEL: &str = "main";
+const QUICK_SEARCH_LABEL: &str = "quick-search";
+const DEFAULT_QUICK_SEARCH_SHORTCUT: &str = "CommandOrControl+Shift+Space";
 const SHOW_MENU_ID: &str = "show";
+#[cfg(target_os = "macos")]
+const MACOS_ANSI_V_KEYCODE: u16 = 9;
+
+// 粘贴编排时序（毫秒）：隐藏浮窗后等待目标应用恢复焦点 + 光标就位
+#[cfg(target_os = "macos")]
+const FOCUS_DELAY_MS: u64 = 200;
+#[cfg(not(target_os = "macos"))]
+const FOCUS_DELAY_MS: u64 = 150;
 const QUIT_MENU_ID: &str = "quit";
 
 #[derive(Serialize)]
@@ -21,6 +34,17 @@ struct WorkspaceFileEntry {
     path: String,
     size: u64,
     modified_at: u128,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct QuickSearchPasteOutcome {
+    pasted: bool,
+}
+
+#[derive(Default)]
+struct QuickSearchFocusState {
+    previous_app_bundle_id: Mutex<Option<String>>,
 }
 
 fn workspace_root(root: &str) -> Result<PathBuf, String> {
@@ -95,6 +119,174 @@ enum AppLifecycleEvent {
     Other,
 }
 
+#[derive(Debug, PartialEq, Eq)]
+enum QuickSearchToggleAction {
+    Show,
+    Hide,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum QuickSearchAppVisibilityAction {
+    KeepUnchanged,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum QuickSearchPasteVisibilityAction {
+    HideApp,
+    HideWindow,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum PastePermissionAction {
+    Continue,
+    Reject,
+}
+
+/// 根据浮窗当前可见性决定 toggle 后的动作（纯函数，便于单测）。
+fn quick_search_toggle_action(is_visible: bool) -> QuickSearchToggleAction {
+    if is_visible {
+        QuickSearchToggleAction::Hide
+    } else {
+        QuickSearchToggleAction::Show
+    }
+}
+
+/// 快速搜索是独立浮窗，显示/隐藏时不应改变整个应用的可见性。
+fn quick_search_app_visibility_action() -> QuickSearchAppVisibilityAction {
+    QuickSearchAppVisibilityAction::KeepUnchanged
+}
+
+/// 粘贴时 macOS 需要隐藏整个应用，才能把焦点交还给唤出浮窗前的目标应用。
+fn quick_search_paste_visibility_action(is_macos: bool) -> QuickSearchPasteVisibilityAction {
+    if is_macos {
+        QuickSearchPasteVisibilityAction::HideApp
+    } else {
+        QuickSearchPasteVisibilityAction::HideWindow
+    }
+}
+
+fn should_hide_main_for_quick_search(previous_app_is_current_app: bool) -> bool {
+    !previous_app_is_current_app
+}
+
+fn paste_permission_action(is_macos: bool, is_trusted: bool) -> PastePermissionAction {
+    if is_macos && !is_trusted {
+        PastePermissionAction::Reject
+    } else {
+        PastePermissionAction::Continue
+    }
+}
+
+fn is_paste_permission_granted() -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        unsafe { objc2_application_services::AXIsProcessTrusted() }
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        true
+    }
+}
+
+fn ensure_paste_permission() -> Result<(), String> {
+    match paste_permission_action(cfg!(target_os = "macos"), is_paste_permission_granted()) {
+        PastePermissionAction::Continue => Ok(()),
+        PastePermissionAction::Reject => {
+            Err("macOS Accessibility permission is required for auto paste".to_string())
+        }
+    }
+}
+
+fn is_safe_bundle_identifier(bundle_id: &str) -> bool {
+    !bundle_id.is_empty()
+        && bundle_id
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-')
+}
+
+#[cfg(target_os = "macos")]
+fn get_frontmost_app_bundle_id() -> Option<String> {
+    let output = std::process::Command::new("osascript")
+        .args([
+            "-e",
+            "tell application \"System Events\" to get bundle identifier of first application process whose frontmost is true",
+        ])
+        .output()
+        .ok()?;
+
+    if !output.status.success() {
+        return None;
+    }
+
+    let bundle_id = String::from_utf8(output.stdout).ok()?.trim().to_string();
+    if is_safe_bundle_identifier(&bundle_id) {
+        Some(bundle_id)
+    } else {
+        None
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn get_frontmost_app_bundle_id() -> Option<String> {
+    None
+}
+
+fn remember_frontmost_app<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+    if let Some(bundle_id) = get_frontmost_app_bundle_id() {
+        let state = app.state::<QuickSearchFocusState>();
+        let lock_result = state.previous_app_bundle_id.lock();
+        if let Ok(mut previous_app_bundle_id) = lock_result {
+            *previous_app_bundle_id = Some(bundle_id);
+        }
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn activate_app_by_bundle_id(bundle_id: &str) -> Result<(), String> {
+    if !is_safe_bundle_identifier(bundle_id) {
+        return Err("Invalid app bundle identifier".to_string());
+    }
+
+    let script = format!("tell application id \"{}\" to activate", bundle_id);
+    let status = std::process::Command::new("osascript")
+        .args(["-e", script.as_str()])
+        .status()
+        .map_err(|error| error.to_string())?;
+
+    if status.success() {
+        Ok(())
+    } else {
+        Err("Failed to activate previous app".to_string())
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn activate_app_by_bundle_id(_bundle_id: &str) -> Result<(), String> {
+    Ok(())
+}
+
+fn activate_previous_app<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+    let bundle_id = app
+        .state::<QuickSearchFocusState>()
+        .previous_app_bundle_id
+        .lock()
+        .ok()
+        .and_then(|previous_app_bundle_id| previous_app_bundle_id.clone());
+
+    if let Some(bundle_id) = bundle_id {
+        let _ = activate_app_by_bundle_id(&bundle_id);
+    }
+}
+
+fn previous_app_is_current_app<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> bool {
+    app.state::<QuickSearchFocusState>()
+        .previous_app_bundle_id
+        .lock()
+        .ok()
+        .and_then(|previous_app_bundle_id| previous_app_bundle_id.clone())
+        .is_some_and(|bundle_id| bundle_id == app.config().identifier)
+}
+
 fn window_lifecycle_event(event: &tauri::WindowEvent) -> WindowLifecycleEvent {
     match event {
         tauri::WindowEvent::CloseRequested { .. } => WindowLifecycleEvent::CloseRequested,
@@ -136,10 +328,66 @@ fn show_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     }
 }
 
+fn hide_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+    if let Some(window) = app.get_webview_window(MAIN_WINDOW_LABEL) {
+        let _ = window.hide();
+    }
+}
+
+fn prepare_quick_search_show<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> bool {
+    remember_frontmost_app(app);
+    let should_hide_main = should_hide_main_for_quick_search(previous_app_is_current_app(app));
+    if should_hide_main {
+        hide_main_window(app);
+    }
+    should_hide_main
+}
+
+/// 切换快速搜索浮窗的显示/隐藏。
+fn toggle_quick_search<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+    if let Some(window) = app.get_webview_window(QUICK_SEARCH_LABEL) {
+        let is_visible = window.is_visible().unwrap_or(false);
+        match quick_search_toggle_action(is_visible) {
+            QuickSearchToggleAction::Show => {
+                let should_hide_main = prepare_quick_search_show(app);
+                match quick_search_app_visibility_action() {
+                    QuickSearchAppVisibilityAction::KeepUnchanged => {}
+                }
+                let _ = window.show();
+                let _ = window.set_focus();
+                if should_hide_main {
+                    hide_main_window(app);
+                }
+            }
+            QuickSearchToggleAction::Hide => {
+                let _ = window.hide();
+            }
+        }
+    }
+}
+
+fn show_quick_search_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+    if let Some(window) = app.get_webview_window(QUICK_SEARCH_LABEL) {
+        let should_hide_main = prepare_quick_search_show(app);
+        match quick_search_app_visibility_action() {
+            QuickSearchAppVisibilityAction::KeepUnchanged => {}
+        }
+        let _ = window.show();
+        let _ = window.set_focus();
+        if should_hide_main {
+            hide_main_window(app);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        app_lifecycle_action, window_lifecycle_action, AppLifecycleAction, AppLifecycleEvent,
+        app_lifecycle_action, is_safe_bundle_identifier, paste_permission_action,
+        quick_search_app_visibility_action, quick_search_paste_visibility_action,
+        quick_search_toggle_action, should_hide_main_for_quick_search, window_lifecycle_action,
+        AppLifecycleAction, AppLifecycleEvent, PastePermissionAction,
+        QuickSearchAppVisibilityAction, QuickSearchPasteVisibilityAction, QuickSearchToggleAction,
         WindowLifecycleAction, WindowLifecycleEvent,
     };
 
@@ -172,6 +420,95 @@ mod tests {
         assert_eq!(
             app_lifecycle_action(AppLifecycleEvent::Reopen),
             AppLifecycleAction::ShowMainWindow
+        );
+    }
+
+    #[test]
+    fn should_show_quick_search_when_not_visible() {
+        assert_eq!(
+            quick_search_toggle_action(false),
+            QuickSearchToggleAction::Show
+        );
+    }
+
+    #[test]
+    fn should_hide_quick_search_when_visible() {
+        assert_eq!(
+            quick_search_toggle_action(true),
+            QuickSearchToggleAction::Hide
+        );
+    }
+
+    #[test]
+    fn should_keep_app_visibility_unchanged_for_quick_search() {
+        assert_eq!(
+            quick_search_app_visibility_action(),
+            QuickSearchAppVisibilityAction::KeepUnchanged
+        );
+    }
+
+    #[test]
+    fn should_hide_app_before_pasting_on_macos() {
+        assert_eq!(
+            quick_search_paste_visibility_action(true),
+            QuickSearchPasteVisibilityAction::HideApp
+        );
+    }
+
+    #[test]
+    fn should_hide_only_quick_search_before_pasting_on_non_macos() {
+        assert_eq!(
+            quick_search_paste_visibility_action(false),
+            QuickSearchPasteVisibilityAction::HideWindow
+        );
+    }
+
+    #[test]
+    fn should_hide_main_when_quick_search_starts_from_another_app() {
+        assert!(should_hide_main_for_quick_search(false));
+    }
+
+    #[test]
+    fn should_keep_main_when_quick_search_starts_from_current_app() {
+        assert!(!should_hide_main_for_quick_search(true));
+    }
+
+    #[test]
+    fn should_accept_safe_bundle_identifiers() {
+        assert!(is_safe_bundle_identifier("com.apple.TextEdit"));
+        assert!(is_safe_bundle_identifier("com.google.Chrome"));
+        assert!(is_safe_bundle_identifier("com.example.my-app"));
+    }
+
+    #[test]
+    fn should_reject_unsafe_bundle_identifiers() {
+        assert!(!is_safe_bundle_identifier(""));
+        assert!(!is_safe_bundle_identifier("com.example.App\""));
+        assert!(!is_safe_bundle_identifier("com.example.App;open"));
+        assert!(!is_safe_bundle_identifier("com.example.App 中文"));
+    }
+
+    #[test]
+    fn should_reject_paste_when_macos_accessibility_is_not_trusted() {
+        assert_eq!(
+            paste_permission_action(true, false),
+            PastePermissionAction::Reject
+        );
+    }
+
+    #[test]
+    fn should_allow_paste_when_macos_accessibility_is_trusted() {
+        assert_eq!(
+            paste_permission_action(true, true),
+            PastePermissionAction::Continue
+        );
+    }
+
+    #[test]
+    fn should_allow_paste_on_non_macos_without_accessibility_check() {
+        assert_eq!(
+            paste_permission_action(false, false),
+            PastePermissionAction::Continue
         );
     }
 }
@@ -351,6 +688,128 @@ fn workspace_remove(root: String, path: String) -> Result<(), String> {
     }
 }
 
+#[tauri::command]
+fn show_quick_search(app: tauri::AppHandle) -> Result<(), String> {
+    show_quick_search_window(&app);
+    Ok(())
+}
+
+#[tauri::command]
+fn hide_quick_search(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window(QUICK_SEARCH_LABEL) {
+        let _ = window.hide();
+    }
+    Ok(())
+}
+
+/// 重新注册快速搜索的全局快捷键（先全部取消再注册新的）。
+/// 快捷键字符串真相源在前端 settingsStore，本命令只负责注册动作。
+#[tauri::command]
+fn set_quick_search_shortcut(app: tauri::AppHandle, shortcut: String) -> Result<(), String> {
+    let parsed = shortcut
+        .parse::<Shortcut>()
+        .map_err(|error| error.to_string())?;
+    let global_shortcut = app.global_shortcut();
+    let _ = global_shortcut.unregister_all();
+    global_shortcut
+        .register(parsed)
+        .map_err(|error| error.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+fn unset_quick_search_shortcut(app: tauri::AppHandle) -> Result<(), String> {
+    let _ = app.global_shortcut().unregister_all();
+    Ok(())
+}
+
+/// 用 enigo 模拟“粘贴”按键组合（mac: Cmd+V，其它平台: Ctrl+V）。
+fn paste_via_enigo() -> Result<(), String> {
+    use enigo::{Direction, Enigo, Key, Keyboard, Settings};
+    let mut enigo = Enigo::new(&Settings::default()).map_err(|e| e.to_string())?;
+    #[cfg(target_os = "macos")]
+    let modifier = Key::Meta;
+    #[cfg(not(target_os = "macos"))]
+    let modifier = Key::Control;
+    #[cfg(target_os = "macos")]
+    let paste_key = Key::Other(MACOS_ANSI_V_KEYCODE.into());
+    #[cfg(not(target_os = "macos"))]
+    let paste_key = Key::Unicode('v');
+    enigo
+        .key(modifier, Direction::Press)
+        .map_err(|e| e.to_string())?;
+    enigo
+        .key(paste_key, Direction::Click)
+        .map_err(|e| e.to_string())?;
+    enigo
+        .key(modifier, Direction::Release)
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+fn paste_shortcut_safely() -> Result<(), String> {
+    std::panic::catch_unwind(paste_via_enigo)
+        .map_err(|_| "Native paste shortcut failed unexpectedly".to_string())?
+}
+
+fn hide_for_quick_search_paste<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+    match quick_search_paste_visibility_action(cfg!(target_os = "macos")) {
+        QuickSearchPasteVisibilityAction::HideApp => {
+            let _ = app.hide();
+        }
+        QuickSearchPasteVisibilityAction::HideWindow => {
+            if let Some(window) = app.get_webview_window(QUICK_SEARCH_LABEL) {
+                let _ = window.hide();
+            }
+        }
+    }
+}
+
+/// 把 content 复制到剪贴板，并尽量粘贴到上一个前台应用的光标处。
+///
+/// 编排：写入正文到剪贴板 → 隐藏 PromptClip（让目标应用恢复焦点）→ 权限检查 →
+/// 等待焦点切换 → 模拟 Cmd/Ctrl+V。即使自动粘贴权限不可用，正文也会保留在剪贴板。
+#[tauri::command]
+async fn quick_search_paste(
+    app: tauri::AppHandle,
+    content: String,
+) -> Result<QuickSearchPasteOutcome, String> {
+    let mut clipboard = arboard::Clipboard::new().map_err(|e| e.to_string())?;
+    clipboard.set_text(&content).map_err(|e| e.to_string())?;
+    drop(clipboard);
+
+    hide_for_quick_search_paste(&app);
+    activate_previous_app(&app);
+
+    if ensure_paste_permission().is_err() {
+        return Ok(QuickSearchPasteOutcome { pasted: false });
+    }
+
+    tokio::time::sleep(Duration::from_millis(FOCUS_DELAY_MS)).await;
+    if paste_shortcut_safely().is_err() {
+        return Ok(QuickSearchPasteOutcome { pasted: false });
+    }
+
+    Ok(QuickSearchPasteOutcome { pasted: true })
+}
+
+/// 检测当前进程是否拥有向其它应用发送按键所需的权限（macOS 无障碍）。
+#[tauri::command]
+fn check_paste_permission() -> bool {
+    is_paste_permission_granted()
+}
+
+/// 打开系统无障碍设置面板（macOS），引导用户授权。
+#[tauri::command]
+fn open_accessibility_settings() {
+    #[cfg(target_os = "macos")]
+    {
+        let _ = std::process::Command::new("open")
+            .arg("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
+            .spawn();
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let is_quitting = Arc::new(AtomicBool::new(false));
@@ -358,6 +817,7 @@ pub fn run() {
     let menu_is_quitting = Arc::clone(&is_quitting);
 
     tauri::Builder::default()
+        .manage(QuickSearchFocusState::default())
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             show_main_window(app);
         }))
@@ -366,6 +826,16 @@ pub fn run() {
         // fs must be registered before persisted-scope so selected paths can be restored.
         .plugin(tauri_plugin_persisted_scope::init())
         .plugin(tauri_plugin_store::Builder::new().build())
+        .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(
+            ShortcutBuilder::new()
+                .with_handler(|app, _shortcut, event| {
+                    if event.state == ShortcutState::Pressed {
+                        toggle_quick_search(app);
+                    }
+                })
+                .build(),
+        )
         .setup(|app| {
             let menu = MenuBuilder::new(app)
                 .text(SHOW_MENU_ID, "显示")
@@ -381,6 +851,15 @@ pub fn run() {
             }
 
             tray.build(app)?;
+
+            // 注册默认全局快捷键（呼出/隐藏快速搜索浮窗）。
+            // 真正的快捷键由前端 settingsStore 持有，启动后前端会调用
+            // set_quick_search_shortcut 覆盖为用户配置；这里先注册默认值，
+            // 保证主窗口未就绪时快捷键也能用。
+            if let Ok(shortcut) = DEFAULT_QUICK_SEARCH_SHORTCUT.parse::<Shortcut>() {
+                let _ = app.global_shortcut().register(shortcut);
+            }
+
             Ok(())
         })
         .on_menu_event(move |app, event| match event.id().as_ref() {
@@ -431,6 +910,13 @@ pub fn run() {
             workspace_move,
             workspace_mkdir,
             workspace_remove,
+            show_quick_search,
+            hide_quick_search,
+            set_quick_search_shortcut,
+            unset_quick_search_shortcut,
+            quick_search_paste,
+            check_paste_permission,
+            open_accessibility_settings,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

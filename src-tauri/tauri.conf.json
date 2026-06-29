@@ -10,8 +10,10 @@
     "beforeBuildCommand": "npm run build"
   },
   "app": {
+    "macOSPrivateApi": true,
     "windows": [
       {
+        "label": "main",
         "title": "PromptClip",
         "width": 1024,
         "height": 760,
@@ -19,6 +21,21 @@
         "minHeight": 640,
         "resizable": true,
         "fullscreen": false
+      },
+      {
+        "label": "quick-search",
+        "url": "index.html?window=quick-search",
+        "title": "Quick Search",
+        "width": 640,
+        "height": 392,
+        "resizable": true,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "center": true,
+        "visible": false,
+        "focus": true
       }
     ],
     "security": {
