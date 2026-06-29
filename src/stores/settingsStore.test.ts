@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_HISTORY_SETTINGS,
+  DEFAULT_QUICK_SEARCH_ENABLED,
   detectInitialLocale,
   useSettingsStore,
 } from './settingsStore';
@@ -57,5 +58,20 @@ describe('settingsStore', () => {
     useSettingsStore.getState().resetSettings();
 
     expect(useSettingsStore.getState().shareAuthorName).toBe('');
+  });
+
+  it('stores whether global quick search is enabled', () => {
+    expect(useSettingsStore.getState().quickSearchEnabled).toBe(
+      DEFAULT_QUICK_SEARCH_ENABLED
+    );
+
+    useSettingsStore.getState().setQuickSearchEnabled(false);
+
+    expect(useSettingsStore.getState().quickSearchEnabled).toBe(false);
+
+    useSettingsStore.getState().resetSettings();
+    expect(useSettingsStore.getState().quickSearchEnabled).toBe(
+      DEFAULT_QUICK_SEARCH_ENABLED
+    );
   });
 });

@@ -263,6 +263,25 @@ export const messages = {
       ],
       aboutCommitment:
         '以上是一种自我保障的承诺，工具可能会消失，数据永远属于你。',
+      quickSearch: {
+        title: '快速搜索',
+        description:
+          '在任意应用中用全局快捷键呼出搜索浮窗，搜索后可粘贴到光标处或在主窗口打开详情。',
+        enabledLabel: '启用全局搜索框',
+        enabledDescription: '关闭后不会注册全局快捷键，也不会从其它应用唤出搜索浮窗。',
+        shortcutLabel: '呼出快捷键',
+        shortcutRecord: '点击录入',
+        shortcutRecording: '请按下组合键…',
+        shortcutReset: '恢复默认',
+        shortcutUpdateFailed: '快捷键无效或被占用，请重试',
+        macPermissionLabel: 'macOS 无障碍权限',
+        macPermissionGranted: '已授权',
+        macPermissionOpen: '打开系统设置',
+        macPermissionHint: '自动粘贴需要无障碍权限；授权后若仍无效，请重启应用。',
+        placeholder: '搜索 Prompt…',
+        noResults: '无匹配结果',
+        resultsLabel: '搜索结果',
+      },
     },
     metadataFields: {
       id: 'ID',
@@ -550,6 +569,25 @@ export const messages = {
       ],
       aboutCommitment:
         '以上是一種自我保障的承諾，工具可能會消失，資料永遠屬於你。',
+      quickSearch: {
+        title: '快速搜尋',
+        description:
+          '在任何應用程式中以全域快捷鍵呼出搜尋浮窗，搜尋後可貼上至游標處或在主視窗開啟詳情。',
+        enabledLabel: '啟用全域搜尋框',
+        enabledDescription: '關閉後不會註冊全域快捷鍵，也不會從其他應用程式呼出搜尋浮窗。',
+        shortcutLabel: '呼出快捷鍵',
+        shortcutRecord: '點擊錄入',
+        shortcutRecording: '請按下組合鍵…',
+        shortcutReset: '恢復預設',
+        shortcutUpdateFailed: '快捷鍵無效或被佔用，請重試',
+        macPermissionLabel: 'macOS 輔助使用權限',
+        macPermissionGranted: '已授權',
+        macPermissionOpen: '打開系統設定',
+        macPermissionHint: '自動貼上需要輔助使用權限；授權後若仍無效，請重新啟動應用程式。',
+        placeholder: '搜尋 Prompt…',
+        noResults: '無符合結果',
+        resultsLabel: '搜尋結果',
+      },
     },
     metadataFields: {
       id: 'ID',
@@ -846,6 +884,27 @@ export const messages = {
       ],
       aboutCommitment:
         'This is a commitment to self-preservation: tools may disappear, but your data remains yours.',
+      quickSearch: {
+        title: 'Quick Search',
+        description:
+          'Summon the search overlay from any app with a global shortcut, then paste at the cursor or open the prompt in the main window.',
+        enabledLabel: 'Enable global search overlay',
+        enabledDescription:
+          'When disabled, PromptClip will not register a global shortcut or summon the overlay from other apps.',
+        shortcutLabel: 'Summon shortcut',
+        shortcutRecord: 'Click to record',
+        shortcutRecording: 'Press a key combination…',
+        shortcutReset: 'Reset to default',
+        shortcutUpdateFailed: 'Shortcut is invalid or already in use',
+        macPermissionLabel: 'macOS Accessibility permission',
+        macPermissionGranted: 'Granted',
+        macPermissionOpen: 'Open System Settings',
+        macPermissionHint:
+          'Auto-paste requires Accessibility permission. If it still fails after granting, restart the app.',
+        placeholder: 'Search prompts…',
+        noResults: 'No matches',
+        resultsLabel: 'Search results',
+      },
     },
     metadataFields: {
       id: 'ID',
@@ -1143,6 +1202,27 @@ export const messages = {
       ],
       aboutCommitment:
         'これは自己防衛のための約束です。ツールは消えるかもしれませんが、データはあなたのものとして残ります。',
+      quickSearch: {
+        title: 'クイック検索',
+        description:
+          '任意のアプリでグローバルショートカットから検索パレットを呼び出し、カーソル位置に貼り付けるか、メインウィンドウで詳細を開けます。',
+        enabledLabel: 'グローバル検索パレットを有効にする',
+        enabledDescription:
+          'オフにするとグローバルショートカットを登録せず、他のアプリから検索パレットを呼び出しません。',
+        shortcutLabel: '呼び出しショートカット',
+        shortcutRecord: 'クリックして登録',
+        shortcutRecording: 'キーの組み合わせを押してください…',
+        shortcutReset: 'デフォルトに戻す',
+        shortcutUpdateFailed: 'ショートカットが無効か使用中です',
+        macPermissionLabel: 'macOS アクセシビリティ権限',
+        macPermissionGranted: '許可済み',
+        macPermissionOpen: 'システム設定を開く',
+        macPermissionHint:
+          '自動貼り付けにはアクセシビリティ権限が必要です。許可後も動作しない場合はアプリを再起動してください。',
+        placeholder: 'Prompt を検索…',
+        noResults: '一致する結果はありません',
+        resultsLabel: '検索結果',
+      },
     },
     metadataFields: {
       id: 'ID',

@@ -1,9 +1,54 @@
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Locale } from '@/i18n';
+import {
+  DEFAULT_QUICK_SEARCH_SHORTCUT,
+  useSettingsStore,
+} from '@/stores/settingsStore';
 import { SettingsModalContent } from './SettingsModal';
 
+const invokeMock = vi.hoisted(() => vi.fn());
+
+vi.mock('@tauri-apps/api/core', () => ({
+  invoke: invokeMock,
+}));
+
+function renderSettingsContent(locale: Locale = 'zh-CN') {
+  const noop = vi.fn();
+  render(
+    <SettingsModalContent
+      activeTab="general"
+      historySettings={{
+        enabled: false,
+        retentionDays: 30,
+      }}
+      isSaveDisabled={false}
+      isSaving={false}
+      shareAuthorName=""
+      onCancel={noop}
+      onChangeShareAuthorName={noop}
+      onChangeLocale={noop}
+      onChangeHistorySettings={noop}
+      onReset={noop}
+      onSave={noop}
+      onSelectTab={noop}
+      locale={locale}
+    />
+  );
+}
+
 describe('SettingsModal', () => {
+  afterEach(() => {
+    cleanup();
+    invokeMock.mockReset();
+    useSettingsStore.setState({
+      quickSearchEnabled: true,
+      quickSearchShortcut: DEFAULT_QUICK_SEARCH_SHORTCUT,
+      shareAuthorName: '',
+    });
+  });
+
   it('renders general and about sections', () => {
     const noop = vi.fn();
     const markup = renderToStaticMarkup(
@@ -201,5 +246,48 @@ describe('SettingsModal', () => {
     expect(markup).toContain('English');
     expect(markup).not.toContain('Chinese');
     expect(markup).not.toContain('通用设置');
+  });
+
+  it('unregisters the global shortcut when starting shortcut recording', async () => {
+    invokeMock.mockResolvedValue(undefined);
+    renderSettingsContent();
+
+    fireEvent.click(screen.getByText('点击录入'));
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith('unset_quick_search_shortcut');
+    });
+    expect(screen.getByText('请按下组合键…')).toBeTruthy();
+  });
+
+  it('disables global quick search and unregisters the shortcut', async () => {
+    invokeMock.mockResolvedValue(undefined);
+    renderSettingsContent();
+
+    fireEvent.click(screen.getByRole('switch', { name: '启用全局搜索框' }));
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith('unset_quick_search_shortcut');
+    });
+    expect(useSettingsStore.getState().quickSearchEnabled).toBe(false);
+    expect((screen.getByText('点击录入') as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('resets the shortcut and exits recording mode', async () => {
+    invokeMock.mockResolvedValue(undefined);
+    useSettingsStore.setState({ quickSearchShortcut: 'CommandOrControl+K' });
+    renderSettingsContent();
+
+    fireEvent.click(screen.getByText('点击录入'));
+    await screen.findByText('请按下组合键…');
+    fireEvent.click(screen.getByText('恢复默认'));
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith('set_quick_search_shortcut', {
+        shortcut: DEFAULT_QUICK_SEARCH_SHORTCUT,
+      });
+    });
+    expect(screen.getByText('点击录入')).toBeTruthy();
+    expect(useSettingsStore.getState().quickSearchShortcut).toBe(DEFAULT_QUICK_SEARCH_SHORTCUT);
   });
 });
