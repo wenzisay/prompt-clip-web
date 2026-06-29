@@ -21,6 +21,9 @@ import { fileRepository } from '@/services/fileRepository';
 import { usePromptLoader } from '@/hooks/usePromptLoader';
 import { usePromptLazyLoad } from '@/hooks/usePromptLazyLoad';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+import { useQuickSearchBridge } from '@/hooks/useQuickSearchBridge';
+import { useQuickSearchShortcutRegister } from '@/hooks/useQuickSearchShortcutRegister';
+import { isQuickSearchWindowLocation, QuickSearchApp } from '@/quickSearch';
 import { lazy, Suspense, useEffect } from 'react';
 
 const ExportModal = lazy(() =>
@@ -123,6 +126,12 @@ function AppContent() {
   // 键盘快捷键
   useKeyboardShortcuts();
 
+  // 快速搜索浮窗 ↔ 主窗口 的 IPC 桥（仅主窗口生效，浮窗不渲染 AppContent）
+  useQuickSearchBridge();
+
+  // 启动时注册用户配置的快速搜索全局快捷键（覆盖 Rust 默认值）
+  useQuickSearchShortcutRegister();
+
   // 未授权时显示欢迎界面
   if (!isAuthorized || !workspace) {
     return <WelcomeScreen />;
@@ -216,5 +225,10 @@ export function AppRouter({ pathname = getCurrentPathname() }: AppRouterProps) {
 }
 
 export default function App() {
+  // 快速搜索浮窗是独立 webview 窗口，靠 URL query ?window=quick-search 区分，
+  // 渲染精简的 QuickSearchApp 而非完整主界面。
+  if (isQuickSearchWindowLocation(typeof window !== 'undefined' ? window.location.search : '')) {
+    return <QuickSearchApp />;
+  }
   return <AppRouter />;
 }
