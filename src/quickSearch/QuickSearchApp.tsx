@@ -37,6 +37,12 @@ export function QuickSearchApp() {
       placeholder={t.settings.quickSearch.placeholder}
       noResultsText={t.settings.quickSearch.noResults}
       resultsLabel={t.settings.quickSearch.resultsLabel}
+      recentGroupLabel={t.app.commandRecentGroup}
+      searchGroupLabel={t.settings.quickSearch.resultsLabel}
+      navigateLabel={t.app.navigate}
+      pasteLabel={t.settings.quickSearch.paste}
+      closeLabel={t.app.closeCommand}
+      openDetailLabel={t.settings.quickSearch.openDetail}
       onQueryChange={setQuery}
       onSelectIndex={setSelectedIndex}
       onClose={handleClose}

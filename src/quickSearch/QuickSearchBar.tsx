@@ -17,6 +17,12 @@ interface QuickSearchBarProps {
   placeholder: string;
   noResultsText: string;
   resultsLabel: string;
+  recentGroupLabel: string;
+  searchGroupLabel: string;
+  navigateLabel: string;
+  pasteLabel: string;
+  closeLabel: string;
+  openDetailLabel: string;
   onQueryChange: (q: string) => void;
   onSelectIndex: (i: number) => void;
   onClose: () => void;
@@ -32,6 +38,12 @@ export function QuickSearchBar({
   placeholder,
   noResultsText,
   resultsLabel,
+  recentGroupLabel,
+  searchGroupLabel,
+  navigateLabel,
+  pasteLabel,
+  closeLabel,
+  openDetailLabel,
   onQueryChange,
   onSelectIndex,
   onClose,
@@ -72,12 +84,15 @@ export function QuickSearchBar({
   };
 
   const showNoResults = query.trim().length > 0 && results.length === 0 && !isSearching;
+  const groupLabel = query.trim() ? searchGroupLabel : recentGroupLabel;
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-surface rounded-xl shadow-card-hover overflow-hidden">
+    <div className="h-screen w-screen flex flex-col bg-surface rounded-card shadow-card-hover overflow-hidden">
       <div className="flex items-center px-4 border-b border-border">
         <span className="material-symbols-outlined text-lg text-muted mr-3">search</span>
         <input
+          id="quick-search-input"
+          name="quick-search"
           ref={inputRef}
           type="text"
           value={query}
@@ -90,23 +105,26 @@ export function QuickSearchBar({
       </div>
 
       {showNoResults && (
-        <div className="px-4 py-6 text-center text-sm text-muted">{noResultsText}</div>
+        <div className="flex-1 px-4 py-6 text-center text-sm text-muted">{noResultsText}</div>
       )}
 
       {results.length > 0 && (
         <div
           role="listbox"
           aria-label={resultsLabel}
-          className="flex-1 min-h-0 overflow-y-auto py-1"
+          className="flex-1 min-h-0 overflow-y-auto py-2"
         >
+          <div className="px-4 py-1 text-xs font-semibold text-muted uppercase">
+            {groupLabel}
+          </div>
           {results.map((item, index) => {
             const isSelected = index === selectedIndex;
             const itemTone = isSelected
               ? 'bg-accent-soft text-accent'
               : 'hover:bg-surface-dim text-fg';
             const actionTone = isSelected
-              ? 'text-accent hover:bg-accent-soft'
-              : 'text-muted hover:bg-surface-dim hover:text-fg';
+              ? 'text-accent opacity-100'
+              : 'text-muted opacity-0 group-hover:opacity-100 focus:opacity-100';
 
             return (
               <div
@@ -139,22 +157,41 @@ export function QuickSearchBar({
                 )}
                 <button
                   type="button"
-                  aria-label="在主应用中打开详情"
-                  title="在主应用中打开详情"
+                  aria-label={openDetailLabel}
+                  title={openDetailLabel}
                   onClick={(event) => {
                     event.stopPropagation();
                     onSelectIndex(index);
                     onOpenDetail(index);
                   }}
-                  className={`h-8 w-8 shrink-0 inline-flex items-center justify-center rounded-md transition-colors ${actionTone}`}
+                  className={`shrink-0 inline-flex h-8 w-8 items-center justify-center rounded-md transition-all duration-150 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 active:scale-95 hover:bg-surface-dim hover:text-accent ${actionTone}`}
                 >
-                  <span className="material-symbols-outlined text-lg">open_in_new</span>
+                  <span className="material-symbols-outlined text-lg leading-none">arrow_forward</span>
                 </button>
               </div>
             );
           })}
         </div>
       )}
+
+      <div className="px-4 py-2 border-t border-border flex items-center gap-4 text-xs text-muted overflow-x-auto">
+        <span className="flex items-center gap-1 shrink-0">
+          <kbd className="px-1.5 py-0.5 bg-surface-dim rounded">↑↓</kbd>
+          {navigateLabel}
+        </span>
+        <span className="flex items-center gap-1 shrink-0">
+          <kbd className="px-1.5 py-0.5 bg-surface-dim rounded">Enter</kbd>
+          {pasteLabel}
+        </span>
+        <span className="flex items-center gap-1 shrink-0">
+          <kbd className="px-1.5 py-0.5 bg-surface-dim rounded">⌘↵</kbd>
+          {openDetailLabel}
+        </span>
+        <span className="flex items-center gap-1 shrink-0">
+          <kbd className="px-1.5 py-0.5 bg-surface-dim rounded">Esc</kbd>
+          {closeLabel}
+        </span>
+      </div>
     </div>
   );
 }

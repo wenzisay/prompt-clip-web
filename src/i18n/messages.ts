@@ -281,6 +281,8 @@ export const messages = {
         placeholder: '搜索 Prompt…',
         noResults: '无匹配结果',
         resultsLabel: '搜索结果',
+        paste: '粘贴',
+        openDetail: '在主应用中打开详情',
       },
     },
     metadataFields: {
@@ -587,6 +589,8 @@ export const messages = {
         placeholder: '搜尋 Prompt…',
         noResults: '無符合結果',
         resultsLabel: '搜尋結果',
+        paste: '貼上',
+        openDetail: '在主應用程式中開啟詳情',
       },
     },
     metadataFields: {
@@ -904,6 +908,8 @@ export const messages = {
         placeholder: 'Search prompts…',
         noResults: 'No matches',
         resultsLabel: 'Search results',
+        paste: 'Paste',
+        openDetail: 'Open details in the main app',
       },
     },
     metadataFields: {
@@ -1222,6 +1228,8 @@ export const messages = {
         placeholder: 'Prompt を検索…',
         noResults: '一致する結果はありません',
         resultsLabel: '検索結果',
+        paste: '貼り付け',
+        openDetail: 'メインアプリで詳細を開く',
       },
     },
     metadataFields: {

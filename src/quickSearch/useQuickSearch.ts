@@ -31,8 +31,11 @@ interface QuickSearchPasteOutcome {
 
 const WINDOW_WIDTH = 640;
 const INPUT_HEIGHT = 64;
+const GROUP_HEADER_HEIGHT = 28;
 const ITEM_HEIGHT = 64;
+const FOOTER_HEIGHT = 38;
 const MAX_VISIBLE_ITEMS = 8;
+const EMPTY_STATE_HEIGHT = 56;
 const SEARCH_DEBOUNCE_MS = 120;
 const GET_CONTENT_TIMEOUT_MS = 5000;
 
@@ -59,6 +62,14 @@ export function useQuickSearch(): UseQuickSearch {
   const requestIdRef = useRef(0);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const runSearch = useCallback((q: string) => {
+    if (!isTauri()) return;
+    requestIdRef.current += 1;
+    const id = requestIdRef.current;
+    setIsSearching(true);
+    void emit(QS_SEARCH, { requestId: id, query: q });
+  }, []);
+
   // 监听主窗口返回的搜索结果（仅接受匹配当前 requestId 的响应）
   useEffect(() => {
     if (!isTauri()) return;
@@ -71,27 +82,31 @@ export function useQuickSearch(): UseQuickSearch {
         setSelectedIndex(0);
         setIsSearching(false);
       });
+      runSearch('');
       if (disposed) un?.();
     })();
     return () => {
       disposed = true;
       un?.();
     };
-  }, []);
+  }, [runSearch]);
 
   // 根据结果数量动态调整浮窗高度（Spotlight 风格）。
   // 注意：macOS 上 resizable:false 会阻止 setSize 生效，故浮窗 resizable 必须为 true。
   useEffect(() => {
     if (!isTauri()) return;
     const visible = Math.min(results.length, MAX_VISIBLE_ITEMS);
+    const listHeight = results.length > 0 ? GROUP_HEADER_HEIGHT + visible * ITEM_HEIGHT + 8 : 0;
+    const emptyHeight =
+      query.trim().length > 0 && results.length === 0 && !isSearching ? EMPTY_STATE_HEIGHT : 0;
     const height =
-      results.length === 0 ? INPUT_HEIGHT : INPUT_HEIGHT + visible * ITEM_HEIGHT + 8;
+      INPUT_HEIGHT + listHeight + emptyHeight + FOOTER_HEIGHT;
     getCurrentWindow()
       .setSize(new LogicalSize(WINDOW_WIDTH, height))
       .catch((error) => {
         console.warn('Failed to resize quick search window:', error);
       });
-  }, [results.length]);
+  }, [isSearching, query, results.length]);
 
   // 失焦自动隐藏（点击浮窗外即关闭，Spotlight 行为）
   useEffect(() => {
@@ -103,21 +118,12 @@ export function useQuickSearch(): UseQuickSearch {
     return () => window.removeEventListener('blur', handleBlur);
   }, []);
 
-  const runSearch = useCallback((q: string) => {
-    if (!isTauri()) return;
-    requestIdRef.current += 1;
-    const id = requestIdRef.current;
-    setIsSearching(true);
-    void emit(QS_SEARCH, { requestId: id, query: q });
-  }, []);
-
   const setQuery = useCallback(
     (q: string) => {
       setQueryState(q);
       if (debounceRef.current) clearTimeout(debounceRef.current);
       if (!q.trim()) {
-        setResults([]);
-        setIsSearching(false);
+        runSearch('');
         return;
       }
       debounceRef.current = setTimeout(() => runSearch(q), SEARCH_DEBOUNCE_MS);

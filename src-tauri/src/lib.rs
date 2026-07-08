@@ -265,6 +265,27 @@ fn activate_app_by_bundle_id(_bundle_id: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// 激活本应用自身到前台（用于快速搜索"打开详情"切回主窗口）。
+///
+/// 在主线程内直接调用 AppKit——进程内、即时、不阻塞。刻意不沿用
+/// `activate_app_by_bundle_id`（osascript）：它会向自身发送 Apple Event，
+/// 同步等待响应时易与主线程死锁（这正是同步命令下的卡死根因），且 dev 模式下
+/// 二进制未注册 bundle id 时还会失败。同步 Tauri 命令恰在主线程执行，满足
+/// NSApplication 的主线程要求；activateIgnoringOtherApps(true) 强制置前。
+#[cfg(target_os = "macos")]
+#[allow(deprecated)] // activateIgnoringOtherApps 仍是最可靠的强制激活方式
+fn activate_this_app() {
+    use objc2::MainThreadMarker;
+    use objc2_app_kit::NSApplication;
+    if let Some(mtm) = MainThreadMarker::new() {
+        let app = NSApplication::sharedApplication(mtm);
+        app.activateIgnoringOtherApps(true);
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn activate_this_app() {}
+
 fn activate_previous_app<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     let bundle_id = app
         .state::<QuickSearchFocusState>()
@@ -326,6 +347,21 @@ fn show_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
         let _ = window.unminimize();
         let _ = window.set_focus();
     }
+}
+
+/// 把主窗口带到前台：显示 + 取消最小化 + 聚焦窗口，并激活整个应用。
+///
+/// 单纯 `window.show/set_focus` 无法把一个未在前台的应用拉到最前——macOS 上
+/// 快速搜索浮窗常由用户从其他应用呼出，此时 PromptClip 自身并不在前台，
+/// 主窗口即便 show 也会被其他应用遮挡。因此需要显式激活应用本身。
+/// 用于快速搜索"打开详情"等从浮窗切回主窗口的场景。
+fn bring_main_window_to_front<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+    if let Some(window) = app.get_webview_window(MAIN_WINDOW_LABEL) {
+        let _ = window.show();
+        let _ = window.unminimize();
+        let _ = window.set_focus();
+    }
+    activate_this_app();
 }
 
 fn hide_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
@@ -702,6 +738,16 @@ fn hide_quick_search(app: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// 显示并把主窗口带到前台（含激活整个应用）。
+///
+/// 供快速搜索浮窗"打开详情"等场景调用：浮窗与主窗口是隔离的 JS 上下文，
+/// 主窗口收到 open-detail 事件后通过本命令把自身唤醒到前台。
+#[tauri::command]
+fn focus_main_window(app: tauri::AppHandle) -> Result<(), String> {
+    bring_main_window_to_front(&app);
+    Ok(())
+}
+
 /// 重新注册快速搜索的全局快捷键（先全部取消再注册新的）。
 /// 快捷键字符串真相源在前端 settingsStore，本命令只负责注册动作。
 #[tauri::command]
@@ -912,6 +958,7 @@ pub fn run() {
             workspace_remove,
             show_quick_search,
             hide_quick_search,
+            focus_main_window,
             set_quick_search_shortcut,
             unset_quick_search_shortcut,
             quick_search_paste,

@@ -17,6 +17,12 @@ function renderBar(overrides: Partial<React.ComponentProps<typeof QuickSearchBar
     placeholder: '搜索…',
     noResultsText: '无结果',
     resultsLabel: '搜索结果',
+    recentGroupLabel: '最近使用',
+    searchGroupLabel: '搜索结果',
+    navigateLabel: '导航',
+    pasteLabel: '粘贴',
+    closeLabel: '关闭',
+    openDetailLabel: '在主应用中打开详情',
     onQueryChange: vi.fn(),
     onSelectIndex: vi.fn(),
     onClose: vi.fn(),
@@ -44,6 +50,27 @@ describe('QuickSearchBar', () => {
     expect(screen.getByPlaceholderText('搜索…')).toBeTruthy();
     expect(screen.getByText('First')).toBeTruthy();
     expect(screen.getByText('Second')).toBeTruthy();
+  });
+
+  it('should label empty-query results as recently used', () => {
+    renderBar();
+
+    expect(screen.getByText('最近使用')).toBeTruthy();
+  });
+
+  it('should label typed-query results as search results', () => {
+    renderBar({ query: 'sec' });
+
+    expect(screen.getByText('搜索结果')).toBeTruthy();
+  });
+
+  it('should render footer keyboard guidance', () => {
+    renderBar();
+
+    expect(screen.getByText('导航')).toBeTruthy();
+    expect(screen.getByText('粘贴')).toBeTruthy();
+    expect(screen.getByText('关闭')).toBeTruthy();
+    expect(screen.getByText('在主应用中打开详情')).toBeTruthy();
   });
 
   it('should give the result list a scrollable viewport below the input', () => {
@@ -124,6 +151,15 @@ describe('QuickSearchBar', () => {
 
     expect(onOpenDetail).toHaveBeenCalledWith(0);
     expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it('should render the detail action as a ghost icon button', () => {
+    renderBar();
+
+    const button = screen.getAllByLabelText('在主应用中打开详情')[0];
+
+    expect(button.className).toContain('hover:bg-surface-dim');
+    expect(button.className).not.toContain('border');
   });
 
   it('should call onOpenDetail (not onSubmit) when Cmd+Enter is pressed', () => {
