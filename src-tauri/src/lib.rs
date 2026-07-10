@@ -370,8 +370,54 @@ fn hide_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     }
 }
 
-fn prepare_quick_search_show<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> bool {
+/// 计算窗口在指定显示器中的居中坐标。
+fn centered_window_position(
+    monitor_position: (i32, i32),
+    monitor_size: (u32, u32),
+    window_size: (u32, u32),
+) -> (i32, i32) {
+    let x =
+        i64::from(monitor_position.0) + (i64::from(monitor_size.0) - i64::from(window_size.0)) / 2;
+    let y =
+        i64::from(monitor_position.1) + (i64::from(monitor_size.1) - i64::from(window_size.1)) / 2;
+    (x as i32, y as i32)
+}
+
+/// 将快速搜索窗口移动到鼠标所在显示器中央。
+fn reposition_quick_search_window<R: tauri::Runtime>(
+    window: &tauri::WebviewWindow<R>,
+) -> Result<(), String> {
+    let cursor_monitor = window.cursor_position().ok().and_then(|position| {
+        window
+            .monitor_from_point(position.x, position.y)
+            .ok()
+            .flatten()
+    });
+    let monitor = cursor_monitor
+        .or_else(|| window.primary_monitor().ok().flatten())
+        .ok_or_else(|| "No monitor is available for quick search".to_string())?;
+    let monitor_position = monitor.position();
+    let monitor_size = monitor.size();
+    let window_size = window.outer_size().map_err(|error| error.to_string())?;
+    let (x, y) = centered_window_position(
+        (monitor_position.x, monitor_position.y),
+        (monitor_size.width, monitor_size.height),
+        (window_size.width, window_size.height),
+    );
+
+    window
+        .set_position(tauri::PhysicalPosition::new(x, y))
+        .map_err(|error| error.to_string())
+}
+
+fn prepare_quick_search_show<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    window: &tauri::WebviewWindow<R>,
+) -> bool {
     remember_frontmost_app(app);
+    if let Err(error) = reposition_quick_search_window(window) {
+        eprintln!("Failed to reposition quick search window: {error}");
+    }
     let should_hide_main = should_hide_main_for_quick_search(previous_app_is_current_app(app));
     if should_hide_main {
         hide_main_window(app);
@@ -385,7 +431,7 @@ fn toggle_quick_search<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
         let is_visible = window.is_visible().unwrap_or(false);
         match quick_search_toggle_action(is_visible) {
             QuickSearchToggleAction::Show => {
-                let should_hide_main = prepare_quick_search_show(app);
+                let should_hide_main = prepare_quick_search_show(app, &window);
                 match quick_search_app_visibility_action() {
                     QuickSearchAppVisibilityAction::KeepUnchanged => {}
                 }
@@ -404,7 +450,7 @@ fn toggle_quick_search<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
 
 fn show_quick_search_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     if let Some(window) = app.get_webview_window(QUICK_SEARCH_LABEL) {
-        let should_hide_main = prepare_quick_search_show(app);
+        let should_hide_main = prepare_quick_search_show(app, &window);
         match quick_search_app_visibility_action() {
             QuickSearchAppVisibilityAction::KeepUnchanged => {}
         }
@@ -419,12 +465,13 @@ fn show_quick_search_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
 #[cfg(test)]
 mod tests {
     use super::{
-        app_lifecycle_action, is_safe_bundle_identifier, paste_permission_action,
-        quick_search_app_visibility_action, quick_search_paste_visibility_action,
-        quick_search_toggle_action, should_hide_main_for_quick_search, window_lifecycle_action,
-        AppLifecycleAction, AppLifecycleEvent, PastePermissionAction,
-        QuickSearchAppVisibilityAction, QuickSearchPasteVisibilityAction, QuickSearchToggleAction,
-        WindowLifecycleAction, WindowLifecycleEvent,
+        app_lifecycle_action, centered_window_position, is_safe_bundle_identifier,
+        paste_permission_action, quick_search_app_visibility_action,
+        quick_search_paste_visibility_action, quick_search_toggle_action,
+        should_hide_main_for_quick_search, window_lifecycle_action, AppLifecycleAction,
+        AppLifecycleEvent, PastePermissionAction, QuickSearchAppVisibilityAction,
+        QuickSearchPasteVisibilityAction, QuickSearchToggleAction, WindowLifecycleAction,
+        WindowLifecycleEvent,
     };
 
     #[test]
@@ -507,6 +554,22 @@ mod tests {
     #[test]
     fn should_keep_main_when_quick_search_starts_from_current_app() {
         assert!(!should_hide_main_for_quick_search(true));
+    }
+
+    #[test]
+    fn should_center_quick_search_on_primary_monitor() {
+        assert_eq!(
+            centered_window_position((0, 0), (1920, 1080), (640, 392)),
+            (640, 344)
+        );
+    }
+
+    #[test]
+    fn should_center_quick_search_on_monitor_with_negative_coordinates() {
+        assert_eq!(
+            centered_window_position((-2560, 0), (2560, 1440), (640, 392)),
+            (-1600, 524)
+        );
     }
 
     #[test]
