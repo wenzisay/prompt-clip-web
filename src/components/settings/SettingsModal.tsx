@@ -4,6 +4,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { Button, Modal } from '@/components/common';
 import { LOCALE_OPTIONS, messages, useTranslation, type Locale } from '@/i18n';
 import { formatShortcutFromEvent } from '@/quickSearch';
@@ -642,6 +643,7 @@ function QuickSearchSettings({ locale }: { locale: Locale }) {
   const [isRecording, setIsRecording] = useState(false);
   const [isStartingRecording, setIsStartingRecording] = useState(false);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  const permissionRequestIdRef = useRef(0);
   const recordingRequestIdRef = useRef(0);
 
   const isMac = isMacPlatform();
@@ -650,12 +652,53 @@ function QuickSearchSettings({ locale }: { locale: Locale }) {
     isMac ? 'Cmd' : 'Ctrl'
   );
 
-  // macOS 无障碍权限检测（自动粘贴需要）
+  // macOS 无障碍权限检测：首次显示及从系统设置返回时刷新。
   useEffect(() => {
     if (!isTauriEnv() || !isMac) return;
-    void invoke<boolean>('check_paste_permission')
-      .then(setHasPermission)
-      .catch(() => setHasPermission(false));
+
+    let disposed = false;
+    let unlisten: (() => void) | null = null;
+
+    const refreshPermission = () => {
+      const requestId = permissionRequestIdRef.current + 1;
+      permissionRequestIdRef.current = requestId;
+      void invoke<boolean>('check_paste_permission')
+        .then((granted) => {
+          if (!disposed && permissionRequestIdRef.current === requestId) {
+            setHasPermission(granted);
+          }
+        })
+        .catch((error) => {
+          console.warn('Failed to check macOS accessibility permission:', error);
+          if (!disposed && permissionRequestIdRef.current === requestId) {
+            setHasPermission(false);
+          }
+        });
+    };
+
+    refreshPermission();
+    void getCurrentWindow()
+      .onFocusChanged(({ payload: focused }) => {
+        if (focused) {
+          refreshPermission();
+        }
+      })
+      .then((stopListening) => {
+        if (disposed) {
+          stopListening();
+        } else {
+          unlisten = stopListening;
+        }
+      })
+      .catch((error) => {
+        console.warn('Failed to listen for window focus changes:', error);
+      });
+
+    return () => {
+      disposed = true;
+      permissionRequestIdRef.current += 1;
+      unlisten?.();
+    };
   }, [isMac]);
 
   const handleToggleEnabled = () => {

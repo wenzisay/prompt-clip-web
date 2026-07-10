@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Locale } from '@/i18n';
@@ -9,9 +9,16 @@ import {
 import { SettingsModalContent } from './SettingsModal';
 
 const invokeMock = vi.hoisted(() => vi.fn());
+const onFocusChangedMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: invokeMock,
+}));
+
+vi.mock('@tauri-apps/api/window', () => ({
+  getCurrentWindow: () => ({
+    onFocusChanged: onFocusChangedMock,
+  }),
 }));
 
 function renderSettingsContent(locale: Locale = 'zh-CN') {
@@ -42,6 +49,9 @@ describe('SettingsModal', () => {
   afterEach(() => {
     cleanup();
     invokeMock.mockReset();
+    onFocusChangedMock.mockReset();
+    Reflect.deleteProperty(window.navigator, 'platform');
+    delete (window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__;
     useSettingsStore.setState({
       quickSearchEnabled: true,
       quickSearchShortcut: DEFAULT_QUICK_SEARCH_SHORTCUT,
@@ -289,5 +299,36 @@ describe('SettingsModal', () => {
     });
     expect(screen.getByText('点击录入')).toBeTruthy();
     expect(useSettingsStore.getState().quickSearchShortcut).toBe(DEFAULT_QUICK_SEARCH_SHORTCUT);
+  });
+
+  it('refreshes macOS accessibility permission when the window regains focus', async () => {
+    let focusChangedHandler: ((event: { payload: boolean }) => void) | null = null;
+    let hasPermission = false;
+    Object.defineProperty(window.navigator, 'platform', {
+      configurable: true,
+      value: 'MacIntel',
+    });
+    (window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__ = {};
+    onFocusChangedMock.mockImplementation(async (handler) => {
+      focusChangedHandler = handler;
+      return vi.fn();
+    });
+    invokeMock.mockImplementation(async (command) => {
+      if (command === 'check_paste_permission') {
+        return hasPermission;
+      }
+      return undefined;
+    });
+    renderSettingsContent();
+
+    expect(await screen.findByText('打开系统设置')).toBeTruthy();
+    await waitFor(() => expect(focusChangedHandler).not.toBeNull());
+
+    hasPermission = true;
+    act(() => {
+      focusChangedHandler?.({ payload: true });
+    });
+
+    expect(await screen.findByText(/已授权/)).toBeTruthy();
   });
 });
