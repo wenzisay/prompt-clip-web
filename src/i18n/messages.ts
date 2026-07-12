@@ -217,12 +217,24 @@ export const messages = {
       chinese: '中文',
       english: '英文',
       historyTitle: '历史版本',
+      fileWatchingTitle: '自动监听文件变动',
+      fileWatchingDescription:
+        '开启后，工作区中的 Markdown 文件被外部新增、修改或删除时，PromptClip 会自动更新界面。',
+      fileWatchingAriaLabel: '自动监听文件变动',
+      fileWatchingNote:
+        'Web 端通过定时检查实现，可能存在短暂延迟；关闭后将在重新打开工作区时读取外部变化。',
       historyDescription: '默认关闭。启用后，后续版本会在编辑笔记时保留历史快照。',
       historyAriaLabel: '启用历史版本',
       historyNote: '关闭后不会自动创建历史目录和历史快照；保留天数目前仅保存配置，暂不自动清理。',
       retentionDays: '保留天数',
       days: (days: number) => `${days} 天`,
       maintenanceTitle: '文件夹维护',
+      metadataPromptTitle: '发现元数据问题',
+      metadataPromptDescription: (count: number) =>
+        `发现 ${count} 个 Markdown 文件缺少或包含无效的 PromptClip 元数据。`,
+      metadataPromptIgnore: '本次忽略',
+      metadataPromptView: '查看详情',
+      metadataPromptRepair: '自动修复',
       maintenanceDescription:
         '扫描 Obsidian 创建的 Markdown，补全 PromptClip 需要的 frontmatter。',
       scanMetadata: '扫描元数据',
@@ -525,12 +537,24 @@ export const messages = {
       chinese: '中文',
       english: '英文',
       historyTitle: '歷史版本',
+      fileWatchingTitle: '自動監聽檔案變動',
+      fileWatchingDescription:
+        '開啟後，工作區中的 Markdown 檔案由外部新增、修改或刪除時，PromptClip 會自動更新介面。',
+      fileWatchingAriaLabel: '自動監聽檔案變動',
+      fileWatchingNote:
+        'Web 端透過定時檢查實作，可能有短暫延遲；關閉後會在重新開啟工作區時讀取外部變化。',
       historyDescription: '預設關閉。啟用後，後續版本會在編輯筆記時保留歷史快照。',
       historyAriaLabel: '啟用歷史版本',
       historyNote: '關閉後不會自動建立歷史目錄和歷史快照；保留天數目前僅儲存設定，暫不自動清理。',
       retentionDays: '保留天數',
       days: (days: number) => `${days} 天`,
       maintenanceTitle: '資料夾維護',
+      metadataPromptTitle: '發現中繼資料問題',
+      metadataPromptDescription: (count: number) =>
+        `發現 ${count} 個 Markdown 檔案缺少或包含無效的 PromptClip 中繼資料。`,
+      metadataPromptIgnore: '本次忽略',
+      metadataPromptView: '查看詳情',
+      metadataPromptRepair: '自動修復',
       maintenanceDescription:
         '掃描 Obsidian 建立的 Markdown，補全 PromptClip 需要的 frontmatter。',
       scanMetadata: '掃描元資料',
@@ -838,6 +862,12 @@ export const messages = {
       chinese: 'Chinese',
       english: 'English',
       historyTitle: 'History versions',
+      fileWatchingTitle: 'Watch file changes automatically',
+      fileWatchingDescription:
+        'Automatically update PromptClip when Markdown files are added, changed, or removed outside the app.',
+      fileWatchingAriaLabel: 'Watch file changes automatically',
+      fileWatchingNote:
+        'The web app checks periodically and may have a short delay. When disabled, external changes are read after reopening the workspace.',
       historyDescription:
         'Off by default. When enabled, future edits keep historical snapshots.',
       historyAriaLabel: 'Enable history versions',
@@ -846,6 +876,12 @@ export const messages = {
       retentionDays: 'Retention days',
       days: (days: number) => `${days} days`,
       maintenanceTitle: 'Folder maintenance',
+      metadataPromptTitle: 'Metadata issues found',
+      metadataPromptDescription: (count: number) =>
+        `${count} Markdown files have missing or invalid PromptClip metadata.`,
+      metadataPromptIgnore: 'Ignore this time',
+      metadataPromptView: 'View details',
+      metadataPromptRepair: 'Repair automatically',
       maintenanceDescription:
         'Scan Markdown created by Obsidian and fill in PromptClip frontmatter.',
       scanMetadata: 'Scan metadata',
@@ -1158,6 +1194,12 @@ export const messages = {
       chinese: '中国語',
       english: '英語',
       historyTitle: '履歴バージョン',
+      fileWatchingTitle: 'ファイル変更を自動監視',
+      fileWatchingDescription:
+        'ワークスペースの Markdown ファイルが外部で追加、変更、削除されたとき、PromptClip の画面を自動更新します。',
+      fileWatchingAriaLabel: 'ファイル変更を自動監視',
+      fileWatchingNote:
+        'Web 版は定期チェックで実現するため、短い遅延が生じる場合があります。オフの場合、ワークスペースを開き直したときに外部変更を読み込みます。',
       historyDescription:
         'デフォルトではオフです。有効にすると、以後の編集時に履歴スナップショットを保持します。',
       historyAriaLabel: '履歴バージョンを有効にする',
@@ -1166,6 +1208,12 @@ export const messages = {
       retentionDays: '保持日数',
       days: (days: number) => `${days} 日`,
       maintenanceTitle: 'フォルダメンテナンス',
+      metadataPromptTitle: 'メタデータの問題が見つかりました',
+      metadataPromptDescription: (count: number) =>
+        `${count} 個の Markdown ファイルに PromptClip メタデータの欠落または無効な値があります。`,
+      metadataPromptIgnore: '今回は無視',
+      metadataPromptView: '詳細を表示',
+      metadataPromptRepair: '自動修復',
       maintenanceDescription:
         'Obsidian で作成した Markdown をスキャンし、PromptClip に必要な frontmatter を補完します。',
       scanMetadata: 'メタデータをスキャン',

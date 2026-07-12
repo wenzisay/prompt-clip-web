@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  DEFAULT_FILE_WATCHING_ENABLED,
   DEFAULT_HISTORY_SETTINGS,
   DEFAULT_QUICK_SEARCH_ENABLED,
   detectInitialLocale,
@@ -73,5 +74,17 @@ describe('settingsStore', () => {
     expect(useSettingsStore.getState().quickSearchEnabled).toBe(
       DEFAULT_QUICK_SEARCH_ENABLED
     );
+  });
+
+  it('keeps automatic file watching disabled by default', () => {
+    expect(useSettingsStore.getState().fileWatchingEnabled).toBe(
+      DEFAULT_FILE_WATCHING_ENABLED
+    );
+
+    useSettingsStore.getState().setFileWatchingEnabled(true);
+    expect(useSettingsStore.getState().fileWatchingEnabled).toBe(true);
+
+    useSettingsStore.getState().resetSettings();
+    expect(useSettingsStore.getState().fileWatchingEnabled).toBe(false);
   });
 });

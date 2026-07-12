@@ -46,8 +46,11 @@ interface AnalyzedPromptFile {
   issue: PromptMetadataIssue | null;
 }
 
+export interface PromptMetadataScanOptions {
+  paths?: ReadonlySet<string>;
+}
+
 const REQUIRED_FIELDS: PromptMetadataField[] = [
-  'id',
   'title',
   'tags',
   'created',
@@ -61,9 +64,10 @@ const REQUIRED_FIELDS: PromptMetadataField[] = [
  */
 export async function scanPromptMetadata(
   repository: FileRepository,
-  workspace: WorkspaceRef
+  workspace: WorkspaceRef,
+  options: PromptMetadataScanOptions = {}
 ): Promise<PromptMetadataScanResult> {
-  const files = await readAnalyzedPromptFiles(repository, workspace);
+  const files = await readAnalyzedPromptFiles(repository, workspace, options);
   return buildScanResult(files);
 }
 
@@ -72,9 +76,10 @@ export async function scanPromptMetadata(
  */
 export async function repairPromptMetadata(
   repository: FileRepository,
-  workspace: WorkspaceRef
+  workspace: WorkspaceRef,
+  options: PromptMetadataScanOptions = {}
 ): Promise<PromptMetadataRepairResult> {
-  const files = await readAnalyzedPromptFiles(repository, workspace);
+  const files = await readAnalyzedPromptFiles(repository, workspace, options);
   const usedStableIds = collectUsedStableIds(files);
   let repairedFiles = 0;
 
@@ -96,12 +101,19 @@ export async function repairPromptMetadata(
 
 async function readAnalyzedPromptFiles(
   repository: FileRepository,
-  workspace: WorkspaceRef
+  workspace: WorkspaceRef,
+  options: PromptMetadataScanOptions
 ): Promise<AnalyzedPromptFile[]> {
-  const entries = await repository.listFiles(
+  const entries = (await repository.listFiles(
     workspace,
     [...CONFIG.FILE_SYSTEM.SUPPORTED_EXTENSIONS]
-  );
+  )).filter((entry) => {
+    const parts = entry.path.split('/');
+    const isUserPrompt =
+      parts[0] !== CONFIG.FILE_SYSTEM.APP_DATA_DIR &&
+      !parts.some((part) => part.startsWith('.'));
+    return isUserPrompt && (!options.paths || options.paths.has(entry.path));
+  });
   const files: AnalyzedPromptFile[] = [];
 
   for (const entry of entries) {
@@ -127,12 +139,6 @@ function analyzePromptFile(
 ): PromptMetadataIssue | null {
   const missingFields: PromptMetadataField[] = [];
   const invalidFields: PromptMetadataField[] = [];
-
-  if (!hasFrontmatterKey(raw, 'id')) {
-    missingFields.push('id');
-  } else if (!isStableId(metadata.id)) {
-    invalidFields.push('id');
-  }
 
   if (!hasFrontmatterKey(raw, 'title')) {
     missingFields.push('title');

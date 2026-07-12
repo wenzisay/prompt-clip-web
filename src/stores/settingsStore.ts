@@ -15,6 +15,8 @@ export const DEFAULT_HISTORY_SETTINGS: HistoryVersionSettings = {
 
 export const DEFAULT_SHARE_AUTHOR_NAME = '';
 
+export const DEFAULT_FILE_WATCHING_ENABLED = false;
+
 export const DEFAULT_QUICK_SEARCH_ENABLED = true;
 
 /** 快速搜索浮窗的全局快捷键默认值（Tauri 跨平台写法：mac→Cmd，win/linux→Ctrl） */
@@ -91,6 +93,8 @@ interface SettingsState {
   historySettings: HistoryVersionSettings;
   /** 分享图片作者名称 */
   shareAuthorName: string;
+  /** 是否自动监听工作区文件变动 */
+  fileWatchingEnabled: boolean;
   /** 是否启用全局快速搜索浮窗 */
   quickSearchEnabled: boolean;
   /** 快速搜索浮窗的全局快捷键 */
@@ -101,6 +105,8 @@ interface SettingsState {
   setHistorySettings: (historySettings: HistoryVersionSettings) => void;
   /** 设置分享图片作者名称 */
   setShareAuthorName: (shareAuthorName: string) => void;
+  /** 设置是否自动监听工作区文件变动 */
+  setFileWatchingEnabled: (enabled: boolean) => void;
   /** 设置是否启用全局快速搜索 */
   setQuickSearchEnabled: (enabled: boolean) => void;
   /** 设置快速搜索快捷键 */
@@ -115,6 +121,7 @@ export const useSettingsStore = create<SettingsState>()(
       locale: detectInitialLocale(getBrowserLanguages()),
       historySettings: DEFAULT_HISTORY_SETTINGS,
       shareAuthorName: DEFAULT_SHARE_AUTHOR_NAME,
+      fileWatchingEnabled: DEFAULT_FILE_WATCHING_ENABLED,
       quickSearchEnabled: DEFAULT_QUICK_SEARCH_ENABLED,
       quickSearchShortcut: DEFAULT_QUICK_SEARCH_SHORTCUT,
 
@@ -130,6 +137,10 @@ export const useSettingsStore = create<SettingsState>()(
         set({ shareAuthorName });
       },
 
+      setFileWatchingEnabled: (fileWatchingEnabled) => {
+        set({ fileWatchingEnabled });
+      },
+
       setQuickSearchEnabled: (quickSearchEnabled) => {
         set({ quickSearchEnabled });
       },
@@ -142,6 +153,7 @@ export const useSettingsStore = create<SettingsState>()(
         set({
           historySettings: DEFAULT_HISTORY_SETTINGS,
           shareAuthorName: DEFAULT_SHARE_AUTHOR_NAME,
+          fileWatchingEnabled: DEFAULT_FILE_WATCHING_ENABLED,
           quickSearchEnabled: DEFAULT_QUICK_SEARCH_ENABLED,
           quickSearchShortcut: DEFAULT_QUICK_SEARCH_SHORTCUT,
         });
@@ -152,6 +164,7 @@ export const useSettingsStore = create<SettingsState>()(
       storage: createJSONStorage(getSettingsStorage),
       partialize: (state) => ({
         locale: state.locale,
+        fileWatchingEnabled: state.fileWatchingEnabled,
         quickSearchEnabled: state.quickSearchEnabled,
         quickSearchShortcut: state.quickSearchShortcut,
       }),

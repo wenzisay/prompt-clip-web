@@ -60,6 +60,7 @@ describe('SettingsModal', () => {
     Reflect.deleteProperty(window.navigator, 'platform');
     delete (window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__;
     useSettingsStore.setState({
+      fileWatchingEnabled: false,
       quickSearchEnabled: true,
       quickSearchShortcut: DEFAULT_QUICK_SEARCH_SHORTCUT,
       shareAuthorName: '',
@@ -105,6 +106,17 @@ describe('SettingsModal', () => {
     expect(markup).toContain('role="switch"');
     expect(markup).toContain('aria-label="启用历史版本"');
     expect(markup).toContain('bg-surfaceHigh');
+  });
+
+  it('toggles automatic workspace file watching', () => {
+    renderSettingsContent();
+
+    const toggle = screen.getByRole('switch', { name: '自动监听文件变动' });
+    expect(toggle.getAttribute('aria-checked')).toBe('false');
+
+    fireEvent.click(toggle);
+    expect(useSettingsStore.getState().fileWatchingEnabled).toBe(true);
+    expect(toggle.getAttribute('aria-checked')).toBe('true');
   });
 
   it('hides quick search settings in web browsers', () => {

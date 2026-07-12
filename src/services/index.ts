@@ -3,6 +3,8 @@
  */
 
 export * from './fileRepository';
+export * from './workspaceChanges';
+export * from './workspaceIntegrityService';
 export * from './promptService';
 export * from './tagService';
 export * from './searchService';

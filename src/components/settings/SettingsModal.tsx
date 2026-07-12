@@ -29,6 +29,7 @@ import {
 import { usePromptStore } from '@/stores/promptStore';
 import { useTagStore } from '@/stores/tagStore';
 import { useUIStore } from '@/stores/uiStore';
+import { useMetadataRepairStore } from '@/stores/metadataRepairStore';
 
 type SettingsTab = 'general' | 'about';
 
@@ -44,7 +45,11 @@ export function SettingsModal() {
   const setLocale = useSettingsStore((state) => state.setLocale);
   const shareAuthorName = useSettingsStore((state) => state.shareAuthorName);
   const setShareAuthorName = useSettingsStore((state) => state.setShareAuthorName);
+  const setFileWatchingEnabled = useSettingsStore(
+    (state) => state.setFileWatchingEnabled
+  );
   const setStoredHistorySettings = useSettingsStore((state) => state.setHistorySettings);
+  const detectedMetadataResult = useMetadataRepairStore((state) => state.result);
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
   const [historySettings, setHistorySettings] = useState<HistoryVersionSettings>(
     DEFAULT_HISTORY_SETTINGS
@@ -79,13 +84,13 @@ export function SettingsModal() {
     }
 
     setActiveTab('general');
-    setMetadataScanResult(null);
+    setMetadataScanResult(detectedMetadataResult);
     void loadSettings();
 
     return () => {
       isCurrent = false;
     };
-  }, [isOpen, setStoredHistorySettings, workspace]);
+  }, [detectedMetadataResult, isOpen, setStoredHistorySettings, workspace]);
 
   const handleSave = async () => {
     if (!workspace) return;
@@ -205,6 +210,7 @@ export function SettingsModal() {
         onReset={() => {
           setHistorySettings(DEFAULT_HISTORY_SETTINGS);
           setShareAuthorName('');
+          setFileWatchingEnabled(false);
         }}
         onSave={handleSave}
         onScanMetadata={handleScanMetadata}
@@ -428,6 +434,8 @@ function GeneralSettings({
           </div>
         </div>
 
+        <FileWatchingSettings locale={locale} />
+
         <div className="rounded-lg border border-border bg-surface p-5 shadow-sm">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0 flex-1">
@@ -494,6 +502,44 @@ function GeneralSettings({
         />
 
         {isTauriRuntime() && <QuickSearchSettings locale={locale} />}
+      </div>
+    </div>
+  );
+}
+
+function FileWatchingSettings({ locale }: { locale: Locale }) {
+  const t = messages[locale];
+  const isEnabled = useSettingsStore((state) => state.fileWatchingEnabled);
+  const setEnabled = useSettingsStore((state) => state.setFileWatchingEnabled);
+
+  return (
+    <div className="rounded-lg border border-border bg-surface p-5 shadow-sm">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <h4 className="text-sm font-semibold text-fg">{t.settings.fileWatchingTitle}</h4>
+          <p className="mt-1 text-sm text-muted">{t.settings.fileWatchingDescription}</p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={isEnabled}
+          aria-label={t.settings.fileWatchingAriaLabel}
+          onClick={() => setEnabled(!isEnabled)}
+          className={`
+            relative h-7 w-12 shrink-0 rounded-full border transition-colors
+            ${isEnabled ? 'border-accent bg-accent' : 'border-border bg-surfaceHigh'}
+          `}
+        >
+          <span
+            className={`
+              absolute left-0 top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-transform
+              ${isEnabled ? 'translate-x-6' : 'translate-x-1'}
+            `}
+          />
+        </button>
+      </div>
+      <div className="mt-4 rounded-lg bg-accent-soft px-4 py-3 text-sm text-accent">
+        {t.settings.fileWatchingNote}
       </div>
     </div>
   );
