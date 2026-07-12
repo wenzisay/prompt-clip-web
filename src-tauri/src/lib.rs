@@ -864,7 +864,10 @@ fn paste_shortcut_safely() -> Result<(), String> {
 fn hide_for_quick_search_paste<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     match quick_search_paste_visibility_action(cfg!(target_os = "macos")) {
         QuickSearchPasteVisibilityAction::HideApp => {
-            let _ = app.hide();
+            #[cfg(target_os = "macos")]
+            {
+                let _ = app.hide();
+            }
         }
         QuickSearchPasteVisibilityAction::HideWindow => {
             if let Some(window) = app.get_webview_window(QUICK_SEARCH_LABEL) {
