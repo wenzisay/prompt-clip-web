@@ -13,6 +13,8 @@ use tauri_plugin_global_shortcut::{
     Builder as ShortcutBuilder, GlobalShortcutExt, Shortcut, ShortcutState,
 };
 
+mod webdav;
+
 const MAIN_WINDOW_LABEL: &str = "main";
 const QUICK_SEARCH_LABEL: &str = "quick-search";
 const DEFAULT_QUICK_SEARCH_SHORTCUT: &str = "CommandOrControl+Shift+Space";
@@ -610,6 +612,13 @@ mod tests {
             PastePermissionAction::Continue
         );
     }
+
+    #[test]
+    fn should_allow_dialog_messages_for_the_main_window() {
+        let capability = include_str!("../capabilities/default.json");
+
+        assert!(capability.contains("\"dialog:allow-message\""));
+    }
 }
 
 fn file_entry(
@@ -1030,6 +1039,14 @@ pub fn run() {
             quick_search_paste,
             check_paste_permission,
             open_accessibility_settings,
+            webdav::webdav_delete,
+            webdav::webdav_delete_password,
+            webdav::webdav_list,
+            webdav::webdav_move,
+            webdav::webdav_read,
+            webdav::webdav_store_password,
+            webdav::webdav_test_connection,
+            webdav::webdav_write,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

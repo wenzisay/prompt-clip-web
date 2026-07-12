@@ -4,6 +4,19 @@
 
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，并遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.0.3] - 2026-07-12
+
+### Added
+
+- **WebDAV 增量备份（桌面端）**：设置中新增固定名称为「WebDAV」的备份目标，可配置 HTTPS 地址、用户名、系统钥匙串密码和远端专用目录，并支持连接测试、立即备份与整库恢复。
+- **文件级增量同步**：使用 SHA-256 清单识别新增、更新、删除和未变化文件；重复备份仅上传内容变化的文件，并删除远端已在本地移除的文件，减少网络传输和远端写入。
+- **增量恢复**：恢复前比较本地文件与远端清单，Hash 相同的文件不下载、不覆盖；支持向此前恢复过的工作区重复恢复，并分别统计实际写入、未变化跳过和用户保留的文件数量。
+- **配置文件冲突处理**：整库恢复发现本地 `_promptclip/promptclip.config.json` 时，提示用户选择「覆盖」或「跳过」，跳过后保留本地配置并继续恢复其他文件。
+- **备份与恢复状态反馈**：连接测试、备份和恢复期间显示进行中状态与进度指示，并禁用重复操作按钮；相关界面和结果文案支持简体中文、繁体中文、英文和日文。
+- **可扩展备份架构**：备份业务与目标服务适配器解耦，为后续增加 iCloud、S3 等备份目标保留统一接口。
+- **凭据与传输安全**：WebDAV 密码保存至系统钥匙串，仅允许 HTTPS；远端路径进行目录穿越校验，下载响应限制大小，并在恢复写入前验证文件大小和 SHA-256 完整性。
+
+
 ## [1.0.2] - 2026-07-12
 
 ### Added
@@ -60,7 +73,8 @@
 
 > `0.1.0-beta.1` ~ `0.1.0-beta.6`（2026-05-19 ~ 2026-06-18）为更早的迭代预发布版本，逐步形成 1.0.0 的完整功能集。
 
-[Unreleased]: https://github.com/wenzisay/prompt-clip-web/compare/v1.0.2...HEAD
+[Unreleased]: https://github.com/wenzisay/prompt-clip-web/compare/v1.0.3...HEAD
+[1.0.3]: https://github.com/wenzisay/prompt-clip-web/releases/tag/v1.0.3
 [1.0.2]: https://github.com/wenzisay/prompt-clip-web/releases/tag/v1.0.2
 [1.0.1]: https://github.com/wenzisay/prompt-clip-web/releases/tag/v1.0.1
 [1.0.0]: https://github.com/wenzisay/prompt-clip-web/releases/tag/v1.0.0
