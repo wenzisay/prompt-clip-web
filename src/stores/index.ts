@@ -6,5 +6,6 @@ export * from './fileStore';
 export * from './annotationStore';
 export * from './promptStore';
 export * from './settingsStore';
+export * from './metadataRepairStore';
 export * from './tagStore';
 export * from './uiStore';
