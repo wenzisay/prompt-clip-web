@@ -33,7 +33,7 @@ describe('MetadataRepairService', () => {
     expect(result.issues[0]).toMatchObject({
       path: 'obsidian.md',
       title: 'Obsidian Prompt',
-      missingFields: ['id', 'title', 'tags', 'created', 'modified', 'copy_count', 'pinned'],
+      missingFields: ['title', 'tags', 'created', 'modified', 'copy_count', 'pinned'],
       invalidFields: [],
     });
   });
@@ -64,7 +64,6 @@ describe('MetadataRepairService', () => {
     expect(result.repairedFiles).toBe(1);
     expect(repaired).toContain('aliases: [Prompt Note]');
     expect(repaired).toContain('tags:\n  - ai/prompt');
-    expect(repaired).toContain('id: "17790624000004567"');
     expect(repaired).toContain('title: "Heading Title"');
     expect(repaired).toContain('created: "2026-05-17T08:30:00.000Z"');
     expect(repaired).toContain('modified: "2026-05-17T08:30:00.000Z"');
@@ -97,5 +96,44 @@ describe('MetadataRepairService', () => {
 
     expect(result.repairedFiles).toBe(0);
     expect(repository.dumpFiles()['ready.md']).toBe(content);
+  });
+
+  it('does not report id-only issues that are repaired automatically', async () => {
+    const repository = createFakeFileRepository({
+      files: {
+        'id-only.md': [
+          '---',
+          'title: Ready',
+          'tags: []',
+          'created: "2026-05-17T00:00:00.000Z"',
+          'modified: "2026-05-17T00:00:00.000Z"',
+          'copy_count: 0',
+          'pinned: false',
+          '---',
+          '',
+          'Body',
+        ].join('\n'),
+      },
+    });
+
+    const result = await MetadataRepairService.scanPromptMetadata(repository, workspace);
+
+    expect(result.repairableFiles).toBe(0);
+  });
+
+  it('can limit metadata scanning to newly created paths', async () => {
+    const repository = createFakeFileRepository({
+      files: {
+        'old.md': '# Old',
+        'new.md': '# New',
+      },
+    });
+
+    const result = await MetadataRepairService.scanPromptMetadata(repository, workspace, {
+      paths: new Set(['new.md']),
+    });
+
+    expect(result.totalMarkdownFiles).toBe(1);
+    expect(result.issues[0].path).toBe('new.md');
   });
 });
