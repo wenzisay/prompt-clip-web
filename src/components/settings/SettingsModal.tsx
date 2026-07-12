@@ -2,10 +2,14 @@
  * 设置弹窗组件
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { invoke } from '@tauri-apps/api/core';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { Button, Modal } from '@/components/common';
 import { LOCALE_OPTIONS, messages, useTranslation, type Locale } from '@/i18n';
+import { formatShortcutFromEvent } from '@/quickSearch';
 import { fileRepository } from '@/services/fileRepository';
+import { isTauriRuntime } from '@/services/fileRepository/tauriFileRepository';
 import {
   FolderConfigService,
   type HistoryVersionSettings,
@@ -17,7 +21,11 @@ import {
 } from '@/services/metadataRepairService';
 import { PromptService } from '@/services/promptService';
 import { useFileStore } from '@/stores/fileStore';
-import { DEFAULT_HISTORY_SETTINGS, useSettingsStore } from '@/stores/settingsStore';
+import {
+  DEFAULT_HISTORY_SETTINGS,
+  DEFAULT_QUICK_SEARCH_SHORTCUT,
+  useSettingsStore,
+} from '@/stores/settingsStore';
 import { usePromptStore } from '@/stores/promptStore';
 import { useTagStore } from '@/stores/tagStore';
 import { useUIStore } from '@/stores/uiStore';
@@ -484,6 +492,8 @@ function GeneralSettings({
           onRepair={onRepairMetadata}
           onScan={onScanMetadata}
         />
+
+        {isTauriRuntime() && <QuickSearchSettings locale={locale} />}
       </div>
     </div>
   );
@@ -613,6 +623,281 @@ function formatMetadataFields(locale: Locale, fields: PromptMetadataField[]): st
   }
 
   return fields.map((field) => t.metadataFields[field]).join(locale === 'zh-CN' ? '、' : ', ');
+}
+
+function isMacPlatform(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  return /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+}
+
+function QuickSearchSettings({ locale }: { locale: Locale }) {
+  const t = messages[locale];
+  const quickSearchEnabled = useSettingsStore((state) => state.quickSearchEnabled);
+  const quickSearchShortcut = useSettingsStore((state) => state.quickSearchShortcut);
+  const setQuickSearchEnabled = useSettingsStore((state) => state.setQuickSearchEnabled);
+  const setQuickSearchShortcut = useSettingsStore((state) => state.setQuickSearchShortcut);
+  const addToast = useUIStore((state) => state.addToast);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isStartingRecording, setIsStartingRecording] = useState(false);
+  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  const permissionRequestIdRef = useRef(0);
+  const recordingRequestIdRef = useRef(0);
+
+  const isMac = isMacPlatform();
+  const displayShortcut = quickSearchShortcut.replace(
+    /CommandOrControl/g,
+    isMac ? 'Cmd' : 'Ctrl'
+  );
+
+  // macOS 无障碍权限检测：首次显示及从系统设置返回时刷新。
+  useEffect(() => {
+    if (!isTauriRuntime() || !isMac) return;
+
+    let disposed = false;
+    let unlisten: (() => void) | null = null;
+
+    const refreshPermission = () => {
+      const requestId = permissionRequestIdRef.current + 1;
+      permissionRequestIdRef.current = requestId;
+      void invoke<boolean>('check_paste_permission')
+        .then((granted) => {
+          if (!disposed && permissionRequestIdRef.current === requestId) {
+            setHasPermission(granted);
+          }
+        })
+        .catch((error) => {
+          console.warn('Failed to check macOS accessibility permission:', error);
+          if (!disposed && permissionRequestIdRef.current === requestId) {
+            setHasPermission(false);
+          }
+        });
+    };
+
+    refreshPermission();
+    void getCurrentWindow()
+      .onFocusChanged(({ payload: focused }) => {
+        if (focused) {
+          refreshPermission();
+        }
+      })
+      .then((stopListening) => {
+        if (disposed) {
+          stopListening();
+        } else {
+          unlisten = stopListening;
+        }
+      })
+      .catch((error) => {
+        console.warn('Failed to listen for window focus changes:', error);
+      });
+
+    return () => {
+      disposed = true;
+      permissionRequestIdRef.current += 1;
+      unlisten?.();
+    };
+  }, [isMac]);
+
+  const handleToggleEnabled = () => {
+    const nextEnabled = !quickSearchEnabled;
+    if (!nextEnabled) {
+      recordingRequestIdRef.current += 1;
+      setIsStartingRecording(false);
+      setIsRecording(false);
+      void invoke('unset_quick_search_shortcut')
+        .then(() => setQuickSearchEnabled(false))
+        .catch(() => {
+          addToast({
+            type: 'error',
+            message: t.settings.quickSearch.shortcutUpdateFailed,
+            duration: 3000,
+          });
+        });
+      return;
+    }
+
+    void invoke('set_quick_search_shortcut', { shortcut: quickSearchShortcut })
+      .then(() => setQuickSearchEnabled(true))
+      .catch(() => {
+        addToast({
+          type: 'error',
+          message: t.settings.quickSearch.shortcutUpdateFailed,
+          duration: 3000,
+        });
+      });
+  };
+
+  // 录入快捷键：捕获下一次组合键
+  useEffect(() => {
+    if (!isRecording) return;
+    const handler = (e: KeyboardEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.key === 'Escape') {
+        setIsRecording(false);
+        void invoke('set_quick_search_shortcut', { shortcut: quickSearchShortcut }).catch(() => {
+          addToast({
+            type: 'error',
+            message: t.settings.quickSearch.shortcutUpdateFailed,
+            duration: 3000,
+          });
+        });
+        return;
+      }
+      const shortcut = formatShortcutFromEvent(e);
+      if (!shortcut) return;
+      setIsRecording(false);
+      void invoke('set_quick_search_shortcut', { shortcut })
+        .then(() => setQuickSearchShortcut(shortcut))
+        .catch(() => {
+          addToast({
+            type: 'error',
+            message: t.settings.quickSearch.shortcutUpdateFailed,
+            duration: 3000,
+          });
+        });
+    };
+    window.addEventListener('keydown', handler, true);
+    return () => window.removeEventListener('keydown', handler, true);
+  }, [isRecording, quickSearchShortcut, setQuickSearchShortcut, addToast, t]);
+
+  const handleStartRecording = () => {
+    if (!quickSearchEnabled) return;
+    const requestId = recordingRequestIdRef.current + 1;
+    recordingRequestIdRef.current = requestId;
+    setIsStartingRecording(true);
+    void invoke('unset_quick_search_shortcut')
+      .then(() => {
+        if (recordingRequestIdRef.current !== requestId) return;
+        setIsRecording(true);
+      })
+      .catch(() => {
+        if (recordingRequestIdRef.current !== requestId) return;
+        addToast({
+          type: 'error',
+          message: t.settings.quickSearch.shortcutUpdateFailed,
+          duration: 3000,
+        });
+      })
+      .finally(() => {
+        if (recordingRequestIdRef.current === requestId) {
+          setIsStartingRecording(false);
+        }
+      });
+  };
+
+  const handleReset = () => {
+    if (!quickSearchEnabled) return;
+    recordingRequestIdRef.current += 1;
+    setIsStartingRecording(false);
+    setIsRecording(false);
+    void invoke('set_quick_search_shortcut', { shortcut: DEFAULT_QUICK_SEARCH_SHORTCUT })
+      .then(() => setQuickSearchShortcut(DEFAULT_QUICK_SEARCH_SHORTCUT))
+      .catch(() => {
+        addToast({
+          type: 'error',
+          message: t.settings.quickSearch.shortcutUpdateFailed,
+          duration: 3000,
+        });
+      });
+  };
+
+  const handleOpenSettings = () => {
+    void invoke('open_accessibility_settings');
+  };
+
+  return (
+    <div className="rounded-lg border border-border bg-surface p-5 shadow-sm">
+      <h4 className="text-sm font-semibold text-fg">{t.settings.quickSearch.title}</h4>
+      <p className="mt-1 text-sm text-muted">{t.settings.quickSearch.description}</p>
+
+      <div className="mt-4 flex items-start justify-between gap-4 border-t border-border pt-4">
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-medium text-fg">
+            {t.settings.quickSearch.enabledLabel}
+          </div>
+          <p className="mt-1 text-xs text-muted">
+            {t.settings.quickSearch.enabledDescription}
+          </p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={quickSearchEnabled}
+          aria-label={t.settings.quickSearch.enabledLabel}
+          onClick={handleToggleEnabled}
+          className={`
+            relative h-7 w-12 shrink-0 rounded-full border transition-colors
+            ${quickSearchEnabled ? 'border-accent bg-accent' : 'border-border bg-surfaceHigh'}
+          `}
+        >
+          <span
+            className={`
+              absolute left-0 top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-transform
+              ${quickSearchEnabled ? 'translate-x-6' : 'translate-x-1'}
+            `}
+          />
+        </button>
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+        <label className="text-sm font-medium text-fg">
+          {t.settings.quickSearch.shortcutLabel}
+        </label>
+        <div className="flex items-center gap-2">
+          <kbd className="rounded border border-border bg-surface-dim px-2 py-1 text-xs text-fg">
+            {displayShortcut}
+          </kbd>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={handleStartRecording}
+            disabled={!quickSearchEnabled || isRecording || isStartingRecording}
+          >
+            {isRecording
+              ? t.settings.quickSearch.shortcutRecording
+              : t.settings.quickSearch.shortcutRecord}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={handleReset}
+            disabled={!quickSearchEnabled}
+          >
+            {t.settings.quickSearch.shortcutReset}
+          </Button>
+        </div>
+      </div>
+
+      {isMac && hasPermission === false && (
+        <div className="mt-4 rounded-lg bg-amber-50 px-4 py-3 text-sm">
+          <div className="font-medium text-amber-700">
+            {t.settings.quickSearch.macPermissionLabel}
+          </div>
+          <p className="mt-1 text-xs text-amber-700/80">
+            {t.settings.quickSearch.macPermissionHint}
+          </p>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={handleOpenSettings}
+            className="mt-2"
+          >
+            {t.settings.quickSearch.macPermissionOpen}
+          </Button>
+        </div>
+      )}
+      {isMac && hasPermission === true && (
+        <div className="mt-4 rounded-lg bg-accent-soft px-4 py-3 text-sm text-accent">
+          {t.settings.quickSearch.macPermissionLabel}:{' '}
+          {t.settings.quickSearch.macPermissionGranted}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function AboutSettings({ locale }: { locale: Locale }) {

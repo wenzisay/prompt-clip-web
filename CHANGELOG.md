@@ -4,6 +4,15 @@
 
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，并遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.0.2] - 2026-07-12
+
+### Added
+
+- **全局快速搜索（桌面端）**：新增可从任意应用通过全局快捷键（默认 `Ctrl/Cmd + Shift + Space`）呼出的浮动搜索窗。搜索 Prompt 后可直接「粘贴到光标处」或「在主窗口打开」；浮动窗体无标题栏、始终置顶，并自动在鼠标所在显示器居中显示，贴近当前操作焦点。桌面端新增 Tauri 插件 `clipboard-manager`、`global-shortcut`，以及 Rust 依赖 `arboard`（剪贴板）、`enigo`（输入模拟）、`tokio`。
+- **快速搜索设置面板**：设置中新增「快速搜索」分区，可开关全局搜索、录入自定义快捷键（含录入失败提示与恢复默认）。该分区仅在桌面端显示，Web 端自动隐藏。
+- **macOS 辅助功能权限自动刷新**：自动粘贴依赖辅助功能权限；窗口重新聚焦（如从系统设置返回）时自动重新检测权限状态，无需重启应用。
+- **国际化**：快速搜索相关界面文案补齐四种语言（zh-CN / zh-TW / en-US / ja-JP）。
+
 ## [1.0.1] - 2026-06-28
 
 ### Added
@@ -48,6 +57,8 @@
 
 > `0.1.0-beta.1` ~ `0.1.0-beta.6`（2026-05-19 ~ 2026-06-18）为更早的迭代预发布版本，逐步形成 1.0.0 的完整功能集。
 
-[Unreleased]: https://github.com/wenzisay/prompt-clip-web/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/wenzisay/prompt-clip-web/compare/v1.0.2...HEAD
+[1.0.2]: https://github.com/wenzisay/prompt-clip-web/releases/tag/v1.0.2
+[1.0.1]: https://github.com/wenzisay/prompt-clip-web/releases/tag/v1.0.1
 [1.0.0]: https://github.com/wenzisay/prompt-clip-web/releases/tag/v1.0.0
 [0.1.0-beta.7]: https://github.com/wenzisay/prompt-clip-web/releases/tag/v0.1.0-beta-7

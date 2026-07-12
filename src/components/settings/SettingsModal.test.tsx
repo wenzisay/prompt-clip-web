@@ -1,9 +1,71 @@
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Locale } from '@/i18n';
+import {
+  DEFAULT_QUICK_SEARCH_SHORTCUT,
+  useSettingsStore,
+} from '@/stores/settingsStore';
 import { SettingsModalContent } from './SettingsModal';
 
+const invokeMock = vi.hoisted(() => vi.fn());
+const onFocusChangedMock = vi.hoisted(() => vi.fn());
+
+vi.mock('@tauri-apps/api/core', () => ({
+  invoke: invokeMock,
+}));
+
+vi.mock('@tauri-apps/api/window', () => ({
+  getCurrentWindow: () => ({
+    onFocusChanged: onFocusChangedMock,
+  }),
+}));
+
+function renderSettingsContent(locale: Locale = 'zh-CN') {
+  const noop = vi.fn();
+  render(
+    <SettingsModalContent
+      activeTab="general"
+      historySettings={{
+        enabled: false,
+        retentionDays: 30,
+      }}
+      isSaveDisabled={false}
+      isSaving={false}
+      shareAuthorName=""
+      onCancel={noop}
+      onChangeShareAuthorName={noop}
+      onChangeLocale={noop}
+      onChangeHistorySettings={noop}
+      onReset={noop}
+      onSave={noop}
+      onSelectTab={noop}
+      locale={locale}
+    />
+  );
+}
+
+function installTauriRuntime(): void {
+  Object.defineProperty(window, '__TAURI_INTERNALS__', {
+    configurable: true,
+    value: {},
+  });
+}
+
 describe('SettingsModal', () => {
+  afterEach(() => {
+    cleanup();
+    invokeMock.mockReset();
+    onFocusChangedMock.mockReset();
+    Reflect.deleteProperty(window.navigator, 'platform');
+    delete (window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__;
+    useSettingsStore.setState({
+      quickSearchEnabled: true,
+      quickSearchShortcut: DEFAULT_QUICK_SEARCH_SHORTCUT,
+      shareAuthorName: '',
+    });
+  });
+
   it('renders general and about sections', () => {
     const noop = vi.fn();
     const markup = renderToStaticMarkup(
@@ -43,6 +105,22 @@ describe('SettingsModal', () => {
     expect(markup).toContain('role="switch"');
     expect(markup).toContain('aria-label="启用历史版本"');
     expect(markup).toContain('bg-surfaceHigh');
+  });
+
+  it('hides quick search settings in web browsers', () => {
+    renderSettingsContent();
+
+    expect(screen.queryByText('快速搜索')).toBeNull();
+    expect(screen.queryByRole('switch', { name: '启用全局搜索框' })).toBeNull();
+  });
+
+  it('renders quick search settings in the desktop client', () => {
+    installTauriRuntime();
+
+    renderSettingsContent();
+
+    expect(screen.getByText('快速搜索')).toBeTruthy();
+    expect(screen.getByRole('switch', { name: '启用全局搜索框' })).toBeTruthy();
   });
 
   it('renders metadata scan result', () => {
@@ -201,5 +279,82 @@ describe('SettingsModal', () => {
     expect(markup).toContain('English');
     expect(markup).not.toContain('Chinese');
     expect(markup).not.toContain('通用设置');
+  });
+
+  it('unregisters the global shortcut when starting shortcut recording', async () => {
+    installTauriRuntime();
+    invokeMock.mockResolvedValue(undefined);
+    renderSettingsContent();
+
+    fireEvent.click(screen.getByText('点击录入'));
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith('unset_quick_search_shortcut');
+    });
+    expect(screen.getByText('请按下组合键…')).toBeTruthy();
+  });
+
+  it('disables global quick search and unregisters the shortcut', async () => {
+    installTauriRuntime();
+    invokeMock.mockResolvedValue(undefined);
+    renderSettingsContent();
+
+    fireEvent.click(screen.getByRole('switch', { name: '启用全局搜索框' }));
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith('unset_quick_search_shortcut');
+    });
+    expect(useSettingsStore.getState().quickSearchEnabled).toBe(false);
+    expect((screen.getByText('点击录入') as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('resets the shortcut and exits recording mode', async () => {
+    installTauriRuntime();
+    invokeMock.mockResolvedValue(undefined);
+    useSettingsStore.setState({ quickSearchShortcut: 'CommandOrControl+K' });
+    renderSettingsContent();
+
+    fireEvent.click(screen.getByText('点击录入'));
+    await screen.findByText('请按下组合键…');
+    fireEvent.click(screen.getByText('恢复默认'));
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith('set_quick_search_shortcut', {
+        shortcut: DEFAULT_QUICK_SEARCH_SHORTCUT,
+      });
+    });
+    expect(screen.getByText('点击录入')).toBeTruthy();
+    expect(useSettingsStore.getState().quickSearchShortcut).toBe(DEFAULT_QUICK_SEARCH_SHORTCUT);
+  });
+
+  it('refreshes macOS accessibility permission when the window regains focus', async () => {
+    let focusChangedHandler: ((event: { payload: boolean }) => void) | null = null;
+    let hasPermission = false;
+    Object.defineProperty(window.navigator, 'platform', {
+      configurable: true,
+      value: 'MacIntel',
+    });
+    (window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__ = {};
+    onFocusChangedMock.mockImplementation(async (handler) => {
+      focusChangedHandler = handler;
+      return vi.fn();
+    });
+    invokeMock.mockImplementation(async (command) => {
+      if (command === 'check_paste_permission') {
+        return hasPermission;
+      }
+      return undefined;
+    });
+    renderSettingsContent();
+
+    expect(await screen.findByText('打开系统设置')).toBeTruthy();
+    await waitFor(() => expect(focusChangedHandler).not.toBeNull());
+
+    hasPermission = true;
+    act(() => {
+      focusChangedHandler?.({ payload: true });
+    });
+
+    expect(await screen.findByText(/已授权/)).toBeTruthy();
   });
 });

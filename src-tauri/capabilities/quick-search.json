@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "quick-search",
+  "description": "快速搜索浮窗窗口权限：事件通信 + 自有命令。剪贴板读写与全局快捷键注册均在 Rust 端完成（arboard / global-shortcut），故浮窗不需要这两类权限。",
+  "windows": ["quick-search"],
+  "permissions": ["core:default"]
+}

@@ -15,6 +15,11 @@ export const DEFAULT_HISTORY_SETTINGS: HistoryVersionSettings = {
 
 export const DEFAULT_SHARE_AUTHOR_NAME = '';
 
+export const DEFAULT_QUICK_SEARCH_ENABLED = true;
+
+/** 快速搜索浮窗的全局快捷键默认值（Tauri 跨平台写法：mac→Cmd，win/linux→Ctrl） */
+export const DEFAULT_QUICK_SEARCH_SHORTCUT = 'CommandOrControl+Shift+Space';
+
 const noopStorage: StateStorage = {
   getItem: () => null,
   setItem: () => undefined,
@@ -86,12 +91,20 @@ interface SettingsState {
   historySettings: HistoryVersionSettings;
   /** 分享图片作者名称 */
   shareAuthorName: string;
+  /** 是否启用全局快速搜索浮窗 */
+  quickSearchEnabled: boolean;
+  /** 快速搜索浮窗的全局快捷键 */
+  quickSearchShortcut: string;
   /** 设置界面语言 */
   setLocale: (locale: Locale) => void;
   /** 设置历史版本配置 */
   setHistorySettings: (historySettings: HistoryVersionSettings) => void;
   /** 设置分享图片作者名称 */
   setShareAuthorName: (shareAuthorName: string) => void;
+  /** 设置是否启用全局快速搜索 */
+  setQuickSearchEnabled: (enabled: boolean) => void;
+  /** 设置快速搜索快捷键 */
+  setQuickSearchShortcut: (shortcut: string) => void;
   /** 重置为默认设置 */
   resetSettings: () => void;
 }
@@ -102,6 +115,8 @@ export const useSettingsStore = create<SettingsState>()(
       locale: detectInitialLocale(getBrowserLanguages()),
       historySettings: DEFAULT_HISTORY_SETTINGS,
       shareAuthorName: DEFAULT_SHARE_AUTHOR_NAME,
+      quickSearchEnabled: DEFAULT_QUICK_SEARCH_ENABLED,
+      quickSearchShortcut: DEFAULT_QUICK_SEARCH_SHORTCUT,
 
       setLocale: (locale) => {
         set({ locale });
@@ -115,10 +130,20 @@ export const useSettingsStore = create<SettingsState>()(
         set({ shareAuthorName });
       },
 
+      setQuickSearchEnabled: (quickSearchEnabled) => {
+        set({ quickSearchEnabled });
+      },
+
+      setQuickSearchShortcut: (quickSearchShortcut) => {
+        set({ quickSearchShortcut });
+      },
+
       resetSettings: () => {
         set({
           historySettings: DEFAULT_HISTORY_SETTINGS,
           shareAuthorName: DEFAULT_SHARE_AUTHOR_NAME,
+          quickSearchEnabled: DEFAULT_QUICK_SEARCH_ENABLED,
+          quickSearchShortcut: DEFAULT_QUICK_SEARCH_SHORTCUT,
         });
       },
     }),
@@ -127,6 +152,8 @@ export const useSettingsStore = create<SettingsState>()(
       storage: createJSONStorage(getSettingsStorage),
       partialize: (state) => ({
         locale: state.locale,
+        quickSearchEnabled: state.quickSearchEnabled,
+        quickSearchShortcut: state.quickSearchShortcut,
       }),
     }
   )
