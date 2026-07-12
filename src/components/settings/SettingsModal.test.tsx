@@ -45,6 +45,13 @@ function renderSettingsContent(locale: Locale = 'zh-CN') {
   );
 }
 
+function installTauriRuntime(): void {
+  Object.defineProperty(window, '__TAURI_INTERNALS__', {
+    configurable: true,
+    value: {},
+  });
+}
+
 describe('SettingsModal', () => {
   afterEach(() => {
     cleanup();
@@ -98,6 +105,22 @@ describe('SettingsModal', () => {
     expect(markup).toContain('role="switch"');
     expect(markup).toContain('aria-label="启用历史版本"');
     expect(markup).toContain('bg-surfaceHigh');
+  });
+
+  it('hides quick search settings in web browsers', () => {
+    renderSettingsContent();
+
+    expect(screen.queryByText('快速搜索')).toBeNull();
+    expect(screen.queryByRole('switch', { name: '启用全局搜索框' })).toBeNull();
+  });
+
+  it('renders quick search settings in the desktop client', () => {
+    installTauriRuntime();
+
+    renderSettingsContent();
+
+    expect(screen.getByText('快速搜索')).toBeTruthy();
+    expect(screen.getByRole('switch', { name: '启用全局搜索框' })).toBeTruthy();
   });
 
   it('renders metadata scan result', () => {
@@ -259,6 +282,7 @@ describe('SettingsModal', () => {
   });
 
   it('unregisters the global shortcut when starting shortcut recording', async () => {
+    installTauriRuntime();
     invokeMock.mockResolvedValue(undefined);
     renderSettingsContent();
 
@@ -271,6 +295,7 @@ describe('SettingsModal', () => {
   });
 
   it('disables global quick search and unregisters the shortcut', async () => {
+    installTauriRuntime();
     invokeMock.mockResolvedValue(undefined);
     renderSettingsContent();
 
@@ -284,6 +309,7 @@ describe('SettingsModal', () => {
   });
 
   it('resets the shortcut and exits recording mode', async () => {
+    installTauriRuntime();
     invokeMock.mockResolvedValue(undefined);
     useSettingsStore.setState({ quickSearchShortcut: 'CommandOrControl+K' });
     renderSettingsContent();

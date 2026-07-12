@@ -9,6 +9,7 @@ import { Button, Modal } from '@/components/common';
 import { LOCALE_OPTIONS, messages, useTranslation, type Locale } from '@/i18n';
 import { formatShortcutFromEvent } from '@/quickSearch';
 import { fileRepository } from '@/services/fileRepository';
+import { isTauriRuntime } from '@/services/fileRepository/tauriFileRepository';
 import {
   FolderConfigService,
   type HistoryVersionSettings,
@@ -492,7 +493,7 @@ function GeneralSettings({
           onScan={onScanMetadata}
         />
 
-        <QuickSearchSettings locale={locale} />
+        {isTauriRuntime() && <QuickSearchSettings locale={locale} />}
       </div>
     </div>
   );
@@ -629,10 +630,6 @@ function isMacPlatform(): boolean {
   return /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
 }
 
-function isTauriEnv(): boolean {
-  return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
-}
-
 function QuickSearchSettings({ locale }: { locale: Locale }) {
   const t = messages[locale];
   const quickSearchEnabled = useSettingsStore((state) => state.quickSearchEnabled);
@@ -654,7 +651,7 @@ function QuickSearchSettings({ locale }: { locale: Locale }) {
 
   // macOS 无障碍权限检测：首次显示及从系统设置返回时刷新。
   useEffect(() => {
-    if (!isTauriEnv() || !isMac) return;
+    if (!isTauriRuntime() || !isMac) return;
 
     let disposed = false;
     let unlisten: (() => void) | null = null;
