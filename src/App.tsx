@@ -9,22 +9,28 @@ import { SupportPage } from '@/components/support';
 import { Sidebar, TopBar, DetailPanel } from '@/components/layout';
 import { PromptGrid, CreateModal, DeleteConfirm } from '@/components/prompt';
 import { CommandPalette } from '@/components/command';
-import { SettingsModal } from '@/components/settings';
+import { MetadataRepairPrompt, SettingsModal } from '@/components/settings';
 import { RecycleModal } from '@/components/recycle';
 import { useFileStore } from '@/stores/fileStore';
 import { useUIStore } from '@/stores/uiStore';
 import { usePromptStore } from '@/stores/promptStore';
-import { useSettingsStore } from '@/stores/settingsStore';
+import { DEFAULT_HISTORY_SETTINGS, useSettingsStore } from '@/stores/settingsStore';
 import { useTagStore } from '@/stores/tagStore';
+import { messages } from '@/i18n';
 import { FolderConfigService } from '@/services/folderConfigService';
 import { fileRepository } from '@/services/fileRepository';
+import { MetadataRepairService } from '@/services/metadataRepairService';
+import { PromptService } from '@/services/promptService';
+import { WorkspaceIntegrityService } from '@/services/workspaceIntegrityService';
 import { usePromptLoader } from '@/hooks/usePromptLoader';
 import { usePromptLazyLoad } from '@/hooks/usePromptLazyLoad';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useQuickSearchBridge } from '@/hooks/useQuickSearchBridge';
 import { useQuickSearchShortcutRegister } from '@/hooks/useQuickSearchShortcutRegister';
+import { useWorkspaceFileWatcher } from '@/hooks/useWorkspaceFileWatcher';
 import { isQuickSearchWindowLocation, QuickSearchApp } from '@/quickSearch';
 import { lazy, Suspense, useEffect } from 'react';
+import { useMetadataRepairStore } from '@/stores/metadataRepairStore';
 
 const ExportModal = lazy(() =>
   import('@/components/export/ExportModal').then((module) => ({
@@ -65,10 +71,39 @@ function getCurrentPathname(): string {
 
 function AppContent() {
   const { isAuthorized, workspace, initialize } = useFileStore();
-  const { modalType, selectedPromptId, deletingPromptId } = useUIStore();
+  const { modalType, selectedPromptId, deletingPromptId, openModal, addToast } = useUIStore();
   const { prompts, isLoading: isPromptLoading } = usePromptStore();
-  const { locale, resetSettings, setHistorySettings, setShareAuthorName } = useSettingsStore();
+  const { locale, setHistorySettings, setShareAuthorName } = useSettingsStore();
   const { setTags } = useTagStore();
+  const metadataResult = useMetadataRepairStore((state) => state.result);
+  const closeMetadataPrompt = useMetadataRepairStore((state) => state.close);
+
+  const repairDetectedMetadata = async () => {
+    if (!workspace || !metadataResult) return;
+    try {
+      const paths = new Set(metadataResult.issues.map((issue) => issue.path));
+      await WorkspaceIntegrityService.repairPromptIds(fileRepository, workspace);
+      const result = await MetadataRepairService.repairPromptMetadata(
+        fileRepository,
+        workspace,
+        { paths }
+      );
+      const reloaded = await PromptService.loadPrompts(fileRepository, workspace);
+      await usePromptStore.getState().setPrompts(reloaded);
+      addToast({
+        type: 'success',
+        message: messages[locale].settings.repairSucceeded(result.repairedFiles),
+        duration: 2500,
+      });
+    } catch (error) {
+      addToast({
+        type: 'error',
+        message: messages[locale].settings.repairFailed,
+        duration: 3000,
+      });
+      throw error;
+    }
+  };
 
   useEffect(() => {
     initialize();
@@ -92,7 +127,8 @@ function AppContent() {
 
   useEffect(() => {
     if (!workspace) {
-      resetSettings();
+      setHistorySettings(DEFAULT_HISTORY_SETTINGS);
+      setShareAuthorName('');
       return;
     }
 
@@ -115,10 +151,13 @@ function AppContent() {
     return () => {
       isCurrent = false;
     };
-  }, [workspace, resetSettings, setHistorySettings, setShareAuthorName]);
+  }, [workspace, setHistorySettings, setShareAuthorName]);
 
   // 自动加载 Prompts
   usePromptLoader();
+
+  // 根据客户端设置监听工作区外部文件变化
+  useWorkspaceFileWatcher();
 
   // 后台分批补全 content
   usePromptLazyLoad();
@@ -190,6 +229,14 @@ function AppContent() {
 
       {/* 设置对话框 */}
       <SettingsModal />
+
+      <MetadataRepairPrompt
+        onRepair={repairDetectedMetadata}
+        onViewDetails={() => {
+          closeMetadataPrompt();
+          openModal('settings');
+        }}
+      />
 
       {/* 分享图片对话框 */}
       {modalType === 'share' && (
