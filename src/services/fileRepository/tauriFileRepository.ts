@@ -39,6 +39,17 @@ function workspaceFromPath(path: string): WorkspaceRef {
   };
 }
 
+export async function selectTauriDirectoryForRestore(): Promise<WorkspaceRef | null> {
+  const selected = await open({ directory: true, multiple: false, recursive: true });
+  return typeof selected === 'string' ? workspaceFromPath(selected) : null;
+}
+
+export async function saveTauriWorkspace(workspace: WorkspaceRef): Promise<void> {
+  const store = await loadWorkspaceStore();
+  await store.set(WORKSPACE_KEY, workspace);
+  await store.save();
+}
+
 async function loadWorkspaceStore(): Promise<Store> {
   return Store.load(STORE_FILE);
 }

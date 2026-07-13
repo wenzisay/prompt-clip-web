@@ -7,6 +7,7 @@
   ],
   "permissions": [
     "core:default",
+    "dialog:allow-message",
     "dialog:allow-open",
     "fs:allow-exists",
     "fs:allow-mkdir",

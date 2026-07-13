@@ -66,7 +66,7 @@ export function createFakeFileRepository(
     verifyPermission: async () => true,
     clearSavedWorkspace: async () => undefined,
     listFiles: async (_workspace, extensions, options) => {
-      return Array.from(files.entries())
+      return [...Array.from(files.entries()), ...Array.from(binaryFiles.entries())]
         .filter(([path]) => {
           const parts = path.split('/');
           const isInHiddenDirectory = parts.slice(0, -1).some((part) => part.startsWith('.'));

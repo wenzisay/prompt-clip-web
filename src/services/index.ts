@@ -4,6 +4,7 @@
 
 export * from './fileRepository';
 export * from './workspaceChanges';
+export * from './backup';
 export * from './workspaceIntegrityService';
 export * from './promptService';
 export * from './tagService';

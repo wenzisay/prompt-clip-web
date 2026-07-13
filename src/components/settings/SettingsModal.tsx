@@ -30,8 +30,9 @@ import { usePromptStore } from '@/stores/promptStore';
 import { useTagStore } from '@/stores/tagStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useMetadataRepairStore } from '@/stores/metadataRepairStore';
+import { BackupSettings } from './BackupSettings';
 
-type SettingsTab = 'general' | 'about';
+type SettingsTab = 'general' | 'backup' | 'about';
 
 const RETENTION_DAY_OPTIONS = [7, 30, 90, 180, 365];
 const MAX_METADATA_ISSUE_PREVIEW_COUNT = 1000;
@@ -274,6 +275,12 @@ export function SettingsModalContent({
             onClick={() => onSelectTab('general')}
           />
           <SettingsTabButton
+            icon="ios_share"
+            label={t.settings.backupTab}
+            isActive={activeTab === 'backup'}
+            onClick={() => onSelectTab('backup')}
+          />
+          <SettingsTabButton
             icon="info"
             label={t.settings.aboutTab}
             isActive={activeTab === 'about'}
@@ -296,6 +303,8 @@ export function SettingsModalContent({
               onRepairMetadata={onRepairMetadata}
               onScanMetadata={onScanMetadata}
             />
+          ) : activeTab === 'backup' ? (
+            <BackupSettings locale={locale} />
           ) : (
             <AboutSettings locale={locale} />
           )}

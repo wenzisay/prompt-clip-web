@@ -45,6 +45,8 @@
 - **两级加载** — 首屏只读文件头（frontmatter + 预览片段）保证可交互，正文由 `requestIdleCallback` 后台分批补全
 - **虚拟化列表** — 5K 级别工作区下用 `@tanstack/react-virtual` 渲染可视行，DOM 节点数与列表总长无关
 - **桌面端** — 基于 Tauri 2 的原生桌面应用，支持系统托盘、单实例运行、关闭即隐藏
+- **全局快速搜索** — 系统级快捷键（默认 `Cmd+Shift+Space` / `Ctrl+Shift+Space`）在任意应用中呼出独立搜索浮窗，选中后可一键粘贴到当前光标处，或在主窗口打开详情；快捷键可在设置中自定义录入
+- **WebDAV 备份与恢复** — 桌面端可将整个工作区增量备份到专用 WebDAV 目录（HTTPS + 系统钥匙串存密码），基于 SHA-256 清单只同步变化的文件；支持整库增量恢复与配置冲突处理
 - **多语言** — 内置 `zh-CN` / `zh-TW` / `en-US` / `ja-JP` 四种语言，启动时按浏览器语言自动探测，可在「设置」中手动切换
 - **键盘优先** — 完整快捷键支持，可脱离鼠标高效操作
 
@@ -239,6 +241,20 @@ npm run tauri:build
 - 点击「补全元数据」会把缺失字段写入 frontmatter（已有字段和正文不会被改动）
 - 主要用于从 Obsidian 等外部工具批量导入的场景
 
+### 全局快速搜索（桌面端）
+
+- 在任意应用中按下全局快捷键（默认 `Cmd+Shift+Space` / `Ctrl+Shift+Space`）呼出独立搜索浮窗
+- 输入关键词检索 Prompt，选中后回车将正文**粘贴到当前光标位置**（活动应用内），或选择「在主应用中打开详情」跳回主窗口
+- 搜索数据由主窗口提供，浮窗本身不持有业务状态；macOS 自动粘贴需要授予无障碍权限
+- 在「设置 → 全局搜索框」可开关功能、录入自定义快捷键或恢复默认
+
+### WebDAV 备份与恢复（桌面端）
+
+- 在「设置 → 备份」配置 WebDAV 目标：HTTPS 地址、用户名、密码（存入系统钥匙串）、远端专用目录
+- **立即备份**：基于 SHA-256 清单做文件级增量同步——仅上传新增 / 修改的文件，并删除远端已在本地移除的文件；重复备份只传输变化内容
+- **整库恢复**：选择目标目录后，比对本地与远端清单，Hash 相同的文件跳过下载；若本地已存在 `promptclip.config.json`，会提示覆盖或跳过
+- 安全：仅允许 HTTPS、密码存钥匙串、远端路径做目录穿越校验、下载限大小、写入前校验 SHA-256 完整性
+
 ### 数据存储格式
 
 每个 Prompt 以 Markdown 文件存储，使用 YAML frontmatter 保存元数据：
@@ -277,6 +293,9 @@ pinned: false
 | `Cmd+2` | 显示最近修改 |
 | `Cmd+3` | 显示收藏 |
 | `Escape` | 关闭面板 / 模态框 / 命令面板 |
+| `Cmd+Shift+Space` / `Ctrl+Shift+Space` | 全局呼出快速搜索浮窗（桌面端，系统级，可在设置中自定义） |
+
+> 上述全局快捷键仅在桌面端生效，由 `tauri-plugin-global-shortcut` 注册，可在「设置 → 全局搜索框」中录入自定义组合或恢复默认；Web 端无此能力。
 
 > `KEYBINDINGS` 常量中预留了 `COPY` / `PASTE` / `DELETE`（Backspace）等条目，可在 `useKeyboardShortcuts.ts` 中按需扩展。
 
@@ -296,7 +315,7 @@ pinned: false
 | 列表虚拟化 | `@tanstack/react-virtual` 3.x |
 | 文件打包 | JSZip 3 |
 | 分享图渲染 | `html-to-image` + `html2canvas` 回退 |
-| 桌面端 | Tauri 2（`tray-icon` / `single-instance` / `persisted-scope` / `store` / `dialog` / `fs`） |
+| 桌面端 | Tauri 2（`tray-icon` / `single-instance` / `persisted-scope` / `store` / `dialog` / `fs` / `global-shortcut`） |
 | 测试 | Vitest 2 + jsdom + `@testing-library/react` |
 
 ### 项目结构
@@ -404,6 +423,8 @@ src/
 - **安全路径** — Rust 端 `safe_relative_path` 拒绝绝对路径与 `..` 组件，所有 IO 都校验目标在工作区根目录内
 - **持久化作用域** — `tauri-plugin-persisted-scope` 记忆授权过的目录路径
 - **macOS Reopen** — 点击 Dock 图标时重新显示主窗口
+- **全局快速搜索** — 独立 `quick-search` 浮窗窗口 + `tauri-plugin-global-shortcut` 注册系统级快捷键，跨应用呼出；选中即粘贴到光标，或回主窗口打开详情
+- **WebDAV 增量备份** — Rust 端封装 WebDAV 操作（`reqwest` + `quick-xml`，仅 HTTPS），密码经 `keyring` 存系统钥匙串；前端按 SHA-256 清单做文件级增量备份 / 恢复
 
 ## 开发
 
