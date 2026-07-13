@@ -45,6 +45,8 @@
 - **Two-phase loading** — The first screen reads only file heads (frontmatter + preview snippet) to stay interactive; full bodies are backfilled in batches via `requestIdleCallback`
 - **Virtualized list** — Workspaces with 5K+ prompts render visible rows only via `@tanstack/react-virtual` — DOM node count is independent of list length
 - **Desktop app** — Native Tauri 2 app with system tray, single-instance, and hide-on-close
+- **Global quick search** — A system-wide shortcut (default `Cmd+Shift+Space` / `Ctrl+Shift+Space`) summons a standalone search bar over any app; pick a result to paste its content at the cursor, or open it in the main window. Shortcut is customizable in Settings
+- **WebDAV backup & restore** — Back up the whole workspace incrementally to a dedicated WebDAV folder (HTTPS + OS keychain for the password); a SHA-256 manifest syncs only changed files. Supports incremental full restore and config-conflict handling
 - **Multilingual** — Built-in `zh-CN` / `zh-TW` / `en-US` / `ja-JP`; auto-detected from browser language at startup, manually switchable in Settings
 - **Keyboard-first** — Full shortcut support for mouse-free operation
 
@@ -239,6 +241,20 @@ A GitHub Actions workflow (`.github/workflows/release.yml`) triggers on `v*.*.*`
 - "Backfill metadata" writes the missing fields into frontmatter (existing fields and body content are left untouched)
 - Primarily for bulk imports from Obsidian and similar tools
 
+### Global quick search (desktop)
+
+- Press the global shortcut (default `Cmd+Shift+Space` / `Ctrl+Shift+Space`) from any app to summon the standalone search bar
+- Type to search prompts; Enter **pastes the body at the current cursor** (in the active app), or choose "Open detail in main app" to jump back to the main window
+- Search data is served by the main window — the bar holds no business state. On macOS, auto-paste requires Accessibility permission
+- Toggle the feature, record a custom shortcut, or reset to default under **Settings → Quick search**
+
+### WebDAV backup & restore (desktop)
+
+- Configure a WebDAV target under **Settings → Backup**: HTTPS URL, username, password (stored in the OS keychain), and a remote dedicated directory
+- **Backup now**: file-level incremental sync via a SHA-256 manifest — only new/changed files are uploaded, and files removed locally are deleted remotely; repeated backups transfer only the diffs
+- **Full restore**: pick a destination directory; files whose hash matches the remote manifest are skipped. If `promptclip.config.json` already exists locally, you can choose to overwrite or keep it
+- Security: HTTPS only, password in the keychain, path-traversal validation on remote paths, bounded download size, and SHA-256 integrity check before writing
+
 ### Data storage format
 
 Each prompt is stored as a Markdown file, with metadata in YAML frontmatter:
@@ -277,6 +293,9 @@ The app also generates these helper directories and files in the working directo
 | `Cmd+2` | Show recent |
 | `Cmd+3` | Show favorites |
 | `Escape` | Close panel / modal / command palette |
+| `Cmd+Shift+Space` / `Ctrl+Shift+Space` | Summon the global quick-search bar (desktop, system-wide, customizable in Settings) |
+
+> The shortcut above is desktop-only, registered via `tauri-plugin-global-shortcut`; record a custom combination or reset to default under **Settings → Quick search**. Not available on Web.
 
 > `KEYBINDINGS` also reserves `COPY` / `PASTE` / `DELETE` (Backspace) entries — extend them in `useKeyboardShortcuts.ts` as needed.
 
@@ -296,7 +315,7 @@ The app also generates these helper directories and files in the working directo
 | List virtualization | `@tanstack/react-virtual` 3.x |
 | Zip | JSZip 3 |
 | Share-card rendering | `html-to-image` + `html2canvas` fallback |
-| Desktop | Tauri 2 (`tray-icon` / `single-instance` / `persisted-scope` / `store` / `dialog` / `fs`) |
+| Desktop | Tauri 2 (`tray-icon` / `single-instance` / `persisted-scope` / `store` / `dialog` / `fs` / `global-shortcut`) |
 | Testing | Vitest 2 + jsdom + `@testing-library/react` |
 
 ### Project structure
@@ -404,6 +423,8 @@ A native Tauri 2 app with the Rust backend in `src-tauri/`, providing:
 - **Safe paths** — Rust's `safe_relative_path` rejects absolute paths and `..` components; all IO verifies the target is inside the workspace root
 - **Persisted scope** — `tauri-plugin-persisted-scope` remembers authorized directory paths
 - **macOS Reopen** — Clicking the Dock icon re-shows the main window
+- **Global quick search** — A standalone `quick-search` popup window plus `tauri-plugin-global-shortcut` to register a system-wide shortcut; paste at the cursor or open in the main window
+- **WebDAV incremental backup** — Rust-side WebDAV operations (`reqwest` + `quick-xml`, HTTPS only), passwords stored in the OS keychain via `keyring`; the frontend drives file-level incremental backup/restore against a SHA-256 manifest
 
 ## Development
 
