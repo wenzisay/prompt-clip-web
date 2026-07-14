@@ -19,7 +19,7 @@ function getInjectedScripts(): HTMLScriptElement[] {
 }
 
 function dataLayerEntries(): unknown[][] {
-  return (window.dataLayer as unknown[][]) ?? [];
+  return (window.dataLayer ?? []).map((entry) => Array.from(entry as ArrayLike<unknown>));
 }
 
 describe('analyticsService', () => {
@@ -62,6 +62,13 @@ describe('analyticsService', () => {
     expect(typeof window.gtag).toBe('function');
     expect(window.dataLayer).toBeInstanceOf(Array);
     expect(window.dataLayer?.length).toBeGreaterThan(0);
+  });
+
+  it('queues commands as arguments objects required by gtag.js', () => {
+    AnalyticsService.initAnalytics();
+
+    const firstCommand = window.dataLayer?.[0];
+    expect(Object.prototype.toString.call(firstCommand)).toBe('[object Arguments]');
   });
 
   it('configures GA4 with anonymize_ip and send_page_view disabled', () => {
