@@ -55,8 +55,9 @@ export function initAnalytics(options?: { force?: boolean }): void {
   if (!measurementId) return;
 
   window.dataLayer = window.dataLayer || [];
-  window.gtag = function gtag(...args: unknown[]): void {
-    window.dataLayer?.push(args);
+  window.gtag = function gtag(): void {
+    // eslint-disable-next-line prefer-rest-params -- gtag.js requires the native arguments object.
+    window.dataLayer?.push(arguments);
   };
 
   const script = document.createElement('script');
