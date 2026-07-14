@@ -15,3 +15,4 @@ export * from './folderConfigService';
 export * from './metadataRepairService';
 export * from './shareImageService';
 export * from './annotationService';
+export * from './analyticsService';

@@ -10,7 +10,9 @@ import { useFileStore } from '@/stores/fileStore';
 import { usePromptStore } from '@/stores/promptStore';
 import { useTagStore } from '@/stores/tagStore';
 import { PromptService } from '@/services/promptService';
+import { AnalyticsService } from '@/services/analyticsService';
 import { fileRepository } from '@/services/fileRepository';
+import { isTauriRuntime } from '@/services/fileRepository/tauriFileRepository';
 import { cancelLazyContentLoad } from '@/services/promptLazyLoader';
 import { WorkspaceIntegrityService } from '@/services/workspaceIntegrityService';
 import { MetadataRepairService } from '@/services/metadataRepairService';
@@ -61,6 +63,12 @@ export function usePromptLoader() {
 
         await setPrompts(prompts);
         if (!isActive) return;
+
+        // 工作区加载成功 → 上报（仅 Web 端，仅计数，不含任何 Prompt 内容/路径）
+        if (!isTauriRuntime()) {
+          AnalyticsService.trackEvent('workspace_opened', { platform: 'web' });
+        }
+
         try {
           const metadataResult = await MetadataRepairService.scanPromptMetadata(
             fileRepository,

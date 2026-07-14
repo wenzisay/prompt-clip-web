@@ -42,6 +42,10 @@ describe('messages', () => {
     expect(messages['zh-CN'].settings.shareAuthorTitle).toBe('分享作者');
     expect(messages['zh-TW'].settings.shareAuthorTitle).toBe('分享作者');
     expect(messages['en-US'].settings.shareAuthorTitle).toBe('Share author');
+    expect(messages['zh-CN'].settings.analyticsTitle).toBe('使用统计');
+    expect(messages['zh-TW'].settings.analyticsTitle).toBe('使用統計');
+    expect(messages['en-US'].settings.analyticsTitle).toBe('Usage analytics');
+    expect(messages['ja-JP'].settings.analyticsTitle).toBe('使用統計');
   });
 
   it('contains the landing feature card copy', () => {

@@ -4,6 +4,18 @@
 
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，并遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.0.4] - 2026-07-14
+
+### Added
+
+- **使用统计（Web 端）**：Web 版接入 Google Analytics 4，匿名收集页面访问与功能使用计数，用于了解功能使用情况、改进产品。传输时对 IP 地址做匿名化处理；不收集 Prompt 标题、正文、标签、批注、文件路径或任何用户创建的内容；桌面端（Tauri）完全不接入任何分析服务。
+- **使用统计开关**：在「设置 → 通用 → 使用统计」可随时关闭。关闭采用「软关闭」——不再新增上报，但已发事件无法撤回；关闭后即使不刷新页面也不再发起任何 Google 请求。
+- **隐私政策同步**：隐私页第 5 节中英两份改写，如实说明 Web 版使用 GA4 的范围、不收集的数据、可关闭及关闭后行为；桌面端不收集分析。
+
+### Changed
+
+- **gtag.js 运行时动态注入**：改为在运行时按需动态加载 gtag.js，而非写入 `index.html`。未配置 Measurement ID、用户关闭统计或桌面端环境下，不会发起任何 Google 网络请求。
+
 ## [1.0.3] - 2026-07-12
 
 ### Added
@@ -73,7 +85,8 @@
 
 > `0.1.0-beta.1` ~ `0.1.0-beta.6`（2026-05-19 ~ 2026-06-18）为更早的迭代预发布版本，逐步形成 1.0.0 的完整功能集。
 
-[Unreleased]: https://github.com/wenzisay/prompt-clip-web/compare/v1.0.3...HEAD
+[Unreleased]: https://github.com/wenzisay/prompt-clip-web/compare/v1.0.4...HEAD
+[1.0.4]: https://github.com/wenzisay/prompt-clip-web/releases/tag/v1.0.4
 [1.0.3]: https://github.com/wenzisay/prompt-clip-web/releases/tag/v1.0.3
 [1.0.2]: https://github.com/wenzisay/prompt-clip-web/releases/tag/v1.0.2
 [1.0.1]: https://github.com/wenzisay/prompt-clip-web/releases/tag/v1.0.1

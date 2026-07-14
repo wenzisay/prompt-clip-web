@@ -17,6 +17,7 @@ import { usePromptStore } from '@/stores/promptStore';
 import { DEFAULT_HISTORY_SETTINGS, useSettingsStore } from '@/stores/settingsStore';
 import { useTagStore } from '@/stores/tagStore';
 import { messages } from '@/i18n';
+import { AnalyticsService } from '@/services/analyticsService';
 import { FolderConfigService } from '@/services/folderConfigService';
 import { fileRepository } from '@/services/fileRepository';
 import { MetadataRepairService } from '@/services/metadataRepairService';
@@ -108,6 +109,11 @@ function AppContent() {
   useEffect(() => {
     initialize();
   }, [initialize]);
+
+  // 启动时把持久化的使用统计开关同步给 service（同时触发 GA4 初始化，仅 Web 端）
+  useEffect(() => {
+    AnalyticsService.setAnalyticsEnabled(useSettingsStore.getState().analyticsEnabled);
+  }, []);
 
   useEffect(() => {
     setTags(prompts.flatMap((prompt) => prompt.tags));
