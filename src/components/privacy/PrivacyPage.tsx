@@ -43,7 +43,7 @@ const privacyCopyByLanguage: Record<PrivacyLanguage, PrivacyCopy> = {
     languageLabel: '切换隐私政策语言',
     title: '隐私政策',
     subtitle: '本地优先，文件属于你。',
-    updated: '最后更新：2026 年 6 月 7 日',
+    updated: '最后更新：2026 年 7 月 14 日',
     lead:
       'PromptClip 是一款为 AI 时代构建的个人 Prompt 工作空间。我们特别重视您的隐私，也尊重您对自己内容的控制权。',
     principle: 'PromptClip 的核心原则是：',
@@ -108,9 +108,10 @@ const privacyCopyByLanguage: Record<PrivacyLanguage, PrivacyCopy> = {
       {
         title: '5. 分析、崩溃日志与诊断信息',
         paragraphs: [
-          'PromptClip 当前不会主动收集使用分析数据，也不会上传崩溃日志到我们自己的服务器。',
+          'Web 版（通过浏览器访问）使用 Google Analytics 4 收集匿名的使用统计信息，例如页面访问与功能使用计数，用于了解功能使用情况、改进产品。传输时会对 IP 地址做匿名化处理。',
+          '使用统计不收集你的 Prompt 标题、正文、标签、批注、文件路径或任何你创建的内容。桌面版（Windows / macOS 应用）完全不接入任何分析服务，你的使用数据不会离开设备。',
+          '你可以在「设置 → 通用 → 使用统计」中随时关闭使用统计。关闭后应用不会再新增任何上报；但此前已发送的事件无法撤回。',
           '如果应用发生崩溃，Apple 可能会根据你的系统设置向开发者提供匿名或聚合的崩溃诊断信息。此类信息由 Apple 系统机制提供，通常不包含你的 Prompt 或笔记内容。',
-          '如果未来我们接入崩溃分析或使用统计服务，我们会更新本隐私政策，并在必要时提供相应说明。',
         ],
       },
       {
@@ -173,7 +174,7 @@ const privacyCopyByLanguage: Record<PrivacyLanguage, PrivacyCopy> = {
     languageLabel: 'Switch privacy policy language',
     title: 'Privacy Policy',
     subtitle: 'Local-first. Your files belong to you.',
-    updated: 'Last updated: June 7, 2026',
+    updated: 'Last updated: July 14, 2026',
     lead:
       'PromptClip is a personal prompt workspace built for the AI era. We care deeply about your privacy and respect your control over your content.',
     principle: 'PromptClip is built on one core principle: ',
@@ -238,9 +239,10 @@ const privacyCopyByLanguage: Record<PrivacyLanguage, PrivacyCopy> = {
       {
         title: '5. Analytics, crash logs, and diagnostics',
         paragraphs: [
-          'PromptClip currently does not actively collect usage analytics and does not upload crash logs to our own servers.',
+          'The web version (accessed via a browser) uses Google Analytics 4 to collect anonymous usage statistics, such as page views and feature usage counts, to understand how features are used and improve the product. IP addresses are anonymized in transit.',
+          'Usage analytics does not collect your prompt titles, content, tags, annotations, file paths, or any content you create. The desktop apps (Windows / macOS) do not integrate any analytics service at all; your usage data never leaves your device.',
+          'You can turn off usage analytics at any time in Settings → General → Usage analytics. After disabling, the app will not send any new events; however, events already sent cannot be recalled.',
           'If the app crashes, Apple may provide developers with anonymous or aggregated crash diagnostics depending on your system settings. This information is provided by Apple system mechanisms and usually does not include your prompts or notes.',
-          'If we add crash analytics or usage statistics in the future, we will update this privacy policy and provide relevant explanations where needed.',
         ],
       },
       {

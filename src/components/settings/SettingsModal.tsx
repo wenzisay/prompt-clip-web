@@ -445,6 +445,8 @@ function GeneralSettings({
 
         <FileWatchingSettings locale={locale} />
 
+        {!isTauriRuntime() && <AnalyticsSettings locale={locale} />}
+
         <div className="rounded-lg border border-border bg-surface p-5 shadow-sm">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0 flex-1">
@@ -549,6 +551,44 @@ function FileWatchingSettings({ locale }: { locale: Locale }) {
       </div>
       <div className="mt-4 rounded-lg bg-accent-soft px-4 py-3 text-sm text-accent">
         {t.settings.fileWatchingNote}
+      </div>
+    </div>
+  );
+}
+
+function AnalyticsSettings({ locale }: { locale: Locale }) {
+  const t = messages[locale];
+  const isEnabled = useSettingsStore((state) => state.analyticsEnabled);
+  const setEnabled = useSettingsStore((state) => state.setAnalyticsEnabled);
+
+  return (
+    <div className="rounded-lg border border-border bg-surface p-5 shadow-sm">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <h4 className="text-sm font-semibold text-fg">{t.settings.analyticsTitle}</h4>
+          <p className="mt-1 text-sm text-muted">{t.settings.analyticsDescription}</p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={isEnabled}
+          aria-label={t.settings.analyticsAriaLabel}
+          onClick={() => setEnabled(!isEnabled)}
+          className={`
+            relative h-7 w-12 shrink-0 rounded-full border transition-colors
+            ${isEnabled ? 'border-accent bg-accent' : 'border-border bg-surfaceHigh'}
+          `}
+        >
+          <span
+            className={`
+              absolute left-0 top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-transform
+              ${isEnabled ? 'translate-x-6' : 'translate-x-1'}
+            `}
+          />
+        </button>
+      </div>
+      <div className="mt-4 rounded-lg bg-accent-soft px-4 py-3 text-sm text-accent">
+        {t.settings.analyticsNote}
       </div>
     </div>
   );

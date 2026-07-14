@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  DEFAULT_ANALYTICS_ENABLED,
   DEFAULT_FILE_WATCHING_ENABLED,
   DEFAULT_HISTORY_SETTINGS,
   DEFAULT_QUICK_SEARCH_ENABLED,
@@ -86,5 +87,15 @@ describe('settingsStore', () => {
 
     useSettingsStore.getState().resetSettings();
     expect(useSettingsStore.getState().fileWatchingEnabled).toBe(false);
+  });
+
+  it('enables usage analytics by default and toggles on demand', () => {
+    expect(useSettingsStore.getState().analyticsEnabled).toBe(DEFAULT_ANALYTICS_ENABLED);
+
+    useSettingsStore.getState().setAnalyticsEnabled(false);
+    expect(useSettingsStore.getState().analyticsEnabled).toBe(false);
+
+    useSettingsStore.getState().resetSettings();
+    expect(useSettingsStore.getState().analyticsEnabled).toBe(DEFAULT_ANALYTICS_ENABLED);
   });
 });

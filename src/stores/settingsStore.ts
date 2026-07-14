@@ -7,6 +7,7 @@ import { persist, createJSONStorage, type StateStorage } from 'zustand/middlewar
 import { DEFAULT_LOCALE } from '@/i18n/messages';
 import type { Locale } from '@/i18n/types';
 import type { HistoryVersionSettings } from '@/services/folderConfigService';
+import { AnalyticsService } from '@/services/analyticsService';
 
 export const DEFAULT_HISTORY_SETTINGS: HistoryVersionSettings = {
   enabled: false,
@@ -18,6 +19,9 @@ export const DEFAULT_SHARE_AUTHOR_NAME = '';
 export const DEFAULT_FILE_WATCHING_ENABLED = false;
 
 export const DEFAULT_QUICK_SEARCH_ENABLED = true;
+
+/** 是否启用使用统计上报（仅 Web 端生效；桌面端被 service 门禁拦住）。 */
+export const DEFAULT_ANALYTICS_ENABLED = true;
 
 /** 快速搜索浮窗的全局快捷键默认值（Tauri 跨平台写法：mac→Cmd，win/linux→Ctrl） */
 export const DEFAULT_QUICK_SEARCH_SHORTCUT = 'CommandOrControl+Shift+Space';
@@ -99,6 +103,8 @@ interface SettingsState {
   quickSearchEnabled: boolean;
   /** 快速搜索浮窗的全局快捷键 */
   quickSearchShortcut: string;
+  /** 是否启用使用统计上报（仅 Web 端） */
+  analyticsEnabled: boolean;
   /** 设置界面语言 */
   setLocale: (locale: Locale) => void;
   /** 设置历史版本配置 */
@@ -111,6 +117,8 @@ interface SettingsState {
   setQuickSearchEnabled: (enabled: boolean) => void;
   /** 设置快速搜索快捷键 */
   setQuickSearchShortcut: (shortcut: string) => void;
+  /** 设置是否启用使用统计上报（即时生效） */
+  setAnalyticsEnabled: (enabled: boolean) => void;
   /** 重置为默认设置 */
   resetSettings: () => void;
 }
@@ -124,6 +132,7 @@ export const useSettingsStore = create<SettingsState>()(
       fileWatchingEnabled: DEFAULT_FILE_WATCHING_ENABLED,
       quickSearchEnabled: DEFAULT_QUICK_SEARCH_ENABLED,
       quickSearchShortcut: DEFAULT_QUICK_SEARCH_SHORTCUT,
+      analyticsEnabled: DEFAULT_ANALYTICS_ENABLED,
 
       setLocale: (locale) => {
         set({ locale });
@@ -149,6 +158,12 @@ export const useSettingsStore = create<SettingsState>()(
         set({ quickSearchShortcut });
       },
 
+      setAnalyticsEnabled: (analyticsEnabled) => {
+        set({ analyticsEnabled });
+        // 单向通知 service（store → service），开关即时生效
+        AnalyticsService.setAnalyticsEnabled(analyticsEnabled);
+      },
+
       resetSettings: () => {
         set({
           historySettings: DEFAULT_HISTORY_SETTINGS,
@@ -156,7 +171,9 @@ export const useSettingsStore = create<SettingsState>()(
           fileWatchingEnabled: DEFAULT_FILE_WATCHING_ENABLED,
           quickSearchEnabled: DEFAULT_QUICK_SEARCH_ENABLED,
           quickSearchShortcut: DEFAULT_QUICK_SEARCH_SHORTCUT,
+          analyticsEnabled: DEFAULT_ANALYTICS_ENABLED,
         });
+        AnalyticsService.setAnalyticsEnabled(DEFAULT_ANALYTICS_ENABLED);
       },
     }),
     {
@@ -167,6 +184,7 @@ export const useSettingsStore = create<SettingsState>()(
         fileWatchingEnabled: state.fileWatchingEnabled,
         quickSearchEnabled: state.quickSearchEnabled,
         quickSearchShortcut: state.quickSearchShortcut,
+        analyticsEnabled: state.analyticsEnabled,
       }),
     }
   )

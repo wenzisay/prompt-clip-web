@@ -251,6 +251,12 @@ export const messages = {
       fileWatchingAriaLabel: '自动监听文件变动',
       fileWatchingNote:
         'Web 端通过定时检查实现，可能存在短暂延迟；关闭后将在重新打开工作区时读取外部变化。',
+      analyticsTitle: '使用统计',
+      analyticsDescription:
+        '帮助了解功能使用情况。仅匿名上报页面访问与功能使用计数，不收集 Prompt 内容。仅 Web 端生效。',
+      analyticsAriaLabel: '使用统计',
+      analyticsNote:
+        '基于 Google Analytics 4，IP 地址匿名化处理。关闭后不再新增上报，已发事件无法撤回。',
       historyDescription: '默认关闭。启用后，后续版本会在编辑笔记时保留历史快照。',
       historyAriaLabel: '启用历史版本',
       historyNote: '关闭后不会自动创建历史目录和历史快照；保留天数目前仅保存配置，暂不自动清理。',
@@ -599,6 +605,12 @@ export const messages = {
       fileWatchingAriaLabel: '自動監聽檔案變動',
       fileWatchingNote:
         'Web 端透過定時檢查實作，可能有短暫延遲；關閉後會在重新開啟工作區時讀取外部變化。',
+      analyticsTitle: '使用統計',
+      analyticsDescription:
+        '協助了解功能使用情形。僅匿名上報頁面造訪與功能使用計數，不收集 Prompt 內容。僅 Web 端生效。',
+      analyticsAriaLabel: '使用統計',
+      analyticsNote:
+        '基於 Google Analytics 4，IP 位址匿名化處理。關閉後不再新增上報，已發事件無法撤回。',
       historyDescription: '預設關閉。啟用後，後續版本會在編輯筆記時保留歷史快照。',
       historyAriaLabel: '啟用歷史版本',
       historyNote: '關閉後不會自動建立歷史目錄和歷史快照；保留天數目前僅儲存設定，暫不自動清理。',
@@ -954,6 +966,12 @@ export const messages = {
       fileWatchingAriaLabel: 'Watch file changes automatically',
       fileWatchingNote:
         'The web app checks periodically and may have a short delay. When disabled, external changes are read after reopening the workspace.',
+      analyticsTitle: 'Usage analytics',
+      analyticsDescription:
+        'Helps us understand feature usage. Only anonymous page views and feature counts are collected — never your prompt content. Web only.',
+      analyticsAriaLabel: 'Usage analytics',
+      analyticsNote:
+        'Powered by Google Analytics 4 with IP anonymization. After disabling, no new events are sent; already-sent events cannot be recalled.',
       historyDescription:
         'Off by default. When enabled, future edits keep historical snapshots.',
       historyAriaLabel: 'Enable history versions',
@@ -1316,6 +1334,12 @@ export const messages = {
       fileWatchingAriaLabel: 'ファイル変更を自動監視',
       fileWatchingNote:
         'Web 版は定期チェックで実現するため、短い遅延が生じる場合があります。オフの場合、ワークスペースを開き直したときに外部変更を読み込みます。',
+      analyticsTitle: '使用統計',
+      analyticsDescription:
+        '機能の利用状況把握に役立てます。ページビューと機能の利用回数のみ匿名で送信し、Prompt の内容は収集しません。Web 版のみ有効です。',
+      analyticsAriaLabel: '使用統計',
+      analyticsNote:
+        'Google Analytics 4 を利用し、IP アドレスは匿名化されます。オフにすると以後の送信は行われませんが、送信済みのイベントは取り消せません。',
       historyDescription:
         'デフォルトではオフです。有効にすると、以後の編集時に履歴スナップショットを保持します。',
       historyAriaLabel: '履歴バージョンを有効にする',

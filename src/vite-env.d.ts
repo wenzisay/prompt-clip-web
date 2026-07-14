@@ -69,3 +69,20 @@ type WriteParams = {
   position?: number;
   size?: number;
 };
+
+// Google Analytics 4 (gtag.js) — 仅 Web 端使用统计
+type Gtag = (...args: unknown[]) => void;
+
+interface Window {
+  gtag?: Gtag;
+  dataLayer?: unknown[];
+}
+
+interface ImportMetaEnv {
+  /** Google Analytics 4 Measurement ID（格式 G-XXXXXXXXXX），留空则禁用分析。仅 Web 端。 */
+  readonly VITE_GA_MEASUREMENT_ID?: string;
+}
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv;
+}

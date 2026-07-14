@@ -47,6 +47,7 @@
 - **Desktop app** — Native Tauri 2 app with system tray, single-instance, and hide-on-close
 - **Global quick search** — A system-wide shortcut (default `Cmd+Shift+Space` / `Ctrl+Shift+Space`) summons a standalone search bar over any app; pick a result to paste its content at the cursor, or open it in the main window. Shortcut is customizable in Settings
 - **WebDAV backup & restore** — Back up the whole workspace incrementally to a dedicated WebDAV folder (HTTPS + OS keychain for the password); a SHA-256 manifest syncs only changed files. Supports incremental full restore and config-conflict handling
+- **Usage analytics (web, optional)** — The web app sends anonymous Google Analytics 4 usage stats (page views and feature counts, IP anonymized, no prompt content collected) by default; toggle it in **Settings → General**. The desktop app ships no analytics at all
 - **Multilingual** — Built-in `zh-CN` / `zh-TW` / `en-US` / `ja-JP`; auto-detected from browser language at startup, manually switchable in Settings
 - **Keyboard-first** — Full shortcut support for mouse-free operation
 
@@ -147,6 +148,19 @@ npm run build
 # Preview the build
 npm run preview
 ```
+
+### Usage analytics configuration (self-hosted web)
+
+The web app reads its Google Analytics 4 ID from an environment variable. Create `.env` in the project root (already git-ignored, never committed):
+
+```bash
+# .env
+VITE_GA_MEASUREMENT_ID=G-XXXXXXXXXX
+```
+
+- Set a valid `G-`-prefixed ID to enable; leave it empty or unset to disable — the app makes no Google requests
+- Desktop builds ignore this entirely; no analytics on Tauri
+- Configure it only when self-hosting; leaving it unset affects no functionality
 
 ### Desktop (Tauri)
 
@@ -254,6 +268,13 @@ A GitHub Actions workflow (`.github/workflows/release.yml`) triggers on `v*.*.*`
 - **Backup now**: file-level incremental sync via a SHA-256 manifest — only new/changed files are uploaded, and files removed locally are deleted remotely; repeated backups transfer only the diffs
 - **Full restore**: pick a destination directory; files whose hash matches the remote manifest are skipped. If `promptclip.config.json` already exists locally, you can choose to overwrite or keep it
 - Security: HTTPS only, password in the keychain, path-traversal validation on remote paths, bounded download size, and SHA-256 integrity check before writing
+
+### Usage analytics (web)
+
+- The web app sends anonymous Google Analytics 4 usage stats by default — page views and feature counts — to help improve the product
+- It **never collects** prompt titles, content, tags, annotations, file paths, or anything you create; IP addresses are anonymized in transit
+- The desktop app (Tauri) ships with no analytics at all; your usage data never leaves your device
+- Turn it off anytime in **Settings → General → Usage analytics**; no new events are sent after disabling (already-sent events cannot be recalled)
 
 ### Data storage format
 
