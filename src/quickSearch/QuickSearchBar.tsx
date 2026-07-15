@@ -89,7 +89,14 @@ export function QuickSearchBar({
   return (
     <div className="h-screen w-screen flex flex-col bg-surface rounded-card shadow-card-hover overflow-hidden">
       <div className="flex items-center px-4 border-b border-border">
-        <span className="material-symbols-outlined text-lg text-muted mr-3">search</span>
+        <span
+          data-tauri-drag-region=""
+          className="w-10 self-stretch -ml-2 mr-1 flex shrink-0 cursor-move items-center justify-center"
+        >
+          <span className="material-symbols-outlined pointer-events-none text-lg text-muted">
+            search
+          </span>
+        </span>
         <input
           id="quick-search-input"
           name="quick-search"

@@ -52,6 +52,16 @@ describe('QuickSearchBar', () => {
     expect(screen.getByText('Second')).toBeTruthy();
   });
 
+  it('should expose the search icon area as a window drag region', () => {
+    renderBar();
+
+    const searchIcon = screen.getByText('search');
+    const dragRegion = searchIcon.parentElement;
+
+    expect(dragRegion?.getAttribute('data-tauri-drag-region')).toBe('');
+    expect(dragRegion?.className).toContain('cursor-move');
+  });
+
   it('should label empty-query results as recently used', () => {
     renderBar();
 
