@@ -52,7 +52,6 @@ export interface PromptMetadataScanOptions {
 
 const REQUIRED_FIELDS: PromptMetadataField[] = [
   'title',
-  'tags',
   'created',
   'modified',
   'copy_count',
@@ -144,10 +143,6 @@ function analyzePromptFile(
     missingFields.push('title');
   } else if (!metadata.title?.trim()) {
     invalidFields.push('title');
-  }
-
-  if (!hasFrontmatterKey(raw, 'tags')) {
-    missingFields.push('tags');
   }
 
   if (!hasFrontmatterKey(raw, 'created')) {

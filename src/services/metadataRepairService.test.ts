@@ -33,9 +33,31 @@ describe('MetadataRepairService', () => {
     expect(result.issues[0]).toMatchObject({
       path: 'obsidian.md',
       title: 'Obsidian Prompt',
-      missingFields: ['title', 'tags', 'created', 'modified', 'copy_count', 'pinned'],
+      missingFields: ['title', 'created', 'modified', 'copy_count', 'pinned'],
       invalidFields: [],
     });
+  });
+
+  it('treats tags as optional when scanning metadata', async () => {
+    const repository = createFakeFileRepository({
+      files: {
+        'without-tags.md': [
+          '---',
+          'title: Ready',
+          'created: "2026-05-17T00:00:00.000Z"',
+          'modified: "2026-05-17T00:00:00.000Z"',
+          'copy_count: 0',
+          'pinned: false',
+          '---',
+          '',
+          'Body',
+        ].join('\n'),
+      },
+    });
+
+    const result = await MetadataRepairService.scanPromptMetadata(repository, workspace);
+
+    expect(result.repairableFiles).toBe(0);
   });
 
   it('repairs missing metadata without removing existing Obsidian frontmatter', async () => {
@@ -70,6 +92,27 @@ describe('MetadataRepairService', () => {
     expect(repaired).toContain('copy_count: 0');
     expect(repaired).toContain('pinned: false');
     expect(repaired).toContain('# Heading Title\n\nBody');
+  });
+
+  it('does not add empty tags while repairing other missing metadata', async () => {
+    const repository = createFakeFileRepository({
+      files: {
+        'without-tags.md': [
+          '---',
+          'title: Ready',
+          'created: "2026-05-17T00:00:00.000Z"',
+          'modified: "2026-05-17T00:00:00.000Z"',
+          'copy_count: 0',
+          '---',
+          '',
+          'Body',
+        ].join('\n'),
+      },
+    });
+
+    await MetadataRepairService.repairPromptMetadata(repository, workspace);
+
+    expect(repository.dumpFiles()['without-tags.md']).not.toContain('tags:');
   });
 
   it('keeps complete files unchanged', async () => {
