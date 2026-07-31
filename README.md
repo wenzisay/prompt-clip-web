@@ -1,117 +1,115 @@
 <h1 align="center">PromptClip</h1>
 
 <p align="center">
-  <strong>本地优先的 AI 提示词管理工具</strong><br>
-  数据完全存储在本地，无需注册、无需云端、无需数据库<br>
-  跨平台支持：桌面端支持web、macos、linux、windows，移动端支持iOS。
+  <strong>A local-first AI prompt manager</strong><br>
+  All data stays on your device — no sign-up, no cloud, no database<br>
+  Cross-platform support: The desktop version supports Web, macOS, Linux, and Windows; the mobile version supports iOS.
 </p>
 
 <p align="center">
-  简体中文 | <a href="./README.en.md">English</a>
+  <a href="./README.cn.md">简体中文</a> | English
 </p>
 
 <p align="center">
   <a href="https://apps.apple.com/cn/app/promptclip-%E6%8F%90%E7%A4%BA%E8%AF%8D%E5%A4%B9%E5%AD%90/id6780934190">
-    <img src="https://tools.applemediaservices.com/api/badges/download-on-the-app-store/black/zh-cn?size=250x83" alt="在 App Store 下载 PromptClip" height="40" />
+    <img src="https://tools.applemediaservices.com/api/badges/download-on-the-app-store/black/en-us?size=250x83" alt="Download PromptClip on the App Store" height="40" />
   </a>
 </p>
 
 <p align="center">
-  <a href="#特性">特性</a> •
-  <a href="#截图预览">截图</a> •
-  <a href="#环境要求">环境要求</a> •
-  <a href="#安装与构建">安装</a> •
-  <a href="#使用指南">使用</a> •
-  <a href="#技术架构">架构</a> •
-  <a href="#开发">开发</a> •
-  <a href="#贡献">贡献</a>
+  <a href="#features">Features</a> •
+  <a href="#screenshots">Screenshots</a> •
+  <a href="#requirements">Requirements</a> •
+  <a href="#install--build">Install</a> •
+  <a href="#usage">Usage</a> •
+  <a href="#architecture">Architecture</a> •
+  <a href="#development">Development</a> •
+  <a href="#contributing">Contributing</a>
 </p>
 
 ---
 
-## 特性
+## Features
 
-- **本地存储** — 数据完全存储在用户选择的本地目录中，每个 Prompt 就是一个 `.md` 文件（YAML frontmatter + Markdown 正文），随时可用其他工具编辑
-- **标签系统** — 支持层级标签（如 `coding/python`），标签树可视化，支持重命名、删除、置顶
-- **全文搜索** — 基于 FlexSearch 的三索引加权搜索（标题 +10 / 内容 +5 / 标签 +3），毫秒级响应
-- **命令面板** — `Cmd+K` 快速访问所有功能，支持模糊匹配；无匹配时自动回退到全文搜索
-- **批注系统** — 每条 Prompt 可附带文字批注和图片附件，独立存放在 `_promptclip/annotations/`
-- **分享图片** — 渲染 Prompt 为可分享的 PNG 卡片（极简白 / 深色 / 淡彩边框三套模板）
-- **多格式导出** — JSON、CSV、Markdown ZIP 三种格式，导出范围可选「选中 / 当前筛选 / 全部」
-- **历史版本** — 可选开启；启用后每次编辑自动保存到 `_promptclip/.history/`（默认最多 10 个，按保留天数清理）
-- **回收站** — 删除的文件进入 `_promptclip/.trash/`（带时间戳），批注 sidecar 一并迁移；可在回收站中查看、恢复、彻底删除或一键清空
-- **元数据自愈** — 从 Obsidian 等外部工具导入的 `.md` 可在设置中一键扫描并补全缺失的 PromptClip frontmatter
-- **稳定 ID 迁移** — 首次加载会为缺 ID 的旧文件生成稳定 ID 并写回 frontmatter，方便历史/回收/批注系统关联
-- **两级加载** — 首屏只读文件头（frontmatter + 预览片段）保证可交互，正文由 `requestIdleCallback` 后台分批补全
-- **虚拟化列表** — 5K 级别工作区下用 `@tanstack/react-virtual` 渲染可视行，DOM 节点数与列表总长无关
-- **桌面端** — 基于 Tauri 2 的原生桌面应用，支持系统托盘、单实例运行、关闭即隐藏
-- **全局快速搜索** — 系统级快捷键（默认 `Cmd+Shift+Space` / `Ctrl+Shift+Space`）在任意应用中呼出独立搜索浮窗，选中后可一键粘贴到当前光标处，或在主窗口打开详情；快捷键可在设置中自定义录入
-- **WebDAV 备份与恢复** — 桌面端可将整个工作区增量备份到专用 WebDAV 目录（HTTPS + 系统钥匙串存密码），基于 SHA-256 清单只同步变化的文件；支持整库增量恢复与配置冲突处理
-- **使用统计（Web 端，可选）** — Web 版默认开启 Google Analytics 4 匿名使用统计（页面访问与功能计数，IP 匿名化，不收集 Prompt 内容），可在「设置 → 通用」关闭；桌面端不接入任何分析
-- **多语言** — 内置 `zh-CN` / `zh-TW` / `en-US` / `ja-JP` 四种语言，启动时按浏览器语言自动探测，可在「设置」中手动切换
-- **键盘优先** — 完整快捷键支持，可脱离鼠标高效操作
+- **Local storage** — All data lives in a local directory you choose. Each prompt is a plain `.md` file (YAML frontmatter + Markdown body), editable with any other tool at any time
+- **Tag system** — Hierarchical tags (e.g. `coding/python`), visualized tag tree with rename, delete, and pin support
+- **Full-text search** — FlexSearch-powered three-index weighted search (title +10 / content +5 / tags +3), millisecond response
+- **Command palette** — `Cmd+K` to reach every feature with fuzzy matching; falls back to full-text search when nothing matches
+- **Annotations** — Attach text notes and image attachments to any prompt, stored separately under `_promptclip/annotations/`
+- **Share cards** — Render a prompt as a shareable PNG card (Minimal White / Dark / Pastel Border templates)
+- **Multi-format export** — JSON, CSV, and Markdown ZIP, with selectable scope: selected / current filter / all
+- **Version history** — Optional; when enabled, every edit auto-saves a snapshot to `_promptclip/.history/` (max 10 by default, pruned by retention days)
+- **Recycle bin** — Deleted files move to `_promptclip/.trash/` (timestamped) along with their annotation sidecars; you can view, restore, permanently delete, or empty the bin
+- **Metadata self-heal** — `.md` files imported from Obsidian and similar tools can be scanned and backfilled with missing PromptClip frontmatter in one click
+- **Stable ID migration** — On first load, files missing an ID get a stable ID written back into their frontmatter, so history / recycle / annotations stay linked
+- **Two-phase loading** — The first screen reads only file heads (frontmatter + preview snippet) to stay interactive; full bodies are backfilled in batches via `requestIdleCallback`
+- **Virtualized list** — Workspaces with 5K+ prompts render visible rows only via `@tanstack/react-virtual` — DOM node count is independent of list length
+- **Desktop app** — Native Tauri 2 app with system tray, single-instance, and hide-on-close
+- **Global quick search** — A system-wide shortcut (default `Cmd+Shift+Space` / `Ctrl+Shift+Space`) summons a standalone search bar over any app; pick a result to paste its content at the cursor, or open it in the main window. Shortcut is customizable in Settings
+- **WebDAV backup & restore** — Back up the whole workspace incrementally to a dedicated WebDAV folder (HTTPS + OS keychain for the password); a SHA-256 manifest syncs only changed files. Supports incremental full restore and config-conflict handling
+- **Usage analytics (web, optional)** — The web app sends anonymous Google Analytics 4 usage stats (page views and feature counts, IP anonymized, no prompt content collected) by default; toggle it in **Settings → General**. The desktop app ships no analytics at all
+- **Multilingual** — Built-in `zh-CN` / `zh-TW` / `en-US` / `ja-JP`; auto-detected from browser language at startup, manually switchable in Settings
+- **Keyboard-first** — Full shortcut support for mouse-free operation
 
-## 截图预览
+## Screenshots
 
-欢迎页：
-![欢迎页](docs/screenshot/bettershot_1781858716926.jpg)
+Welcome page:
+![Welcome page](docs/screenshot/bettershot_1781858716926.jpg)
 
-选择数据目录：
-![选择数据目录](docs/screenshot/bettershot_1781858760022.jpg)
+Select data directory:
+![Select data directory](docs/screenshot/bettershot_1781858760022.jpg)
 
-主界面：
-![主界面](docs/screenshot/bettershot_1781858807574.jpg)
+Main interface:
+![Main interface](docs/screenshot/bettershot_1781858807574.jpg)
 
-快速切换：
-![快速切换](docs/screenshot/bettershot_1781858845948.jpg)
+Quick switch:
+![Quick switch](docs/screenshot/bettershot_1781858845948.jpg)
 
-提示词批注：
-![提示词批注](docs/screenshot/bettershot_1781859115578.jpg)
+Prompt annotations:
+![Prompt annotations](docs/screenshot/bettershot_1781859115578.jpg)
 
-历史版本：
-![历史版本](docs/screenshot/bettershot_1781859135574.jpg)
+History versions:
+![History versions](docs/screenshot/bettershot_1781859135574.jpg)
 
-分享卡片：
-![分享卡片](docs/screenshot/bettershot_1781859201346.jpg)
+Share card:
+![Share card](docs/screenshot/bettershot_1781859201346.jpg)
 
-iPhone版：
-![iPhone版](docs/screenshot/IMG_5179.jpg)
+iPhone / iPad App:
+![ios](docs/screenshot/app.jpg)
 
-iPad版：
-![iPad版](docs/screenshot/Picsew_20260619173759.jpg)
 
-## 在线体验与平台状态
+## Online App & Platform Status
 
-- Web App 地址：https://www.promptclip.online/
-- iOS 版已上架 App Store：[下载 PromptClip](https://apps.apple.com/cn/app/promptclip-%E6%8F%90%E7%A4%BA%E8%AF%8D%E5%A4%B9%E5%AD%90/id6780934190)
-- 移动端 App（iOS）未开放源代码。
+- Web App: https://www.promptclip.online/
+- The iOS version is now available on the App Store: [Download PromptClip](https://apps.apple.com/cn/app/promptclip-%E6%8F%90%E7%A4%BA%E8%AF%8D%E5%A4%B9%E5%AD%90/id6780934190)
+- The mobile app (iOS) is not open source.
 
-## 环境要求
+## Requirements
 
-| 依赖 | 最低版本 | 说明 |
-|------|----------|------|
-| Node.js | 18+ | 前端构建 |
-| npm | 9+ | 包管理 |
-| Rust | 1.77.2+ | 仅桌面端构建需要 |
-| Tauri CLI | 2.x | 随 `npm install` 安装为 devDependency |
+| Dependency | Min version | Notes |
+|------------|-------------|-------|
+| Node.js | 18+ | Frontend build |
+| npm | 9+ | Package manager |
+| Rust | 1.77.2+ | Desktop build only |
+| Tauri CLI | 2.x | Installed as a devDependency via `npm install` |
 
-### Web 版浏览器要求
+### Web — browser requirements
 
-需要支持 [File System Access API](https://developer.mozilla.org/en-US/docs/Web/API/File_System_Access_API) 的浏览器：
+Requires a browser with the [File System Access API](https://developer.mozilla.org/en-US/docs/Web/API/File_System_Access_API):
 
 - Chrome 86+
 - Edge 86+
 - Opera 72+
 
-> Firefox 和 Safari 目前不支持此 API，建议使用 Chrome 或 Edge。
+> Firefox and Safari don't support this API yet — use Chrome or Edge.
 
-### 桌面端系统依赖
+### Desktop — system dependencies
 
-**macOS**: 无额外依赖，Xcode Command Line Tools 即可（`xcode-select --install`）。
+**macOS**: No extra dependencies — Xcode Command Line Tools are enough (`xcode-select --install`).
 
 **Windows**:
-- [Visual Studio Build Tools 2022](https://visualstudio.microsoft.com/visual-cpp-build-tools/) — 安装时勾选「C++ 桌面开发」工作负载
-- [WebView2](https://developer.microsoft.com/en-us/microsoft-edge/webview2/) — Windows 10/11 已预装
+- [Visual Studio Build Tools 2022](https://visualstudio.microsoft.com/visual-cpp-build-tools/) — select the "Desktop development with C++" workload during install
+- [WebView2](https://developer.microsoft.com/en-us/microsoft-edge/webview2/) — preinstalled on Windows 10/11
 
 **Linux**:
 ```bash
@@ -125,165 +123,165 @@ sudo dnf install webkit2gtk4.1-devel gcc curl wget file libxdo-devel openssl-dev
 sudo pacman -S webkit2gtk-4.1 base-devel curl wget file xdotool openssl libappindicator-gtk3 librsvg
 ```
 
-## 安装与构建
+## Install & Build
 
 ```bash
-# 克隆仓库
+# Clone the repo
 git clone https://github.com/wenzisay/prompt-clip-web.git
 cd prompt-clip-web
 
-# 安装依赖
+# Install dependencies
 npm install
 ```
 
-### Web 版本（浏览器）
+### Web (browser)
 
 ```bash
-# 启动开发服务器
+# Start the dev server
 npm run dev
 
-# 构建生产版本（输出到 dist/）
+# Build for production (outputs to dist/)
 npm run build
 
-# 预览构建产物
+# Preview the build
 npm run preview
 ```
 
-### 使用统计配置（自部署 Web 版）
+### Usage analytics configuration (self-hosted web)
 
-Web 版通过环境变量配置 Google Analytics 4。在项目根目录创建 `.env`（已被 `.gitignore` 忽略，不会提交）：
+The web app reads its Google Analytics 4 ID from an environment variable. Create `.env` in the project root (already git-ignored, never committed):
 
 ```bash
 # .env
 VITE_GA_MEASUREMENT_ID=G-XXXXXXXXXX
 ```
 
-- 配置有效的 `G-` 开头 ID 即启用；留空或不配置则禁用，应用不会发起任何 Google 请求
-- 桌面端构建完全忽略此项，不接入任何分析
-- 自部署时按需配置；不配置也不影响任何功能
+- Set a valid `G-`-prefixed ID to enable; leave it empty or unset to disable — the app makes no Google requests
+- Desktop builds ignore this entirely; no analytics on Tauri
+- Configure it only when self-hosting; leaving it unset affects no functionality
 
-### 桌面版本（Tauri）
+### Desktop (Tauri)
 
 ```bash
-# 启动桌面端开发环境
+# Start the desktop dev environment
 npm run tauri:dev
 
-# 构建桌面端安装包
+# Build desktop installers
 npm run tauri:build
 ```
 
-构建产物位于 `src-tauri/target/release/bundle/`：
+Build artifacts land in `src-tauri/target/release/bundle/`:
 
-| 平台 | 产物 |
-|------|------|
-| macOS | `.dmg`、`.app` |
-| Windows | `.msi`、`.exe`（NSIS 安装包） |
+| Platform | Artifact |
+|----------|----------|
+| macOS | `.dmg`, `.app` |
+| Windows | `.msi`, `.exe` (NSIS installer) |
 
-> Tauri 不支持交叉编译，需要在目标平台上构建。如需在 macOS 上构建 Windows 版本，可使用 GitHub Actions CI。
+> Tauri doesn't support cross-compilation — you must build on the target platform. To build Windows from macOS, use the GitHub Actions CI.
 
-### CI 多平台构建
+### CI multi-platform builds
 
-项目配置了 GitHub Actions 工作流（`.github/workflows/release.yml`），推送 `v*.*.*` tag 时自动触发，为 macOS（aarch64 + x86_64）和 Windows 构建安装包并创建 Draft Release。
+A GitHub Actions workflow (`.github/workflows/release.yml`) triggers on `v*.*.*` tags and builds installers for macOS (aarch64 + x86_64) and Windows, then creates a Draft Release.
 
-## 使用指南
+## Usage
 
-### 首次使用
+### First run
 
-1. 启动应用后，点击「选择目录」按钮，选择一个本地文件夹作为 Prompt 存储目录
-2. 目录中的 `.md` 文件会被自动识别和加载（首屏只解析头部，正文后台补全）
-3. 每个文件对应一个 Prompt，元数据通过 YAML frontmatter 存储
-4. 应用会写入工作区级配置文件 `_promptclip/promptclip.config.json`，记录置顶标签、历史版本设置、分享作者名等
+1. After launching, click "Select Directory" and pick a local folder as your prompt storage directory
+2. `.md` files in the directory are detected and loaded automatically (first screen parses only headers; bodies are backfilled in the background)
+3. Each file maps to one prompt, with metadata stored in YAML frontmatter
+4. A workspace-level config file `_promptclip/promptclip.config.json` is written to record pinned tags, history settings, share author name, etc.
 
-### 创建与编辑 Prompt
+### Create & edit prompts
 
-- 快捷键 `Cmd+N` / `Ctrl+N`，或点击右上角「新建」按钮
-- 标题、内容、标签均可编辑；标题重命名时同步更新文件名（与目录下其他文件冲突会拒绝）
-- 如果当前选中了某个标签过滤，新建时会自动带入该标签
+- Shortcut `Cmd+N` / `Ctrl+N`, or the "New" button in the top-right
+- Title, content, and tags are all editable; renaming a title also renames the file (rejected if it collides with another file in the directory)
+- If a tag filter is currently selected, the new prompt inherits that tag
 
-### 搜索
+### Search
 
-- 顶部搜索框或 `Cmd+K` 打开命令面板后输入关键词
-- 标题/标签全文索引首屏即可用；正文索引随后台加载完成自动覆盖全文匹配
-- 搜索输入 300ms 防抖后触发
+- Type in the top search box or open the command palette with `Cmd+K`
+- The title/tags index is ready on the first screen; the content index auto-expands to full-text matching once the background load finishes
+- Search fires after a 300ms debounce
 
-### 筛选与视图
+### Filters & views
 
-| 视图 | 快捷键 | 说明 |
-|------|--------|------|
-| 全部 | `Cmd+1` | 按创建时间倒序 |
-| 最近 | `Cmd+2` | 按更新时间倒序 |
-| 收藏 | `Cmd+3` | 按收藏时间倒序 |
+| View | Shortcut | Order |
+|------|----------|-------|
+| All | `Cmd+1` | By created time, descending |
+| Recent | `Cmd+2` | By updated time, descending |
+| Favorites | `Cmd+3` | By favorited time, descending |
 
-- 点击侧边栏标签可按标签过滤（支持层级匹配，子标签自动命中）
-- 筛选条件可叠加：搜索 + 标签 + 视图
+- Click a sidebar tag to filter by tag (hierarchical — child tags match automatically)
+- Filters stack: search + tag + view
 
-### 批注
+### Annotations
 
-- 在 Prompt 详情面板中展开「批注」区，可追加文字与图片附件
-- 批注按 `promptId` 存为 sidecar JSON，图片存为二进制附件，单张图片上限 5 MB
+- Expand the "Annotations" section in the prompt detail panel to add text and image attachments
+- Annotations are stored as sidecar JSON by `promptId`; images are stored as binary attachments, max 5 MB each
 
-### 分享图片
+### Share cards
 
-- 在 Prompt 详情面板中点击「分享」，可选择极简白 / 深色 / 淡彩边框三种模板
-- 可选开关：作者信息、PromptClip 标志、标签、是否渲染 Markdown
-- 渲染使用 `html-to-image`，失败时回退到 `html2canvas`；可下载 PNG 或复制到剪贴板
-- 作者名在「设置 → 分享作者」配置
+- Click "Share" in the prompt detail panel to pick from Minimal White / Dark / Pastel Border templates
+- Toggles: author info, PromptClip logo, tags, and whether to render Markdown
+- Rendering uses `html-to-image` with an `html2canvas` fallback; download PNG or copy to clipboard
+- The author name is configured under "Settings → Share author"
 
-### 导出
+### Export
 
-- 点击「导出」按钮或通过命令面板触发
-- 支持格式：JSON、CSV、Markdown ZIP
-- 导出范围：选中的 Prompt、当前筛选结果、全部
-- 桌面端使用原生保存对话框，Web 端走浏览器下载
+- Click "Export" or trigger it from the command palette
+- Formats: JSON, CSV, Markdown ZIP
+- Scope: selected prompts, current filter result, or all
+- Desktop uses a native save dialog; Web uses a browser download
 
-### 回收站
+### Recycle bin
 
-- 删除的 Prompt 移入 `_promptclip/.trash/`（文件名带时间戳），批注 sidecar 同步迁移，不会立即从磁盘消失
-- 在侧边栏打开「回收站」可查看已删除条目
-- 支持**恢复**（还原到原目录）、**彻底删除**（永久移除单个文件）、**清空回收站**（批量清空）
+- Deleted prompts move to `_promptclip/.trash/` (filename timestamped), with annotation sidecars migrated along — they're not erased from disk immediately
+- Open "Recycle Bin" in the sidebar to see deleted entries
+- Supports **restore** (back to the original directory), **permanent delete** (remove a single file for good), and **empty bin** (clear all)
 
-### 历史版本（可选）
+### Version history (optional)
 
-- 在「设置 → 历史版本」中开启；默认关闭
-- 开启后每次编辑 Prompt 自动在 `_promptclip/.history/<id>.<timestamp>.md` 写入快照
-- 单条 Prompt 最多保留 `MAX_HISTORY_VERSIONS`（10）份，超过部分按时间淘汰
-- 可在 Prompt 详情面板中查看、复制、恢复历史版本
+- Enable under "Settings → Version history"; off by default
+- Once enabled, each edit auto-writes a snapshot to `_promptclip/.history/<id>.<timestamp>.md`
+- Up to `MAX_HISTORY_VERSIONS` (10) snapshots per prompt are kept; older ones are pruned by time
+- View, copy, or restore past versions from the prompt detail panel
 
-### 元数据自愈
+### Metadata self-heal
 
-- 在「设置 → 目录维护」点击「扫描元数据」可列出缺字段的 Markdown
-- 点击「补全元数据」会把缺失字段写入 frontmatter（已有字段和正文不会被改动）
-- 主要用于从 Obsidian 等外部工具批量导入的场景
+- Under "Settings → Directory maintenance", "Scan metadata" lists Markdown files with missing fields
+- "Backfill metadata" writes the missing fields into frontmatter (existing fields and body content are left untouched)
+- Primarily for bulk imports from Obsidian and similar tools
 
-### 全局快速搜索（桌面端）
+### Global quick search (desktop)
 
-- 在任意应用中按下全局快捷键（默认 `Cmd+Shift+Space` / `Ctrl+Shift+Space`）呼出独立搜索浮窗
-- 输入关键词检索 Prompt，选中后回车将正文**粘贴到当前光标位置**（活动应用内），或选择「在主应用中打开详情」跳回主窗口
-- 搜索数据由主窗口提供，浮窗本身不持有业务状态；macOS 自动粘贴需要授予无障碍权限
-- 在「设置 → 全局搜索框」可开关功能、录入自定义快捷键或恢复默认
+- Press the global shortcut (default `Cmd+Shift+Space` / `Ctrl+Shift+Space`) from any app to summon the standalone search bar
+- Type to search prompts; Enter **pastes the body at the current cursor** (in the active app), or choose "Open detail in main app" to jump back to the main window
+- Search data is served by the main window — the bar holds no business state. On macOS, auto-paste requires Accessibility permission
+- Toggle the feature, record a custom shortcut, or reset to default under **Settings → Quick search**
 
-### WebDAV 备份与恢复（桌面端）
+### WebDAV backup & restore (desktop)
 
-- 在「设置 → 备份」配置 WebDAV 目标：HTTPS 地址、用户名、密码（存入系统钥匙串）、远端专用目录
-- **立即备份**：基于 SHA-256 清单做文件级增量同步——仅上传新增 / 修改的文件，并删除远端已在本地移除的文件；重复备份只传输变化内容
-- **整库恢复**：选择目标目录后，比对本地与远端清单，Hash 相同的文件跳过下载；若本地已存在 `promptclip.config.json`，会提示覆盖或跳过
-- 安全：仅允许 HTTPS、密码存钥匙串、远端路径做目录穿越校验、下载限大小、写入前校验 SHA-256 完整性
+- Configure a WebDAV target under **Settings → Backup**: HTTPS URL, username, password (stored in the OS keychain), and a remote dedicated directory
+- **Backup now**: file-level incremental sync via a SHA-256 manifest — only new/changed files are uploaded, and files removed locally are deleted remotely; repeated backups transfer only the diffs
+- **Full restore**: pick a destination directory; files whose hash matches the remote manifest are skipped. If `promptclip.config.json` already exists locally, you can choose to overwrite or keep it
+- Security: HTTPS only, password in the keychain, path-traversal validation on remote paths, bounded download size, and SHA-256 integrity check before writing
 
-### 使用统计（Web 端）
+### Usage analytics (web)
 
-- Web 版默认开启 Google Analytics 4 匿名使用统计，收集页面访问与功能使用计数，用于改进产品
-- **不收集** Prompt 标题、正文、标签、批注、文件路径或任何你创建的内容；IP 地址在传输时匿名化
-- 桌面端（Tauri）完全不接入任何分析服务，使用数据不离开设备
-- 在「设置 → 通用 → 使用统计」可随时关闭；关闭后不再新增上报（已发事件无法撤回）
+- The web app sends anonymous Google Analytics 4 usage stats by default — page views and feature counts — to help improve the product
+- It **never collects** prompt titles, content, tags, annotations, file paths, or anything you create; IP addresses are anonymized in transit
+- The desktop app (Tauri) ships with no analytics at all; your usage data never leaves your device
+- Turn it off anytime in **Settings → General → Usage analytics**; no new events are sent after disabling (already-sent events cannot be recalled)
 
-### 数据存储格式
+### Data storage format
 
-每个 Prompt 以 Markdown 文件存储，使用 YAML frontmatter 保存元数据：
+Each prompt is stored as a Markdown file, with metadata in YAML frontmatter:
 
 ```markdown
 ---
 id: "p-7y3k9x2a"
-title: "Prompt 标题"
+title: "Prompt title"
 tags: ["coding", "coding/python"]
 created: "2025-01-01T00:00:00.000Z"
 modified: "2025-01-02T00:00:00.000Z"
@@ -292,199 +290,196 @@ pinned: false
 ---
 ```
 
-应用还会在工作目录中生成以下辅助目录和文件：
+The app also generates these helper directories and files in the working directory:
 
-| 路径 | 用途 |
-|------|------|
-| `_promptclip/.history/` | 历史版本快照（`.md`），仅在「设置」中开启后写入 |
-| `_promptclip/.trash/` | 已删除的文件，文件名带时间戳 |
-| `_promptclip/promptclip.config.json` | 工作区配置（置顶标签、历史版本设置、分享作者名） |
-| `_promptclip/annotations/<promptId>.json` | Prompt 批注 sidecar 文件 |
-| `_promptclip/assets/<promptId>/<annotationId>/...` | 批注附带的图片二进制文件 |
+| Path | Purpose |
+|------|---------|
+| `_promptclip/.history/` | Version history snapshots (`.md`), written only when enabled in Settings |
+| `_promptclip/.trash/` | Deleted files, timestamped filenames |
+| `_promptclip/promptclip.config.json` | Workspace config (pinned tags, history settings, share author name) |
+| `_promptclip/annotations/<promptId>.json` | Prompt annotation sidecar file |
+| `_promptclip/assets/<promptId>/<annotationId>/...` | Binary image attachments for annotations |
 
-## 键盘快捷键
+## Keyboard shortcuts
 
-| 快捷键 | 功能 |
-|--------|------|
-| `Cmd+K` / `Ctrl+K` | 打开命令面板 |
-| `Cmd+N` / `Ctrl+N` | 新建 Prompt |
-| `Cmd+F` / `Ctrl+F` | 搜索（声明在 `KEYBINDINGS`，待接入） |
-| `Cmd+S` / `Ctrl+S` | 保存（声明在 `KEYBINDINGS`，待接入） |
-| `Cmd+1` | 显示全部 |
-| `Cmd+2` | 显示最近修改 |
-| `Cmd+3` | 显示收藏 |
-| `Escape` | 关闭面板 / 模态框 / 命令面板 |
-| `Cmd+Shift+Space` / `Ctrl+Shift+Space` | 全局呼出快速搜索浮窗（桌面端，系统级，可在设置中自定义） |
+| Shortcut | Action |
+|----------|--------|
+| `Cmd+K` / `Ctrl+K` | Open command palette |
+| `Cmd+N` / `Ctrl+N` | New prompt |
+| `Cmd+F` / `Ctrl+F` | Search (declared in `KEYBINDINGS`, not wired yet) |
+| `Cmd+S` / `Ctrl+S` | Save (declared in `KEYBINDINGS`, not wired yet) |
+| `Cmd+1` | Show all |
+| `Cmd+2` | Show recent |
+| `Cmd+3` | Show favorites |
+| `Escape` | Close panel / modal / command palette |
+| `Cmd+Shift+Space` / `Ctrl+Shift+Space` | Summon the global quick-search bar (desktop, system-wide, customizable in Settings) |
 
-> 上述全局快捷键仅在桌面端生效，由 `tauri-plugin-global-shortcut` 注册，可在「设置 → 全局搜索框」中录入自定义组合或恢复默认；Web 端无此能力。
+> The shortcut above is desktop-only, registered via `tauri-plugin-global-shortcut`; record a custom combination or reset to default under **Settings → Quick search**. Not available on Web.
 
-> `KEYBINDINGS` 常量中预留了 `COPY` / `PASTE` / `DELETE`（Backspace）等条目，可在 `useKeyboardShortcuts.ts` 中按需扩展。
+> `KEYBINDINGS` also reserves `COPY` / `PASTE` / `DELETE` (Backspace) entries — extend them in `useKeyboardShortcuts.ts` as needed.
 
-## 技术架构
+## Architecture
 
-### 技术栈
+### Tech stack
 
-| 类别 | 技术 |
-|------|------|
-| 框架 | React 18 + TypeScript 5.6（strict） |
-| 构建 | Vite 6 |
-| 状态管理 | Zustand 5 |
-| 样式 | Tailwind CSS 3.4（自定义 token：`accent` / `secondary` / `tertiary` / `bg` / `surface` / `surfaceContainer` / `surfaceHigh` / `surfaceDim` / `fg` / `muted`） |
-| 国际化 | 自研 i18n，支持 `zh-CN` / `zh-TW` / `en-US` / `ja-JP`，启动时按浏览器语言自动探测（fallback `en-US`） |
-| 搜索 | FlexSearch 0.7（标题 +10 / 内容 +5 / 标签 +3 加权合并） |
+| Category | Technology |
+|----------|------------|
+| Framework | React 18 + TypeScript 5.6 (strict) |
+| Build | Vite 6 |
+| State | Zustand 5 |
+| Styling | Tailwind CSS 3.4 (custom tokens: `accent` / `secondary` / `tertiary` / `bg` / `surface` / `surfaceContainer` / `surfaceHigh` / `surfaceDim` / `fg` / `muted`) |
+| i18n | In-house i18n with `zh-CN` / `zh-TW` / `en-US` / `ja-JP`, auto-detected from browser language at startup (fallback `en-US`) |
+| Search | FlexSearch 0.7 (title +10 / content +5 / tags +3 weighted merge) |
 | Markdown | Marked 15 |
-| 列表虚拟化 | `@tanstack/react-virtual` 3.x |
-| 文件打包 | JSZip 3 |
-| 分享图渲染 | `html-to-image` + `html2canvas` 回退 |
-| 桌面端 | Tauri 2（`tray-icon` / `single-instance` / `persisted-scope` / `store` / `dialog` / `fs` / `global-shortcut`） |
-| 测试 | Vitest 2 + jsdom + `@testing-library/react` |
+| List virtualization | `@tanstack/react-virtual` 3.x |
+| Zip | JSZip 3 |
+| Share-card rendering | `html-to-image` + `html2canvas` fallback |
+| Desktop | Tauri 2 (`tray-icon` / `single-instance` / `persisted-scope` / `store` / `dialog` / `fs` / `global-shortcut`) |
+| Testing | Vitest 2 + jsdom + `@testing-library/react` |
 
-### 项目结构
+### Project structure
 
 ```
 src/
-├── types/                  # TypeScript 数据模型（prompt / file / tag / annotation / share / ui）
-├── constants/              # 静态配置（CONFIG / KEYBINDINGS / DEFAULTS / shareTemplates）
-├── utils/                  # 纯函数（markdown / path / id / date / debounce / storage / errorMessage）
-├── i18n/                   # 自研 i18n（messages.ts + useTranslation hook）
-├── services/               # 业务逻辑层
-│   ├── fileRepository/     # 文件系统抽象：webFileRepository / tauriFileRepository / fakeFileRepository
-│   ├── promptService.ts        # Prompt CRUD + 两级加载 + 历史版本
-│   ├── promptLazyLoader.ts     # 后台分批补全 content
-│   ├── searchService.ts        # FlexSearch 三索引
-│   ├── tagService.ts           # 标签解析 / 树构建 / 重命名
-│   ├── exportService.ts        # JSON / CSV / Markdown ZIP 导出
-│   ├── exportTargetService.ts  # 浏览器下载 vs Tauri 原生保存对话框
-│   ├── annotationService.ts    # 批注 sidecar 读写
-│   ├── shareImageService.ts    # 分享图渲染（html-to-image / html2canvas）
-│   ├── folderConfigService.ts  # `_promptclip/promptclip.config.json` 读写
-│   ├── metadataRepairService.ts# 补全 Obsidian 导入文件的 frontmatter
-│   └── recycleService.ts       # 回收站：查看 / 恢复 / 彻底删除 / 清空
-├── stores/                 # Zustand 状态管理
-│   ├── fileStore.ts        # 工作区状态（persist → localStorage）
-│   ├── promptStore.ts      # Prompt 列表 / 过滤 / 筛选
-│   ├── tagStore.ts         # 标签树 / 置顶（置顶持久化到 _promptclip/promptclip.config.json）
-│   ├── uiStore.ts          # UI 状态（选中 / 模态框 / Toast）
-│   ├── settingsStore.ts    # 设置（persist → localStorage）
-│   └── annotationStore.ts  # 批注状态
+├── types/                  # TypeScript data models (prompt / file / tag / annotation / share / ui)
+├── constants/              # Static config (CONFIG / KEYBINDINGS / DEFAULTS / shareTemplates)
+├── utils/                  # Pure functions (markdown / path / id / date / debounce / storage / errorMessage)
+├── i18n/                   # In-house i18n (messages.ts + useTranslation hook)
+├── services/               # Business logic layer
+│   ├── fileRepository/     # File-system abstraction: webFileRepository / tauriFileRepository / fakeFileRepository
+│   ├── promptService.ts        # Prompt CRUD + two-phase loading + version history
+│   ├── promptLazyLoader.ts     # Background batched content backfill
+│   ├── searchService.ts        # FlexSearch three-index
+│   ├── tagService.ts           # Tag parsing / tree building / rename
+│   ├── exportService.ts        # JSON / CSV / Markdown ZIP export
+│   ├── exportTargetService.ts  # Browser download vs Tauri native save dialog
+│   ├── annotationService.ts    # Annotation sidecar read/write
+│   ├── shareImageService.ts    # Share-card rendering (html-to-image / html2canvas)
+│   ├── folderConfigService.ts  # `_promptclip/promptclip.config.json` read/write
+│   ├── metadataRepairService.ts# Backfill frontmatter for imported files (e.g. Obsidian)
+│   └── recycleService.ts       # Recycle bin: list / restore / permanent delete / empty
+├── stores/                 # Zustand state management
+│   ├── fileStore.ts        # Workspace state (persist → localStorage)
+│   ├── promptStore.ts      # Prompt list / filters
+│   ├── tagStore.ts         # Tag tree / pin (pinned tags persisted to _promptclip/promptclip.config.json)
+│   ├── uiStore.ts          # UI state (selected / modals / Toast)
+│   ├── settingsStore.ts    # Settings (persist → localStorage)
+│   └── annotationStore.ts  # Annotation state
 ├── hooks/                  # React Hooks
-│   ├── usePromptLoader.ts       # 两阶段加载
-│   ├── usePromptLazyLoad.ts     # 后台分批补全 content
+│   ├── usePromptLoader.ts       # Two-phase loading
+│   ├── usePromptLazyLoad.ts     # Background batched content backfill
 │   ├── useResponsiveColumnCount.ts
 │   ├── useDirectoryPicker.ts
 │   └── useKeyboardShortcuts.ts
-├── components/             # React 组件
-│   ├── common/             #   通用 UI（Button / IconButton / Modal / Overlay / SideDrawer / Spinner）
-│   ├── layout/             #   布局（Sidebar / TopBar / FilterTabs / DetailPanel）
-│   ├── prompt/             #   Prompt 领域（PromptCard / PromptGrid / CreateModal / DeleteConfirm
+├── components/             # React components
+│   ├── common/             #   Generic UI (Button / IconButton / Modal / Overlay / SideDrawer / Spinner)
+│   ├── layout/             #   Layout (Sidebar / TopBar / FilterTabs / DetailPanel)
+│   ├── prompt/             #   Prompt domain (PromptCard / PromptGrid / CreateModal / DeleteConfirm
 │   │                       #                / HistoryModal / AnnotationPanel / MarkdownModeToggle
 │   │                       #                / MarkdownPreviewEditor / MarkdownTextView
-│   │                       #                / PromptMarkdownEditorField / PromptContent）
-│   ├── tag/                #   标签（TagPill / TagSelect / TagTree）
-│   ├── command/            #   命令面板（CommandPalette）
-│   ├── settings/           #   设置（SettingsModal）
-│   ├── export/             #   导出（ExportModal）
-│   ├── share/              #   分享图（ShareImageModal / ShareCardPreview）
-│   ├── recycle/            #   回收站（RecycleModal / RecycleList / RecycleCard / RecycleDetailDrawer）
-│   ├── about/              #   关于页（AboutPage）
-│   ├── privacy/            #   隐私说明页（PrivacyPage）
-│   └── WelcomeScreen.tsx   #   未授权欢迎页
-└── App.tsx                 # 根组件
+│   │                       #                / PromptMarkdownEditorField / PromptContent)
+│   ├── tag/                #   Tags (TagPill / TagSelect / TagTree)
+│   ├── command/            #   Command palette (CommandPalette)
+│   ├── settings/           #   Settings (SettingsModal)
+│   ├── export/             #   Export (ExportModal)
+│   ├── share/              #   Share card (ShareImageModal / ShareCardPreview)
+│   ├── recycle/            #   Recycle bin (RecycleModal / RecycleList / RecycleCard / RecycleDetailDrawer)
+│   ├── about/              #   About page (AboutPage)
+│   ├── privacy/            #   Privacy page (PrivacyPage)
+│   └── WelcomeScreen.tsx   #   Unauthorized welcome screen
+└── App.tsx                 # Root component
 ```
 
-依赖方向：`types → constants → utils → services → stores → hooks → components`，禁止反向依赖。
+Dependency direction: `types → constants → utils → services → stores → hooks → components` — reverse dependencies are forbidden.
 
-### 核心数据流
+### Core data flow
 
-1. 用户选择本地目录 → Web 端把 `FileSystemDirectoryHandle` 存入 IndexedDB（`webFileRepository`），桌面端把目录路径作为 `WorkspaceRef` 传回（`tauriFileRepository`）
-2. `usePromptLoader` 触发 → `PromptService.loadPrompts` 阶段 1 并发（concurrency=20）调用 `repository.readTextHead(path, 8192)` 读取每个文件头部
-3. 解析 YAML frontmatter（`parseFrontmatterOnly`）→ 截取预览片段（≤ 4 行 / 120 字符）→ 缺 ID 的旧文件生成稳定 ID 并写回
-4. `promptStore.setPrompts` → `SearchService.buildSearchIndex({ skipContent: true })` 只索引 `title + tags`，列表立即可见
-5. `usePromptLazyLoad` 启动后台 idle 加载，每批 50 条并发 `ensureContent` → `patchPromptContent` → `addContentToIndex`
-6. 切换 workspace、组件卸载时 `cancelLazyContentLoad()` 中止后续批次；进行中批次靠 generation 标识丢弃过期结果
-7. 从所有 Prompt 的 tags 字段动态构建标签树；筛选 / 搜索 / 视图切换由 `promptStore.applyFilter` 完成
-8. **无文件监听** — 外部修改文件后需刷新页面才能生效
+1. User picks a local directory → Web stores the `FileSystemDirectoryHandle` in IndexedDB (`webFileRepository`); Desktop passes the directory path back as a `WorkspaceRef` (`tauriFileRepository`)
+2. `usePromptLoader` fires → `PromptService.loadPrompts` phase 1 concurrently (concurrency=20) calls `repository.readTextHead(path, 8192)` to read each file's head
+3. Parse YAML frontmatter (`parseFrontmatterOnly`) → take a preview snippet (≤ 4 lines / 120 chars) → files missing an ID get a stable ID written back
+4. `promptStore.setPrompts` → `SearchService.buildSearchIndex({ skipContent: true })` indexes `title + tags` only, so the list is immediately visible
+5. `usePromptLazyLoad` starts background idle loading, batching 50 concurrent `ensureContent` → `patchPromptContent` → `addContentToIndex`
+6. On workspace switch or component unmount, `cancelLazyContentLoad()` stops further batches; in-flight batches discard stale results via a generation tag
+7. The tag tree is built dynamically from all prompts' `tags` field; filtering / search / view switches are handled by `promptStore.applyFilter`
+8. **No file watching** — external file changes require a page refresh to take effect
 
-### 持久化策略
+### Persistence strategy
 
-| 数据 | 持久化目标 | 写入位置 |
-|------|-----------|---------|
+| Data | Persisted to | Location |
+|------|--------------|----------|
 | `fileStore.isAuthorized` / `workspaceName` / `lastAccessTime` | localStorage | `promptclip-file-storage` key |
-| Web 端 `FileSystemDirectoryHandle` | IndexedDB | `FileRepository` 内部 |
-| 桌面端 `WorkspaceRef.path` | 运行时内存 + 单实例窗口 | Tauri 主进程 |
+| Web `FileSystemDirectoryHandle` | IndexedDB | inside `FileRepository` |
+| Desktop `WorkspaceRef.path` | Runtime memory + single-instance window | Tauri main process |
 | `settingsStore.locale` | localStorage | `promptclip-settings` key |
-| 置顶标签 / 历史版本设置 / 分享作者名 | 工作区文件 | `_promptclip/promptclip.config.json` |
-| 标签 / Prompt 数据 | 用户目录 | `.md` 文件 + YAML frontmatter |
-| 批注 sidecar | 用户目录 | `_promptclip/annotations/<promptId>.json` |
-| 批注图片 | 用户目录 | `_promptclip/assets/<promptId>/<annotationId>/...` |
-| 历史快照（可选） | 用户目录 | `_promptclip/.history/<id>.<timestamp>.md` |
-| 已删除 | 用户目录 | `_promptclip/.trash/<id>.<timestamp>.md` |
+| Pinned tags / history settings / share author name | Workspace file | `_promptclip/promptclip.config.json` |
+| Tags / prompt data | User directory | `.md` files + YAML frontmatter |
+| Annotation sidecars | User directory | `_promptclip/annotations/<promptId>.json` |
+| Annotation images | User directory | `_promptclip/assets/<promptId>/<annotationId>/...` |
+| History snapshots (optional) | User directory | `_promptclip/.history/<id>.<timestamp>.md` |
+| Deleted | User directory | `_promptclip/.trash/<id>.<timestamp>.md` |
 
-> 切换语言会自动在 `promptclip-settings` 中持久化；切回桌面端时 `fileStore` 仅记住「曾经授权过」，真正的工作区句柄每次启动时通过 `fileRepository.restoreDirectory()` 重新读取。
+> Switching language auto-persists to `promptclip-settings`. On desktop, `fileStore` only remembers "was previously authorized" — the actual workspace handle is re-read via `fileRepository.restoreDirectory()` on every launch.
 
-### 文件系统抽象
+### File-system abstraction
 
-通过 `FileRepository` 接口统一 Web 和桌面端的文件操作，运行时自动检测环境选择实现：
+A `FileRepository` interface unifies file operations across Web and Desktop, with the implementation chosen by runtime environment detection:
 
-| 实现 | 平台 | 技术 |
-|------|------|------|
-| `webFileRepository` | 浏览器 | File System Access API + IndexedDB（存 directory handle） |
-| `tauriFileRepository` | 桌面端 | Tauri Rust 命令 + `tauri-plugin-fs` + `tauri-plugin-dialog` |
-| `fakeFileRepository` | 测试 | 内存模拟，由 `createFakeFileRepository` 工厂创建 |
+| Implementation | Platform | Technology |
+|----------------|----------|------------|
+| `webFileRepository` | Browser | File System Access API + IndexedDB (stores the directory handle) |
+| `tauriFileRepository` | Desktop | Tauri Rust commands + `tauri-plugin-fs` + `tauri-plugin-dialog` |
+| `fakeFileRepository` | Tests | In-memory mock, created by the `createFakeFileRepository` factory |
 
-`readTextHead(path, byteLimit)` 是两级加载的核心：Web 端用 `File.slice + text()` 按字节切片，桌面端按需实现。
+`readTextHead(path, byteLimit)` is the core of two-phase loading: Web slices with `File.slice + text()` by bytes; Desktop implements on demand.
 
-### 桌面端特性
+### Desktop features
 
-基于 Tauri 2 的原生桌面应用，Rust 后端位于 `src-tauri/`，提供：
+A native Tauri 2 app with the Rust backend in `src-tauri/`, providing:
 
-- **系统托盘** — 关闭按钮即隐藏到托盘，左键或双击托盘恢复窗口，托盘菜单含「显示 / 退出」
-- **单实例运行** — `tauri-plugin-single-instance` 保证二次启动唤起已有窗口
-- **原生对话框** — 文件夹选择与导出保存对话框使用系统 UI
-- **安全路径** — Rust 端 `safe_relative_path` 拒绝绝对路径与 `..` 组件，所有 IO 都校验目标在工作区根目录内
-- **持久化作用域** — `tauri-plugin-persisted-scope` 记忆授权过的目录路径
-- **macOS Reopen** — 点击 Dock 图标时重新显示主窗口
-- **全局快速搜索** — 独立 `quick-search` 浮窗窗口 + `tauri-plugin-global-shortcut` 注册系统级快捷键，跨应用呼出；选中即粘贴到光标，或回主窗口打开详情
-- **WebDAV 增量备份** — Rust 端封装 WebDAV 操作（`reqwest` + `quick-xml`，仅 HTTPS），密码经 `keyring` 存系统钥匙串；前端按 SHA-256 清单做文件级增量备份 / 恢复
+- **System tray** — Close button hides to tray; single/double-click the tray to restore; tray menu has "Show / Quit"
+- **Single instance** — `tauri-plugin-single-instance` ensures a second launch brings up the existing window
+- **Native dialogs** — Folder selection and export save dialogs use system UI
+- **Safe paths** — Rust's `safe_relative_path` rejects absolute paths and `..` components; all IO verifies the target is inside the workspace root
+- **Persisted scope** — `tauri-plugin-persisted-scope` remembers authorized directory paths
+- **macOS Reopen** — Clicking the Dock icon re-shows the main window
+- **Global quick search** — A standalone `quick-search` popup window plus `tauri-plugin-global-shortcut` to register a system-wide shortcut; paste at the cursor or open in the main window
+- **WebDAV incremental backup** — Rust-side WebDAV operations (`reqwest` + `quick-xml`, HTTPS only), passwords stored in the OS keychain via `keyring`; the frontend drives file-level incremental backup/restore against a SHA-256 manifest
 
-## 开发
+## Development
 
 ```bash
-# 类型检查
+# Type check
 npm run type-check
 
-# 代码检查
+# Lint
 npm run lint
 
-# 运行测试（Vitest 2 + jsdom）
+# Run tests (Vitest 2 + jsdom)
 npm run test
 
-# 测试可视化界面
+# Test UI
 npm run test:ui
 ```
 
+## Contributing
 
-## 贡献
-
-欢迎提 Issue 和 PR。本地开发：
+Issues and PRs are welcome. Local development:
 
 ```bash
-npm install         # 安装依赖
-npm run dev         # Web 开发（localhost:5173）
-npm run tauri:dev   # 桌面端开发（需 Rust）
-npm run test        # 运行测试
-npm run lint        # 代码检查
-npm run type-check  # 类型检查
+npm install         # Install dependencies
+npm run dev         # Web dev (localhost:5173)
+npm run tauri:dev   # Desktop dev (requires Rust)
+npm run test        # Run tests
+npm run lint        # Lint
+npm run type-check  # Type check
 ```
 
-约定：
+Conventions:
 
-- 遵循现有目录分层与依赖方向（`types → constants → utils → services → stores → hooks → components`），禁止反向依赖
-- 新增模块时同步更新对应目录的 `index.ts` barrel 文件
-- 新增用户可见文字需通过 i18n 在四种语言（`zh-CN` / `zh-TW` / `en-US` / `ja-JP`）中补全翻译
-- 提交前请确保 `npm run lint`、`npm run type-check`、`npm run test` 均通过
-
-
+- Follow the existing layering and dependency direction (`types → constants → utils → services → stores → hooks → components`); reverse dependencies are forbidden
+- When adding a module, update its directory's `index.ts` barrel file
+- Any user-visible text must be added through i18n in all four languages (`zh-CN` / `zh-TW` / `en-US` / `ja-JP`)
+- Before submitting, make sure `npm run lint`, `npm run type-check`, and `npm run test` all pass
 
 ## License
 
