@@ -104,15 +104,10 @@ print(json.dumps(module.scan_source_icons(Path(sys.argv[2]))))
         .filter(Boolean)
     );
     const skillIcons = [
-      'bolt',
-      'check_circle',
       'extension',
-      'link_off',
+      'folder_zip',
       'markdown',
-      'progress_activity',
-      'remove_circle_outline',
-      'star_outline',
-      'sync_problem',
+      'settings',
       'upload',
       'warning',
     ];

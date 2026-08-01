@@ -5,12 +5,10 @@ arrow_back
 arrow_forward
 auto_awesome
 auto_fix_high
-bolt
 chat_bubble
 check
 check_box
 check_box_outline_blank
-check_circle
 chevron_right
 close
 close_fullscreen
@@ -44,7 +42,6 @@ info
 integration_instructions
 ios_share
 keep_off
-link_off
 lock
 manage_search
 markdown
@@ -58,10 +55,8 @@ notes
 open_in_full
 poll
 preview
-progress_activity
 push_pin
 refresh
-remove_circle_outline
 restore
 schedule
 search
@@ -70,9 +65,7 @@ sell
 settings
 star
 star_border
-star_outline
 start
-sync_problem
 table
 target
 text_fields
