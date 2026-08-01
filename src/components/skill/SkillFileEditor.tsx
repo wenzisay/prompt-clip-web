@@ -1,7 +1,13 @@
-import { useEffect, useState } from 'react';
-import { MarkdownPreviewEditor } from '@/components/prompt/MarkdownPreviewEditor';
+import { useEffect, useMemo, useState } from 'react';
+import { PromptContent } from '@/components/prompt/PromptContent';
 import { useTranslation } from '@/i18n';
+import { splitFrontmatter } from '@/utils/markdown';
 import type { SkillFileEntry, SkillTextFile } from '@/types/skill';
+
+const isHtmlFileName = (name: string): boolean => {
+  const lower = name.toLowerCase();
+  return lower.endsWith('.html') || lower.endsWith('.htm');
+};
 
 export interface SkillFileEditorProps {
   entry: SkillFileEntry | null;
@@ -47,12 +53,13 @@ export function SkillFileEditor({
   }
   if (!file) return null;
   const dirty = content !== file.content;
+  const isHtml = isHtmlFileName(entry.name);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex h-12 items-center gap-2 border-b border-border px-4">
         <span className="min-w-0 flex-1 truncate text-sm font-medium">{entry.relativePath}</span>
-        {entry.isMarkdown && (
+        {(entry.isMarkdown || isHtml) && (
           <div
             role="group"
             aria-label={`${t.skills.edit} / ${t.skills.preview}`}
@@ -93,17 +100,58 @@ export function SkillFileEditor({
           {t.skills.save}
         </button>
       </div>
-      {preview && entry.isMarkdown ? (
-        <div className="min-h-0 flex-1 overflow-y-auto p-5"><MarkdownPreviewEditor value={content} ariaLabel={entry.name} /></div>
+      {preview && isHtml ? (
+        <SkillHtmlPreview value={content} name={entry.name} />
+      ) : preview && entry.isMarkdown ? (
+        <div className="min-h-0 flex-1 overflow-y-auto p-5">
+          <SkillMarkdownPreview value={content} name={entry.name} />
+        </div>
       ) : (
         <textarea
           aria-label={entry.name}
           value={content}
           onChange={(event) => setContent(event.target.value)}
-          className="min-h-0 flex-1 resize-none bg-bg p-5 font-mono text-sm leading-6 text-fg outline-none"
+          className="min-h-0 flex-1 resize-none bg-bg p-5 font-mono text-[13px] leading-5 text-fg outline-none"
           spellCheck={false}
         />
       )}
+    </div>
+  );
+}
+
+/**
+ * Skill HTML 预览：用 sandbox iframe 做纯静态渲染，HTML 自带的脚本不执行、
+ * 样式与父应用完全隔离，避免污染 app 的全局样式或上下文。
+ */
+function SkillHtmlPreview({ value, name }: { value: string; name: string }) {
+  return (
+    <iframe
+      data-testid="html-preview"
+      title={name}
+      srcDoc={value}
+      sandbox=""
+      className="min-h-0 w-full flex-1 border-0 bg-white"
+    />
+  );
+}
+
+/**
+ * Skill Markdown 预览：顶部等宽块展示原始 frontmatter，正文复用 Prompt 详情页的 prose 渲染。
+ */
+function SkillMarkdownPreview({ value, name }: { value: string; name: string }) {
+  const { frontmatter, body } = useMemo(() => splitFrontmatter(value), [value]);
+  return (
+    <div
+      data-testid="markdown-preview-editor"
+      aria-label={name}
+      className="prose prose-sm max-w-none prompt-detail-content"
+    >
+      {frontmatter && (
+        <pre>
+          <code>{frontmatter}</code>
+        </pre>
+      )}
+      <PromptContent content={body} />
     </div>
   );
 }

@@ -381,6 +381,23 @@ export function detectFrontmatterTagStyle(content: string): FrontmatterTagStyle 
 }
 
 /**
+ * 拆分 frontmatter 与正文。
+ * 仅识别文件开头的 `---\n...\n---\n` 块;不存在则 frontmatter 返回 null。
+ * 返回的 frontmatter 保留原始 `---` 包裹形式,用于原样呈现(如 skill 预览顶部元数据区)。
+ */
+export function splitFrontmatter(raw: string): {
+  frontmatter: string | null;
+  body: string;
+} {
+  const normalized = raw.replace(/^\uFEFF/, '');
+  const match = normalized.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (!match) return { frontmatter: null, body: raw };
+  // 去掉末尾换行,展示时由 <pre> 控制换行
+  const frontmatter = match[0].replace(/\r?\n+$/, '');
+  return { frontmatter, body: normalized.slice(match[0].length) };
+}
+
+/**
  * 渲染 Markdown 为 HTML
  */
 export async function renderMarkdown(markdown: string): Promise<string> {
