@@ -53,9 +53,36 @@ export function SkillFileEditor({
       <div className="flex h-12 items-center gap-2 border-b border-border px-4">
         <span className="min-w-0 flex-1 truncate text-sm font-medium">{entry.relativePath}</span>
         {entry.isMarkdown && (
-          <button type="button" onClick={() => setPreview((value) => !value)} className="rounded-lg px-3 py-1.5 text-sm text-muted hover:bg-surface-dim">
-            {preview ? t.skills.edit : t.skills.preview}
-          </button>
+          <div
+            role="group"
+            aria-label={`${t.skills.edit} / ${t.skills.preview}`}
+            className="grid grid-cols-2 rounded-lg border border-border bg-surface-container p-0.5"
+          >
+            <button
+              type="button"
+              aria-pressed={!preview}
+              onClick={() => setPreview(false)}
+              className={`min-w-16 rounded-md px-3 py-1 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent ${
+                !preview
+                  ? 'bg-accent text-white shadow-sm'
+                  : 'text-muted hover:bg-surface-dim hover:text-fg'
+              }`}
+            >
+              {t.skills.edit}
+            </button>
+            <button
+              type="button"
+              aria-pressed={preview}
+              onClick={() => setPreview(true)}
+              className={`min-w-16 rounded-md px-3 py-1 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent ${
+                preview
+                  ? 'bg-accent text-white shadow-sm'
+                  : 'text-muted hover:bg-surface-dim hover:text-fg'
+              }`}
+            >
+              {t.skills.preview}
+            </button>
+          </div>
         )}
         <button
           type="button"
