@@ -82,14 +82,35 @@ impl SkillPaths {
 }
 
 pub(crate) fn validate_skill_id(skill_id: &str) -> Result<(), SkillManagerError> {
-    let valid_length = (1..=64).contains(&skill_id.len());
-    let valid_edges = !skill_id.starts_with('-') && !skill_id.ends_with('-');
-    let valid_characters = skill_id.bytes().all(|character| {
-        character.is_ascii_lowercase() || character.is_ascii_digit() || character == b'-'
-    });
-    let valid_hyphens = !skill_id.contains("--");
+    validate_skill_id_with(skill_id, false)
+}
 
-    if valid_length && valid_edges && valid_characters && valid_hyphens {
+/// Stricter variant used by the create-new-skill entrypoint. Keeps the colon
+/// forbidden so the name can always be used as a directory on every platform
+/// (colon is reserved by the Windows filesystem). Import/scan/read/sync paths
+/// use the permissive [`validate_skill_id`] instead.
+pub(crate) fn validate_creatable_skill_id(skill_id: &str) -> Result<(), SkillManagerError> {
+    validate_skill_id_with(skill_id, true)
+}
+
+fn validate_skill_id_with(skill_id: &str, forbid_colon: bool) -> Result<(), SkillManagerError> {
+    let valid_length = (1..=64).contains(&skill_id.len());
+    let is_separator = |character: u8| character == b'-' || (!forbid_colon && character == b':');
+    let valid_characters = skill_id.bytes().all(|character| {
+        character.is_ascii_lowercase()
+            || character.is_ascii_digit()
+            || character == b'-'
+            || (!forbid_colon && character == b':')
+    });
+    let bytes = skill_id.as_bytes();
+    let valid_edges = !bytes.is_empty()
+        && !is_separator(bytes[0])
+        && !is_separator(bytes[bytes.len() - 1]);
+    let valid_separators = bytes
+        .windows(2)
+        .all(|pair| !(is_separator(pair[0]) && is_separator(pair[1])));
+
+    if valid_length && valid_characters && valid_edges && valid_separators {
         return Ok(());
     }
 
@@ -126,7 +147,7 @@ fn validate_relative_path(path: &Path) -> Result<PathBuf, SkillManagerError> {
 
 #[cfg(test)]
 mod tests {
-    use super::SkillPaths;
+    use super::{validate_creatable_skill_id, validate_skill_id, SkillPaths};
     use std::fs;
     use std::path::Path;
     use tempfile::tempdir;
@@ -156,12 +177,47 @@ mod tests {
             "trailing-",
             "two--hyphens",
             "../escape",
+            ":leading",
+            "trailing:",
+            "a::b",
+            "a:-b",
+            "a-:b",
         ] {
             assert!(
                 paths.skill_root(invalid).is_err(),
                 "{invalid} should be rejected"
             );
         }
+    }
+
+    #[test]
+    fn should_accept_colon_separated_ids_on_general_path() {
+        for valid in ["plugin:skill", "ns:a:b:c", "a:b-c", "plain-skill"] {
+            assert!(
+                validate_skill_id(valid).is_ok(),
+                "{valid} should be accepted by validate_skill_id"
+            );
+        }
+    }
+
+    #[test]
+    fn should_forbid_colon_when_creating_a_new_skill() {
+        assert!(
+            validate_creatable_skill_id("plugin:skill").is_err(),
+            "colon-separated id must be rejected for creation"
+        );
+        assert!(
+            validate_creatable_skill_id("a:b-c").is_err(),
+            "colon-separated id must be rejected for creation"
+        );
+        assert!(
+            validate_creatable_skill_id("plain-skill").is_ok(),
+            "hyphen-only id must be accepted for creation"
+        );
+        // creation keeps the original strict edge/duplicate rules too
+        assert!(validate_creatable_skill_id("-leading").is_err());
+        assert!(validate_creatable_skill_id("trailing-").is_err());
+        assert!(validate_creatable_skill_id("two--hyphens").is_err());
     }
 
     #[test]

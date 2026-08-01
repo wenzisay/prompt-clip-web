@@ -1,5 +1,5 @@
 use super::models::{SkillFileEntry, SkillManagerError, SkillTextFile};
-use super::paths::SkillPaths;
+use super::paths::{validate_creatable_skill_id, SkillPaths};
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -87,6 +87,9 @@ pub fn create_skill(
     if description.is_empty() || description.chars().count() > 500 {
         return Err(SkillManagerError::new("skill_description_invalid"));
     }
+    // Creating a brand-new skill must keep the colon forbidden so the name is
+    // always usable as a directory on Windows. Imports/scans still accept colons.
+    validate_creatable_skill_id(skill_id)?;
     let root = paths.skill_root(skill_id)?;
     match fs::create_dir(&root) {
         Ok(()) => {}
@@ -222,7 +225,28 @@ fn list_directory(root: &Path, directory: &Path) -> Result<Vec<SkillFileEntry>, 
                 .map_err(|error| io_error("read_skill_entry", error))
         })
         .collect::<Result<Vec<_>, _>>()?;
-    paths.sort_by(|left, right| left.file_name().cmp(&right.file_name()));
+    // 文件夹优先，同级再按文件名升序（不区分大小写）。
+    // 元数据读取失败时退化为按文件处理，避免排序环节吞掉真实错误。
+    paths.sort_by(|left, right| {
+        let left_is_dir = fs::symlink_metadata(left)
+            .map(|metadata| metadata.is_dir())
+            .unwrap_or(false);
+        let right_is_dir = fs::symlink_metadata(right)
+            .map(|metadata| metadata.is_dir())
+            .unwrap_or(false);
+        left_is_dir
+            .cmp(&right_is_dir)
+            .reverse()
+            .then_with(|| {
+                let left_name = left
+                    .file_name()
+                    .map(|name| name.to_string_lossy().to_ascii_lowercase());
+                let right_name = right
+                    .file_name()
+                    .map(|name| name.to_string_lossy().to_ascii_lowercase());
+                left_name.cmp(&right_name)
+            })
+    });
     paths
         .into_iter()
         .map(|path| build_entry(root, &path))
@@ -464,10 +488,15 @@ mod tests {
         let entries = list_skill_files(&paths, "demo-skill").expect("tree should load");
 
         assert_eq!(entries.len(), 3);
-        assert_eq!(entries[0].relative_path, "SKILL.md");
-        assert!(entries[0].is_text);
-        assert!(entries[0].is_markdown);
-        assert_eq!(entries[2].children[0].relative_path, "references/notes.txt");
+        // 文件夹优先，同级文件再按名称（不区分大小写）升序：
+        // references/ → asset.bin → SKILL.md
+        assert_eq!(entries[0].relative_path, "references");
+        assert!(entries[0].is_directory);
+        assert_eq!(entries[0].children[0].relative_path, "references/notes.txt");
+        assert_eq!(entries[1].relative_path, "asset.bin");
+        assert_eq!(entries[2].relative_path, "SKILL.md");
+        assert!(entries[2].is_text);
+        assert!(entries[2].is_markdown);
     }
 
     #[test]
