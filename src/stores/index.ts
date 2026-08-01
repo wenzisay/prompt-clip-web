@@ -9,3 +9,4 @@ export * from './settingsStore';
 export * from './metadataRepairStore';
 export * from './tagStore';
 export * from './uiStore';
+export * from './skillStore';

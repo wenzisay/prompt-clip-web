@@ -16,3 +16,4 @@ export * from './metadataRepairService';
 export * from './shareImageService';
 export * from './annotationService';
 export * from './analyticsService';
+export * from './skillService';
