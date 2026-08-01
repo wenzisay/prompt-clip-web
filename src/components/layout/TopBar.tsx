@@ -8,7 +8,6 @@ import { usePromptStore } from '@/stores/promptStore';
 import { IconButton } from '@/components/common';
 import { useTranslation } from '@/i18n';
 import { useEffect, useState } from 'react';
-import { isTauriRuntime } from '@/services/fileRepository/tauriFileRepository';
 
 interface ShortcutKeyParts {
   modifier: string;
@@ -27,14 +26,10 @@ export function getCommandPaletteShortcutKeyParts(platform: string): ShortcutKey
   };
 }
 
-export function shouldShowSkillManagerSwitch(isDesktop: boolean): boolean {
-  return isDesktop;
-}
-
 export function TopBar() {
   const { t } = useTranslation();
   const { workspaceName } = useFileStore();
-  const { openCommandPalette, openModal, setAppSection } = useUIStore();
+  const { openCommandPalette, openModal } = useUIStore();
   const { filter } = usePromptStore();
   const [searchQuery, setSearchQuery] = useState(filter.searchQuery || '');
   const shortcutKeyParts = getCommandPaletteShortcutKeyParts(navigator.platform);
@@ -118,15 +113,6 @@ export function TopBar() {
 
       {/* 操作按钮 */}
       <div className="ml-auto flex items-center gap-2 shrink-0">
-        {shouldShowSkillManagerSwitch(isTauriRuntime()) && (
-          <IconButton
-            icon="extension"
-            label={t.skills.manageSkills}
-            onClick={() => setAppSection('skills')}
-            variant="ghost"
-            size="sm"
-          />
-        )}
         <IconButton
           icon="download"
           label={t.app.exportPrompts}

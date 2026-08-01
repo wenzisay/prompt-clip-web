@@ -4,13 +4,18 @@
 
 import { TagTree } from '@/components/tag/TagTree';
 import { useTranslation } from '@/i18n';
+import { isTauriRuntime } from '@/services/fileRepository/tauriFileRepository';
 import { useFileStore } from '@/stores/fileStore';
 import { usePromptStore } from '@/stores/promptStore';
 import { useTagStore } from '@/stores/tagStore';
-import { useUIStore } from '@/stores/uiStore';
+import { useUIStore, type AppSection } from '@/stores/uiStore';
 import { useState } from 'react';
 
-export function Sidebar() {
+export interface SidebarProps {
+  onSkillSettings?: () => void;
+}
+
+export function Sidebar({ onSkillSettings }: SidebarProps) {
   // const { tagTree } = useTagStore();
   const { t } = useTranslation();
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -18,7 +23,9 @@ export function Sidebar() {
   const { workspaceName, clearWorkspace } = useFileStore();
   const { clearPrompts } = usePromptStore();
   const { clearTags } = useTagStore();
-  const { openModal } = useUIStore();
+  const { appSection, openModal, setAppSection } = useUIStore();
+  const isDesktop = isTauriRuntime();
+  const isPromptSection = appSection === 'prompts';
 
   const handleSwitchDirectory = () => {
     clearPrompts();
@@ -56,8 +63,29 @@ export function Sidebar() {
         </button>
       </div>
 
+      {isDesktop && (
+        <nav className="border-b border-border px-3 py-3" aria-label="PromptClip">
+          <SectionButton
+            active={appSection === 'prompts'}
+            collapsed={isCollapsed}
+            icon="description"
+            label={t.app.prompts}
+            section="prompts"
+            onSelect={setAppSection}
+          />
+          <SectionButton
+            active={appSection === 'skills'}
+            collapsed={isCollapsed}
+            icon="extension"
+            label={t.app.skills}
+            section="skills"
+            onSelect={setAppSection}
+          />
+        </nav>
+      )}
+
       {/* 标签树 */}
-      {!isCollapsed && (
+      {!isCollapsed && isPromptSection && (
         <div className="flex-1 overflow-y-auto">
           <div className="px-3 py-3">
             <h2 className="text-xs font-semibold text-muted uppercase tracking-wider mb-2 px-2">
@@ -68,12 +96,15 @@ export function Sidebar() {
         </div>
       )}
 
+      {(isCollapsed || !isPromptSection) && <div className="flex-1" />}
+
       {/* 回收站入口 */}
-      {!isCollapsed && (
+      {!isCollapsed && isPromptSection && (
         <div className="px-3 py-2 border-t border-border">
           <button
             type="button"
             onClick={() => openModal('recycleBin')}
+            aria-label={t.recycle.title}
             className="w-full flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-surface-dim transition-colors text-left"
           >
             <span className="material-symbols-outlined text-muted">delete</span>
@@ -83,7 +114,7 @@ export function Sidebar() {
       )}
 
       {/* 底部状态 */}
-      {!isCollapsed && (
+      {!isCollapsed && isPromptSection && (
         <div className="px-3 py-3 border-t border-border">
           <div className="rounded-lg border border-border bg-surface-dim px-3 py-2">
             <div className="flex items-center justify-between gap-2">
@@ -145,6 +176,61 @@ export function Sidebar() {
           </div>
         </div>
       )}
+
+      {!isPromptSection && (
+        <div className="border-t border-border p-3">
+          <button
+            type="button"
+            onClick={onSkillSettings}
+            className={`flex h-10 w-full items-center rounded-lg text-muted transition-colors hover:bg-surface-dim hover:text-fg ${
+              isCollapsed ? 'justify-center' : 'gap-3 px-3'
+            }`}
+            aria-label={t.skills.settings}
+            title={t.skills.settings}
+          >
+            <span className="material-symbols-outlined text-[20px]">settings</span>
+            {!isCollapsed && <span className="text-sm font-medium">{t.skills.settings}</span>}
+          </button>
+        </div>
+      )}
     </aside>
+  );
+}
+
+interface SectionButtonProps {
+  active: boolean;
+  collapsed: boolean;
+  icon: string;
+  label: string;
+  section: AppSection;
+  onSelect: (section: AppSection) => void;
+}
+
+function SectionButton({
+  active,
+  collapsed,
+  icon,
+  label,
+  section,
+  onSelect,
+}: SectionButtonProps) {
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(section)}
+      className={`mb-1 flex h-10 w-full items-center rounded-lg transition-colors last:mb-0 ${
+        collapsed ? 'justify-center' : 'gap-3 px-3'
+      } ${
+        active
+          ? 'bg-accent-soft font-medium text-accent'
+          : 'text-muted hover:bg-surface-dim hover:text-fg'
+      }`}
+      aria-current={active ? 'page' : undefined}
+      aria-label={label}
+      title={collapsed ? label : undefined}
+    >
+      <span className="material-symbols-outlined text-[21px]">{icon}</span>
+      {!collapsed && <span className="text-sm">{label}</span>}
+    </button>
   );
 }

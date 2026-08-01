@@ -16,6 +16,8 @@ export const messages = {
       cancel: '取消',
     },
     app: {
+      prompts: 'Prompts',
+      skills: 'Skills',
       noWorkspace: '未选择目录',
       tags: '标签',
       pinnedTags: '置顶标签',
@@ -333,7 +335,6 @@ export const messages = {
     },
     skills: {
       title: 'Skills',
-      subtitle: '统一管理并同步你的 Agent Skills',
       hubSkillCount: (count: number) => `PromptClip Hub：${count} 个 Skill`,
       managePrompts: '管理 Prompts',
       manageSkills: '管理 Skills',
@@ -466,6 +467,8 @@ export const messages = {
       cancel: '取消',
     },
     app: {
+      prompts: 'Prompts',
+      skills: 'Skills',
       noWorkspace: '未選擇目錄',
       tags: '標籤',
       pinnedTags: '置頂標籤',
@@ -783,7 +786,6 @@ export const messages = {
     },
     skills: {
       title: 'Skills',
-      subtitle: '統一管理並同步你的 Agent Skills',
       hubSkillCount: (count: number) => `PromptClip Hub：${count} 個 Skill`,
       managePrompts: '管理 Prompts',
       manageSkills: '管理 Skills',
@@ -916,6 +918,8 @@ export const messages = {
       cancel: 'Cancel',
     },
     app: {
+      prompts: 'Prompts',
+      skills: 'Skills',
       noWorkspace: 'No folder selected',
       tags: 'Tags',
       pinnedTags: 'Pinned tags',
@@ -1246,7 +1250,6 @@ export const messages = {
     },
     skills: {
       title: 'Skills',
-      subtitle: 'Manage and sync your Agent Skills from one place',
       hubSkillCount: (count: number) =>
         `PromptClip Hub: ${count} ${count === 1 ? 'Skill' : 'Skills'}`,
       managePrompts: 'Manage Prompts',
@@ -1385,6 +1388,8 @@ export const messages = {
       cancel: 'キャンセル',
     },
     app: {
+      prompts: 'Prompts',
+      skills: 'Skills',
       noWorkspace: 'フォルダが選択されていません',
       tags: 'タグ',
       pinnedTags: '固定タグ',
@@ -1715,7 +1720,6 @@ export const messages = {
     },
     skills: {
       title: 'Skills',
-      subtitle: 'Agent Skills を一元管理して同期します',
       hubSkillCount: (count: number) => `PromptClip Hub：${count} 件の Skill`,
       managePrompts: 'Prompts を管理',
       manageSkills: 'Skills を管理',

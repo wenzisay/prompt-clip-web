@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { open, save } from '@tauri-apps/plugin-dialog';
+import { Sidebar } from '@/components/layout';
 import { useTranslation } from '@/i18n';
 import { SkillService } from '@/services/skillService';
 import { useSkillStore } from '@/stores/skillStore';
@@ -181,40 +182,42 @@ export function SkillManagerPage() {
     }
   };
 
-  if (selectedSkillId) {
-    return (
-      <SkillDetailPage
-        skillId={selectedSkillId}
-        onBack={() => setSelectedSkillId(null)}
-        onExport={(skillId) => void exportOne(skillId)}
-      />
-    );
-  }
-
   return (
-    <div className="flex h-screen w-screen flex-col bg-bg text-fg">
-      <SkillTopBar
-        onCreate={() => setCreateOpen(true)}
-        onUpload={() => void selectArchive()}
-        onSettings={() => void openSettings()}
-        onQuickSwitch={() => setQuickSwitcherOpen(true)}
-        onRescan={() => void rescan()}
-      />
-      {(error || operationError) && (
-        <div className="mx-6 mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {t.skills.operationFailed}
-        </div>
-      )}
-      <main className="min-h-0 flex-1 overflow-y-auto p-6">
-        <SkillGrid
-          skills={filteredSkills}
-          tools={tools}
-          isLoading={isLoading}
-          onOpenSkill={setSelectedSkillId}
-          onExportSkill={(skillId) => void exportOne(skillId)}
-          onDeleteSkill={setSelectedDeleteSkillId}
-        />
-      </main>
+    <div className="flex h-screen w-screen bg-bg text-fg">
+      <Sidebar onSkillSettings={() => void openSettings()} />
+      <div className="flex min-w-0 flex-1 flex-col">
+        {selectedSkillId ? (
+          <SkillDetailPage
+            skillId={selectedSkillId}
+            onBack={() => setSelectedSkillId(null)}
+            onExport={(skillId) => void exportOne(skillId)}
+          />
+        ) : (
+          <>
+            <SkillTopBar
+              onCreate={() => setCreateOpen(true)}
+              onUpload={() => void selectArchive()}
+              onQuickSwitch={() => setQuickSwitcherOpen(true)}
+              onRescan={() => void rescan()}
+            />
+            {(error || operationError) && (
+              <div className="mx-6 mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {t.skills.operationFailed}
+              </div>
+            )}
+            <main className="min-h-0 flex-1 overflow-y-auto p-6">
+              <SkillGrid
+                skills={filteredSkills}
+                tools={tools}
+                isLoading={isLoading}
+                onOpenSkill={setSelectedSkillId}
+                onExportSkill={(skillId) => void exportOne(skillId)}
+                onDeleteSkill={setSelectedDeleteSkillId}
+              />
+            </main>
+          </>
+        )}
+      </div>
       <SkillQuickSwitcher
         isOpen={isQuickSwitcherOpen}
         skills={skills}

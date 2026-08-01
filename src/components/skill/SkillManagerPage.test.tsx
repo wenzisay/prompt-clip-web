@@ -5,6 +5,7 @@ import { SkillManagerPage } from './SkillManagerPage';
 
 const mocks = vi.hoisted(() => ({
   deleteSkill: vi.fn(),
+  initialize: vi.fn(),
   load: vi.fn(),
   rescanExternal: vi.fn(),
   importExternalSelections: vi.fn(),
@@ -36,10 +37,21 @@ vi.mock('@/stores/skillStore', () => ({
 }));
 
 vi.mock('./SkillGrid', () => ({
-  SkillGrid: ({ onDeleteSkill }: { onDeleteSkill?: (skillId: string) => void }) => (
-    <button type="button" onClick={() => onDeleteSkill?.('review-code')}>
-      Open delete test
-    </button>
+  SkillGrid: ({
+    onDeleteSkill,
+    onOpenSkill,
+  }: {
+    onDeleteSkill?: (skillId: string) => void;
+    onOpenSkill?: (skillId: string) => void;
+  }) => (
+    <>
+      <button type="button" onClick={() => onDeleteSkill?.('review-code')}>
+        Open delete test
+      </button>
+      <button type="button" onClick={() => onOpenSkill?.('review-code')}>
+        Open skill detail
+      </button>
+    </>
   ),
 }));
 
@@ -47,10 +59,33 @@ vi.mock('./SkillTopBar', () => ({
   SkillTopBar: () => <div>Skill top bar</div>,
 }));
 
+vi.mock('./SkillDetailPage', () => ({
+  SkillDetailPage: ({ skillId }: { skillId: string }) => (
+    <div>Skill detail: {skillId}</div>
+  ),
+}));
+
+vi.mock('@/components/layout', () => ({
+  Sidebar: ({ onSkillSettings }: { onSkillSettings?: () => void }) => (
+    <button type="button" onClick={onSkillSettings}>
+      Shared Skill sidebar
+    </button>
+  ),
+}));
+
+vi.mock('@/services/skillService', () => ({
+  SkillService: {
+    initialize: mocks.initialize,
+  },
+}));
+
 describe('SkillManagerPage deletion flow', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.deleteSkill.mockResolvedValue(true);
+    mocks.initialize.mockResolvedValue({
+      settings: { defaultSyncMode: 'copy', toolOverrides: {}, favorites: {} },
+    });
   });
 
   afterEach(cleanup);
@@ -65,5 +100,23 @@ describe('SkillManagerPage deletion flow', () => {
       expect(mocks.deleteSkill).toHaveBeenCalledWith('review-code', 'all');
     });
     expect(screen.queryByText('Delete “review-code”?')).toBeNull();
+  });
+
+  it('renders the shared sidebar and opens Skill settings from it', async () => {
+    render(<SkillManagerPage />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Shared Skill sidebar' }));
+
+    await waitFor(() => expect(mocks.initialize).toHaveBeenCalledOnce());
+    expect(screen.getByRole('dialog')).toBeTruthy();
+  });
+
+  it('keeps the shared sidebar visible on a Skill detail page', () => {
+    render(<SkillManagerPage />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open skill detail' }));
+
+    expect(screen.getByRole('button', { name: 'Shared Skill sidebar' })).toBeTruthy();
+    expect(screen.getByText('Skill detail: review-code')).toBeTruthy();
   });
 });
