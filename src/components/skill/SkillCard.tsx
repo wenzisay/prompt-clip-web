@@ -92,9 +92,11 @@ export function SkillCard({
           {skill.favoritedAt && (
             <span
               aria-hidden="true"
-              className="material-symbols-outlined p-1.5 text-[21px] text-yellow-500"
+              className="inline-flex h-8 w-8 items-center justify-center text-yellow-500"
             >
-              star
+              <span className="material-symbols-outlined overflow-visible text-[21px]">
+                star
+              </span>
             </span>
           )}
           <div className="relative" ref={menuRef}>

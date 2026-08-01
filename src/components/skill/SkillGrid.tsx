@@ -39,7 +39,7 @@ export function SkillGrid({
     );
   }
   return (
-    <div className="grid grid-cols-[repeat(auto-fill,minmax(min(320px,100%),1fr))] gap-4">
+    <div className="grid grid-cols-[repeat(auto-fill,minmax(min(400px,100%),1fr))] gap-4">
       {skills.map((skill) => (
         <SkillCard
           key={skill.id}

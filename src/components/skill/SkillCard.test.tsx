@@ -170,6 +170,10 @@ describe('SkillCard', () => {
     const card = screen.getByText('review-code').closest('article');
     expect(card?.textContent).toContain('star');
     expect(screen.queryByRole('button', { name: 'Remove Skill from favorites' })).toBeNull();
+    const favoriteIcon = within(card as HTMLElement).getByText('star');
+    expect(favoriteIcon.className).not.toContain('p-1.5');
+    expect(favoriteIcon.parentElement?.className).toContain('h-8');
+    expect(favoriteIcon.parentElement?.className).toContain('w-8');
 
     fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
 

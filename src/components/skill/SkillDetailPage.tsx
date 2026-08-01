@@ -398,7 +398,7 @@ export function SkillDetailPage({ skillId, onBack, onExport }: SkillDetailPagePr
   })();
 
   return (
-    <div className="flex h-screen w-screen flex-col bg-bg text-fg">
+    <div className="flex h-full w-full flex-col bg-bg text-fg">
       <header className="flex h-16 items-center gap-2 border-b border-border bg-surface px-4">
         <button type="button" onClick={back} className="rounded-lg p-2 text-muted hover:bg-surface-dim" aria-label={t.skills.backToSkills}>
           <span className="material-symbols-outlined">arrow_back</span>

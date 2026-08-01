@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useSkillStore } from '@/stores/skillStore';
 import type { SkillSummary } from '@/types/skill';
@@ -47,6 +47,29 @@ describe('SkillTopBar', () => {
     expect(onRescan).toHaveBeenCalledOnce();
     expect(onCreate).toHaveBeenCalledOnce();
     expect(onUpload).toHaveBeenCalledOnce();
+    expect(screen.getByText('Check again').className).toContain('md:inline');
+  });
+
+  it('places a text-only quick switch action inside the search field', () => {
+    const onQuickSwitch = vi.fn();
+    render(<SkillTopBar onQuickSwitch={onQuickSwitch} />);
+
+    const searchInput = screen.getByPlaceholderText('Search Skills by name');
+    const quickSwitch = screen.getByRole('button', { name: 'Quick switch' });
+
+    expect(searchInput.parentElement?.contains(quickSwitch)).toBe(true);
+    expect(within(quickSwitch).queryByText('bolt')).toBeNull();
+
+    fireEvent.click(quickSwitch);
+
+    expect(onQuickSwitch).toHaveBeenCalledOnce();
+  });
+
+  it('does not render the legacy section switch or settings actions', () => {
+    render(<SkillTopBar />);
+
+    expect(screen.queryByRole('button', { name: 'Manage Prompts' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Sync settings' })).toBeNull();
   });
 
   it('labels the displayed count as PromptClip Hub Skills', () => {
