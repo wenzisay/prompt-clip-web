@@ -88,7 +88,6 @@ export function WelcomeScreen() {
   const { isSupported, isLoading, error, openDirectory } = useDirectoryPicker();
   const setAppSection = useUIStore((state) => state.setAppSection);
   const isDesktop = isTauriRuntime();
-  const shouldLinkFeatureCards = !isDesktop;
   const featureCards: FeatureCardData[] = [
     {
       icon: 'lock',
@@ -117,19 +116,8 @@ export function WelcomeScreen() {
       <div className="pointer-events-none absolute -right-10 bottom-[-210px] h-[520px] w-[520px] rounded-full bg-white/45" />
 
       <main className="relative mx-auto flex min-h-screen w-full max-w-[1224px] flex-col px-6 py-12 sm:px-10 lg:px-12">
-        <section className="grid flex-1 items-center gap-10 py-8 lg:grid-cols-[1fr_0.96fr]">
+        <section className="grid flex-1 items-center gap-10 py-8 lg:-translate-y-4 lg:grid-cols-[1fr_0.96fr]">
           <div className="max-w-[520px]">
-            <div className="mb-9 inline-flex max-w-full flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-[#d9e2ff] bg-[#eef3ff]/65 px-3.5 py-2 text-sm font-semibold text-[#315bff] shadow-[0_8px_28px_rgba(55,85,190,0.08)] backdrop-blur sm:text-base">
-              <span className="material-symbols-outlined text-[21px]">
-                integration_instructions
-              </span>
-              <span>{t.app.welcomeBadgeOne}</span>
-              <span className="text-[#4d6dff]">·</span>
-              <span>{t.app.welcomeBadgeTwo}</span>
-              <span className="text-[#4d6dff]">·</span>
-              <span>{t.app.welcomeBadgeThree}</span>
-            </div>
-
             <h1 className="mb-3 font-display text-[clamp(3.75rem,7vw,5.4rem)] font-black leading-[0.98] tracking-[0]">
               Prompt<span className="bg-gradient-to-r from-[#2554f4] via-[#5d69ff] to-[#a43cff] bg-clip-text text-transparent">Clip</span>
             </h1>
@@ -256,9 +244,9 @@ export function WelcomeScreen() {
           </div>
         </section>
 
-        <div className="hidden items-start gap-6 pb-8 lg:grid lg:grid-cols-3">
-          {featureCards.map((feature) => (
-            shouldLinkFeatureCards ? (
+        {!isDesktop && (
+          <div className="hidden items-start gap-6 pb-8 lg:grid lg:grid-cols-3">
+            {featureCards.map((feature) => (
               <a
                 key={feature.title}
                 href="/about"
@@ -270,13 +258,9 @@ export function WelcomeScreen() {
               >
                 <FeatureCardContent feature={feature} />
               </a>
-            ) : (
-              <article key={feature.title} className={FEATURE_CARD_CLASS_NAME}>
-                <FeatureCardContent feature={feature} />
-              </article>
-            )
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </main>
     </div>
   );

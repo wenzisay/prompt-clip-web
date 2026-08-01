@@ -38,12 +38,21 @@ describe('WelcomeScreen', () => {
 
     const markup = renderToStaticMarkup(<WelcomeScreen />);
 
-    expect(markup).toContain('Manage faster');
     expect(markup).toContain('Your personal prompt manager');
     expect(markup).toContain('Choose data folder');
     expect(markup).toContain('Local First');
     expect(markup).toContain('File over app');
     expect(markup).toContain('Multi-platform apps');
+  });
+
+  it('does not render the redundant welcome badge', () => {
+    directoryPickerState.isSupported = true;
+
+    const markup = renderToStaticMarkup(<WelcomeScreen />);
+
+    expect(markup).not.toContain('Manage faster');
+    expect(markup).not.toContain('Organize clearly');
+    expect(markup).not.toContain('Reuse anytime');
   });
 
   it('uses compact feature cards on the landing page', () => {
@@ -83,6 +92,17 @@ describe('WelcomeScreen', () => {
     expect(markup).not.toContain('href="/about"');
   });
 
+  it('does not render feature cards in the desktop client', () => {
+    directoryPickerState.isSupported = true;
+    installTauriRuntime();
+
+    const markup = renderToStaticMarkup(<WelcomeScreen />);
+
+    expect(markup).not.toContain('Local First');
+    expect(markup).not.toContain('File over app');
+    expect(markup).not.toContain('Multi-platform apps');
+  });
+
   it('renders an unsupported browser warning above the button when file access is unavailable', () => {
     directoryPickerState.isSupported = false;
     directoryPickerState.isLoading = false;
@@ -92,7 +112,7 @@ describe('WelcomeScreen', () => {
 
     // Landing page content is still shown
     expect(markup).toContain('Choose data folder');
-    expect(markup).toContain('Manage faster');
+    expect(markup).toContain('Your personal prompt manager');
 
     // Warning banner appears
     expect(markup).toContain('browser is not supported');
