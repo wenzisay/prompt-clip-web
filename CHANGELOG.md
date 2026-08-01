@@ -4,6 +4,24 @@
 
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，并遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased]
+
+### Added
+
+- **Agent Skills 统一管理（桌面端）**：新增独立 Skill 页面，以
+  `~/.prompt-clip/skills` 为唯一来源，首期支持 Claude Code、Codex、Cursor、OpenCode 与
+  `~/.agents/skills`。
+- **灵活同步**：支持全局默认同步方式和单工具覆盖，可选软链接或文件复制；启停单个 Skill
+  时不会删除源文件，设置变更会迁移已启用目标并报告部分失败。
+- **扫描与安全导入**：扫描各工具已有 Skills，按名称与内容版本分组后由用户选择导入；支持
+  `.zip` / `.skill` 上传、ZIP Slip/链接/大小限制校验和单 Skill ZIP 导出。
+- **Skill 文件管理器**：支持目录树、新建目录与文本文件、上传、重命名、删除、下载；Markdown
+  可编辑和预览，普通文本可编辑，二进制仅下载。文本保存包含并发修改检查。
+- **Skill 搜索与收藏**：支持名称搜索、`Cmd/Ctrl + K` 快速切换以及独立收藏筛选。
+- **冲突目标接管**：点击 Skill 卡片的冲突工具图标并确认后，可用 PromptClip 版本强制覆盖该工具的
+  同名目标；确认使用 Tauri 原生警告对话框，取消或对话框异常时不会执行覆盖；替换使用事务备份，
+  失败时恢复原内容。
+
 ## [1.0.4] - 2026-07-14
 
 ### Added

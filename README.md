@@ -45,6 +45,7 @@
 - **Two-phase loading** — The first screen reads only file heads (frontmatter + preview snippet) to stay interactive; full bodies are backfilled in batches via `requestIdleCallback`
 - **Virtualized list** — Workspaces with 5K+ prompts render visible rows only via `@tanstack/react-virtual` — DOM node count is independent of list length
 - **Desktop app** — Native Tauri 2 app with system tray, single-instance, and hide-on-close
+- **Agent Skills manager (desktop only)** — Maintain one source at `~/.prompt-clip/skills` and sync Skills by symbolic link or file copy to Claude Code, Codex, Cursor, OpenCode, and `~/.agents/skills`
 - **Global quick search** — A system-wide shortcut (default `Cmd+Shift+Space` / `Ctrl+Shift+Space`) summons a standalone search bar over any app; pick a result to paste its content at the cursor, or open it in the main window. Shortcut is customizable in Settings
 - **WebDAV backup & restore** — Back up the whole workspace incrementally to a dedicated WebDAV folder (HTTPS + OS keychain for the password); a SHA-256 manifest syncs only changed files. Supports incremental full restore and config-conflict handling
 - **Usage analytics (web, optional)** — The web app sends anonymous Google Analytics 4 usage stats (page views and feature counts, IP anonymized, no prompt content collected) by default; toggle it in **Settings → General**. The desktop app ships no analytics at all
@@ -433,6 +434,19 @@ A `FileRepository` interface unifies file operations across Web and Desktop, wit
 `readTextHead(path, byteLimit)` is the core of two-phase loading: Web slices with `File.slice + text()` by bytes; Desktop implements on demand.
 
 ### Desktop features
+
+#### Agent Skills manager
+
+- Open **Manage Skills** from the desktop landing page or switch from the Prompt toolbar; the Web and mobile builds do not expose this feature
+- Scan installed Agent tools and their existing Skills, then resolve same-name versions before importing
+- Follow top-level Agent Skill symlinks during scanning and importing; broken or invalid entries show their
+  source path, which can be revealed in the system file manager
+- Enable or disable each Skill per installed tool without deleting the Hub source
+- A conflicting external directory or wrong link is never replaced silently. Click its conflict icon and confirm to
+  overwrite it with the PromptClip version; replacement uses a transaction backup and restores the original on failure
+- Configure a global default sync mode with per-tool overrides; Windows symbolic links may require administrator privileges, so file copy is available as an alternative
+- Create or upload `.zip` / `.skill` archives, edit Markdown and text files in the built-in file manager, download binary files, search/favorite Skills, and export a Skill as ZIP
+- `SKILL.md` cannot be renamed or deleted, and deleting an entire source Skill is intentionally not included in this release
 
 A native Tauri 2 app with the Rust backend in `src-tauri/`, providing:
 
