@@ -1,6 +1,21 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { AppRouter, isAboutPath, isPrivacyPath } from './App';
+import { AppRouter, isAboutPath, isPrivacyPath, resolveAppView } from './App';
+
+describe('resolveAppView', () => {
+  it('keeps Skill management unreachable on Web', () => {
+    expect(resolveAppView('skills', false, false, false)).toBe('welcome');
+    expect(resolveAppView('skills', false, true, true)).toBe('prompts');
+  });
+
+  it('opens desktop Skill management without a Prompt workspace', () => {
+    expect(resolveAppView('skills', true, false, false)).toBe('skills');
+  });
+
+  it('returns to Welcome when desktop Prompt management has no workspace', () => {
+    expect(resolveAppView('prompts', true, false, false)).toBe('welcome');
+  });
+});
 
 describe('isAboutPath', () => {
   it('matches the about route with an optional trailing slash', () => {

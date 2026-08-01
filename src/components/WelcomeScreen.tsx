@@ -8,6 +8,7 @@ import { useDirectoryPicker } from '@/hooks/useDirectoryPicker';
 import { useTranslation } from '@/i18n';
 import { isTauriRuntime } from '@/services/fileRepository/tauriFileRepository';
 import { CONFIG } from '@/constants';
+import { useUIStore } from '@/stores/uiStore';
 
 const FEATURE_CARD_CLASS_NAME =
   'min-h-[136px] self-start rounded-[14px] border border-white/75 bg-white/58 p-5 ' +
@@ -85,7 +86,9 @@ function GitHubLogo({ className }: { className?: string }) {
 export function WelcomeScreen() {
   const { t } = useTranslation();
   const { isSupported, isLoading, error, openDirectory } = useDirectoryPicker();
-  const shouldLinkFeatureCards = !isTauriRuntime();
+  const setAppSection = useUIStore((state) => state.setAppSection);
+  const isDesktop = isTauriRuntime();
+  const shouldLinkFeatureCards = !isDesktop;
   const featureCards: FeatureCardData[] = [
     {
       icon: 'lock',
@@ -150,6 +153,11 @@ export function WelcomeScreen() {
               </div>
             )}
 
+            {isDesktop && (
+              <p className="mb-2 text-sm font-semibold text-[#52618a]">
+                {t.skills.managePrompts}
+              </p>
+            )}
             <button
               onClick={() => openDirectory()}
               disabled={isLoading || !isSupported}
@@ -171,8 +179,22 @@ export function WelcomeScreen() {
               {t.app.localOnlyNote}
             </p>
 
+            {isDesktop && (
+              <button
+                type="button"
+                onClick={() => setAppSection('skills')}
+                className="mt-5 flex h-14 w-full max-w-[425px] items-center justify-between rounded-[10px] border border-[#aebcff] bg-white/75 px-6 font-semibold text-[#293cf4] shadow-[0_10px_28px_rgba(41,60,244,0.1)] transition hover:-translate-y-0.5 hover:bg-white focus:outline-none focus:ring-2 focus:ring-[#3147ff] focus:ring-offset-4"
+              >
+                <span className="flex items-center gap-3">
+                  <span className="material-symbols-outlined text-[25px]">extension</span>
+                  {t.skills.manageSkills}
+                </span>
+                <span className="material-symbols-outlined text-[24px]">arrow_forward</span>
+              </button>
+            )}
+
             {/* 客户端下载入口：仅 Web 端展示（Tauri 桌面端打包的就是同一套前端） */}
-            {!isTauriRuntime() && (
+            {!isDesktop && (
               <div className="mt-7 max-w-[425px]">
                 <div className="flex items-center gap-3">
                   <span className="h-px flex-1 bg-[#d9e2ff]" aria-hidden="true" />

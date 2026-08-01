@@ -12,10 +12,13 @@ describe('bundle optimization', () => {
   });
 
   it('loads low-frequency modal bundles on demand', () => {
-    const app = readFileSync(join(rootDir, 'src/App.tsx'), 'utf8');
+    const promptManager = readFileSync(
+      join(rootDir, 'src/components/prompt/PromptManagerPage.tsx'),
+      'utf8'
+    );
 
-    expect(app).toContain('lazy(');
-    expect(app).toContain("import('@/components/export/ExportModal')");
-    expect(app).toContain("import('@/components/share')");
+    expect(promptManager).toContain('lazy(');
+    expect(promptManager).toContain("import('@/components/export/ExportModal')");
+    expect(promptManager).toContain("import('@/components/share')");
   });
 });

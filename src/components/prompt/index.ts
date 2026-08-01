@@ -13,4 +13,5 @@ export { MarkdownModeToggle } from './MarkdownModeToggle';
 export { MarkdownPreviewEditor } from './MarkdownPreviewEditor';
 export { MarkdownTextView } from './MarkdownTextView';
 export { PromptMarkdownEditorField } from './PromptMarkdownEditorField';
+export { PromptManagerPage } from './PromptManagerPage';
 export type { MarkdownViewMode } from './MarkdownModeToggle';

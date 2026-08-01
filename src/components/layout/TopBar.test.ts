@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getCommandPaletteShortcutKeyParts } from './TopBar';
+import { getCommandPaletteShortcutKeyParts, shouldShowSkillManagerSwitch } from './TopBar';
 
 describe('TopBar command palette shortcut label', () => {
   it('uses the Command symbol on macOS', () => {
@@ -16,5 +16,12 @@ describe('TopBar command palette shortcut label', () => {
       key: 'K',
       shortcut: 'Ctrl K',
     });
+  });
+});
+
+describe('TopBar Skill manager switch', () => {
+  it('shows the switch only in the desktop runtime', () => {
+    expect(shouldShowSkillManagerSwitch(false)).toBe(false);
+    expect(shouldShowSkillManagerSwitch(true)).toBe(true);
   });
 });

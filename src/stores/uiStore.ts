@@ -5,7 +5,11 @@
 import { create } from 'zustand';
 import type { ModalType, Toast } from '@/types/ui';
 
+export type AppSection = 'prompts' | 'skills';
+
 interface UIState {
+  /** 当前资产管理分区 */
+  appSection: AppSection;
   /** 详情面板是否打开 */
   isDetailOpen: boolean;
   /** 当前选中的 Prompt ID */
@@ -53,9 +57,12 @@ interface UIState {
 
   /** 设置加载状态 */
   setLoading: (loading: boolean) => void;
+  /** 切换 Prompt / Skill 管理分区 */
+  setAppSection: (section: AppSection) => void;
 }
 
 export const useUIStore = create<UIState>((set, get) => ({
+  appSection: 'prompts',
   isDetailOpen: false,
   selectedPromptId: null,
   selectedPromptIds: [],
@@ -153,5 +160,9 @@ export const useUIStore = create<UIState>((set, get) => ({
 
   setLoading: (isLoading) => {
     set({ isLoading });
+  },
+
+  setAppSection: (appSection) => {
+    set({ appSection });
   },
 }));

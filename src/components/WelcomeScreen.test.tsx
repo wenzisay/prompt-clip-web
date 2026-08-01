@@ -131,4 +131,14 @@ describe('WelcomeScreen', () => {
     expect(markup).not.toContain('prompt-clip-web/releases');
     expect(markup).not.toContain('iOS App');
   });
+
+  it('shows the Skill manager choice only in the desktop client', () => {
+    const webMarkup = renderToStaticMarkup(<WelcomeScreen />);
+    installTauriRuntime();
+    const desktopMarkup = renderToStaticMarkup(<WelcomeScreen />);
+
+    expect(webMarkup).not.toContain('Manage Skills');
+    expect(desktopMarkup).toContain('Manage Skills');
+    expect(desktopMarkup).toContain('Manage Prompts');
+  });
 });
