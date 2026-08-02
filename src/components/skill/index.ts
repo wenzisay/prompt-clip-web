@@ -13,6 +13,7 @@ export type { SkillConfirmModalProps } from './SkillConfirmModal';
 export { SkillSettingsModal } from './SkillSettingsModal';
 export { SkillCard } from './SkillCard';
 export { SkillGrid } from './SkillGrid';
+export { SkillFilterTabs } from './SkillFilterTabs';
 export { SkillTopBar } from './SkillTopBar';
 export { SkillQuickSwitcher } from './SkillQuickSwitcher';
 export { SkillImportModal } from './SkillImportModal';

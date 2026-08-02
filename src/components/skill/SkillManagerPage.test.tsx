@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { forwardRef } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SkillSummary } from '@/types/skill';
 import { SkillManagerPage } from './SkillManagerPage';
@@ -26,6 +27,7 @@ vi.mock('@/stores/skillStore', () => ({
     skills: [skill],
     filteredSkills: [skill],
     tools: [],
+    skillsPath: '/home/.prompt-clip/skills',
     isLoading: false,
     load: mocks.load,
     error: null,
@@ -60,9 +62,11 @@ vi.mock('./SkillTopBar', () => ({
 }));
 
 vi.mock('./SkillDetailPage', () => ({
-  SkillDetailPage: ({ skillId }: { skillId: string }) => (
-    <div>Skill detail: {skillId}</div>
-  ),
+  SkillDetailPage: forwardRef<HTMLDivElement, { skillId: string }>(function MockSkillDetailPage({
+    skillId,
+  }, ref) {
+    return <div ref={ref}>Skill detail: {skillId}</div>;
+  }),
 }));
 
 vi.mock('@/components/layout', () => ({

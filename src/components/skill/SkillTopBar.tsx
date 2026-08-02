@@ -15,8 +15,7 @@ export function SkillTopBar({
   onQuickSwitch,
 }: SkillTopBarProps) {
   const { t } = useTranslation();
-  const { skills, filter, setSearchQuery, setFavoritesOnly, load, rescanExternal } =
-    useSkillStore();
+  const { skills, filter, setSearchQuery, load, rescanExternal } = useSkillStore();
 
   const handleRescan = () => {
     if (onRescan) {
@@ -28,8 +27,8 @@ export function SkillTopBar({
 
   return (
     <header className="border-b border-border bg-surface px-5 py-3">
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="mr-2">
+      <div className="flex items-center gap-3">
+        <div className="mr-2 shrink-0">
           <h1 className="font-display text-xl font-bold text-fg">{t.skills.title}</h1>
           <p className="text-xs font-medium text-accent">
             {t.skills.hubSkillCount(skills.length)}
@@ -42,6 +41,7 @@ export function SkillTopBar({
           </span>
           <input
             type="search"
+            name="skill-search"
             value={filter.searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
             placeholder={t.skills.searchPlaceholder}
@@ -58,23 +58,15 @@ export function SkillTopBar({
         </div>
 
         <div className="ml-auto flex items-center gap-1.5">
-          <ActionButton icon="refresh" label={t.skills.refresh} onClick={handleRescan} />
+          <ActionButton
+            icon="refresh"
+            label={t.skills.refresh}
+            title={t.skills.refreshHint}
+            onClick={handleRescan}
+          />
           <ActionButton icon="upload" label={t.skills.upload} onClick={onUpload} />
           <ActionButton icon="add" label={t.skills.create} onClick={onCreate} primary />
         </div>
-      </div>
-
-      <div className="mt-3 flex items-center gap-2" role="group" aria-label={t.skills.title}>
-        <FilterButton
-          active={!filter.favoritesOnly}
-          label={t.skills.all}
-          onClick={() => setFavoritesOnly(false)}
-        />
-        <FilterButton
-          active={filter.favoritesOnly}
-          label={t.skills.favorites}
-          onClick={() => setFavoritesOnly(true)}
-        />
       </div>
     </header>
   );
@@ -83,11 +75,13 @@ export function SkillTopBar({
 function ActionButton({
   icon,
   label,
+  title,
   onClick,
   primary = false,
 }: {
   icon: string;
   label: string;
+  title?: string;
   onClick?: () => void;
   primary?: boolean;
 }) {
@@ -95,7 +89,7 @@ function ActionButton({
     <button
       type="button"
       aria-label={label}
-      title={label}
+      title={title ?? label}
       onClick={onClick}
       className={`inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-sm font-medium transition ${
         primary
@@ -104,30 +98,7 @@ function ActionButton({
       }`}
     >
       <span className="material-symbols-outlined text-[19px]">{icon}</span>
-      <span className="hidden md:inline">{label}</span>
-    </button>
-  );
-}
-
-function FilterButton({
-  active,
-  label,
-  onClick,
-}: {
-  active: boolean;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={active}
-      onClick={onClick}
-      className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
-        active ? 'bg-accent-soft text-accent' : 'text-muted hover:bg-surface-dim'
-      }`}
-    >
-      {label}
+      <span className="hidden lg:inline">{label}</span>
     </button>
   );
 }

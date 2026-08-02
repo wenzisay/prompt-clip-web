@@ -18,18 +18,15 @@ describe('SkillTopBar', () => {
   beforeEach(() => useSkillStore.getState().reset());
   afterEach(cleanup);
 
-  it('updates name search and favorite filter', () => {
+  it('updates name search without owning the list filter controls', () => {
     render(<SkillTopBar />);
 
     fireEvent.change(screen.getByPlaceholderText('Search Skills by name'), {
       target: { value: 'review' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Favorites' }));
 
-    expect(useSkillStore.getState().filter).toEqual({
-      searchQuery: 'review',
-      favoritesOnly: true,
-    });
+    expect(useSkillStore.getState().filter.searchQuery).toBe('review');
+    expect(screen.queryByRole('button', { name: 'Favorites' })).toBeNull();
   });
 
   it('exposes rescan, create, and upload actions', () => {
@@ -40,14 +37,14 @@ describe('SkillTopBar', () => {
       <SkillTopBar onCreate={onCreate} onUpload={onUpload} onRescan={onRescan} />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Check again' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Scan Skills' }));
     fireEvent.click(screen.getByRole('button', { name: 'New Skill' }));
     fireEvent.click(screen.getByRole('button', { name: 'Upload Skill' }));
 
     expect(onRescan).toHaveBeenCalledOnce();
     expect(onCreate).toHaveBeenCalledOnce();
     expect(onUpload).toHaveBeenCalledOnce();
-    expect(screen.getByText('Check again').className).toContain('md:inline');
+    expect(screen.getByText('Scan Skills').className).toContain('lg:inline');
   });
 
   it('places a text-only quick switch action inside the search field', () => {
@@ -72,11 +69,11 @@ describe('SkillTopBar', () => {
     expect(screen.queryByRole('button', { name: 'Sync settings' })).toBeNull();
   });
 
-  it('labels the displayed count as PromptClip Hub Skills', () => {
+  it('labels the displayed count as managed Skills', () => {
     useSkillStore.setState({ skills: [hubSkill], filteredSkills: [hubSkill] });
 
     render(<SkillTopBar />);
 
-    expect(screen.getByText('PromptClip Hub: 1 Skill')).toBeTruthy();
+    expect(screen.getByText('1 Skill managed')).toBeTruthy();
   });
 });

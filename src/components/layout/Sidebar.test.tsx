@@ -62,8 +62,19 @@ describe('Sidebar section navigation', () => {
     expect(screen.queryByRole('button', { name: 'Recycle Bin' })).toBeNull();
     expect(screen.queryByText('Data is stored locally')).toBeNull();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Sync settings' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
 
     expect(onSkillSettings).toHaveBeenCalledOnce();
+  });
+
+  it('delegates section selection to onSelectSection when provided', () => {
+    const onSelectSection = vi.fn();
+    render(<Sidebar onSelectSection={onSelectSection} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Skills' }));
+
+    // 走外部处理器（用于未保存修改确认），而非直接改 store
+    expect(onSelectSection).toHaveBeenCalledWith('skills');
+    expect(useUIStore.getState().appSection).toBe('prompts');
   });
 });

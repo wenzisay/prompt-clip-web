@@ -38,6 +38,50 @@ const scan: ExternalScanResult = {
   invalidEntries: [],
 };
 
+const mixedScan: ExternalScanResult = {
+  groups: [
+    {
+      duplicateKey: 'review-code',
+      name: 'review-code',
+      versions: [
+        {
+          description: 'External version',
+          contentHash: 'external-hash',
+          modifiedAtMs: 1,
+          usesLowercaseEntry: false,
+          sources: [
+            {
+              targetGroupId: 'codex-group',
+              toolIds: ['codex'],
+              path: '/home/.codex/skills/review-code',
+            },
+          ],
+        },
+      ],
+    },
+    {
+      duplicateKey: 'doc-writer',
+      name: 'doc-writer',
+      versions: [
+        {
+          description: 'Brand new skill',
+          contentHash: 'doc-hash',
+          modifiedAtMs: 2,
+          usesLowercaseEntry: false,
+          sources: [
+            {
+              targetGroupId: 'codex-group',
+              toolIds: ['codex'],
+              path: '/home/.codex/skills/doc-writer',
+            },
+          ],
+        },
+      ],
+    },
+  ],
+  invalidEntries: [],
+};
+
 describe('SkillImportModal', () => {
   afterEach(cleanup);
 
@@ -69,6 +113,103 @@ describe('SkillImportModal', () => {
         decision: 'keepHub',
       },
     ]);
+  });
+
+  it('hides the skip option when the skill already exists in the Hub', () => {
+    render(
+      <SkillImportModal
+        isOpen
+        scan={scan}
+        hubSkills={[hubSkill]}
+        onClose={vi.fn()}
+        onConfirm={vi.fn()}
+        onRevealExternal={vi.fn()}
+      />
+    );
+
+    expect(screen.queryByRole('radio', { name: 'Skip' })).toBeNull();
+  });
+
+  it('still offers the skip option for skills not present in the Hub', () => {
+    render(
+      <SkillImportModal
+        isOpen
+        scan={scan}
+        hubSkills={[]}
+        onClose={vi.fn()}
+        onConfirm={vi.fn()}
+        onRevealExternal={vi.fn()}
+      />
+    );
+
+    const radios = screen.getAllByRole('radio');
+    expect(radios).toHaveLength(2);
+    expect((radios[0] as HTMLInputElement).checked).toBe(true);
+    expect(
+      (screen.getByRole('radio', { name: 'Skip' }) as HTMLInputElement)
+    ).toBeTruthy();
+  });
+
+  it('shows summary and groups scanned skills by existing vs new', () => {
+    render(
+      <SkillImportModal
+        isOpen
+        scan={mixedScan}
+        hubSkills={[hubSkill]}
+        onClose={vi.fn()}
+        onConfirm={vi.fn()}
+        onRevealExternal={vi.fn()}
+      />
+    );
+
+    expect(
+      screen.getByText('Found 2 skills: 1 already in PromptClip, 1 new')
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Existing（1）' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'New（1）' })).toBeTruthy();
+    expect(screen.getByText('review-code')).toBeTruthy();
+    expect(screen.getByText('doc-writer')).toBeTruthy();
+  });
+
+  it('hides the empty group section when all skills already exist', () => {
+    render(
+      <SkillImportModal
+        isOpen
+        scan={scan}
+        hubSkills={[hubSkill]}
+        onClose={vi.fn()}
+        onConfirm={vi.fn()}
+        onRevealExternal={vi.fn()}
+      />
+    );
+
+    expect(screen.getByRole('button', { name: 'Existing（1）' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /^New/ })).toBeNull();
+  });
+
+  it('collapses and expands a group on header click', () => {
+    render(
+      <SkillImportModal
+        isOpen
+        scan={mixedScan}
+        hubSkills={[hubSkill]}
+        onClose={vi.fn()}
+        onConfirm={vi.fn()}
+        onRevealExternal={vi.fn()}
+      />
+    );
+
+    const newHeader = screen.getByRole('button', { name: 'New（1）' });
+    expect((newHeader as HTMLButtonElement).getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByText('doc-writer')).toBeTruthy();
+
+    fireEvent.click(newHeader);
+    expect(newHeader.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByText('doc-writer')).toBeNull();
+
+    fireEvent.click(newHeader);
+    expect(newHeader.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByText('doc-writer')).toBeTruthy();
   });
 
   it('shows external entries that could not be scanned', () => {

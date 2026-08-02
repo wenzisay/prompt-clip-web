@@ -13,9 +13,11 @@ import { useState } from 'react';
 
 export interface SidebarProps {
   onSkillSettings?: () => void;
+  /** 切换 Prompts/Skills 的处理器；传入时用于在离开前做未保存修改确认 */
+  onSelectSection?: (section: AppSection) => void;
 }
 
-export function Sidebar({ onSkillSettings }: SidebarProps) {
+export function Sidebar({ onSkillSettings, onSelectSection }: SidebarProps) {
   // const { tagTree } = useTagStore();
   const { t } = useTranslation();
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -26,6 +28,8 @@ export function Sidebar({ onSkillSettings }: SidebarProps) {
   const { appSection, openModal, setAppSection } = useUIStore();
   const isDesktop = isTauriRuntime();
   const isPromptSection = appSection === 'prompts';
+  // 切换 section：外部传入处理器时用之（用于未保存修改确认），否则直接切换
+  const selectSection = onSelectSection ?? setAppSection;
 
   const handleSwitchDirectory = () => {
     clearPrompts();
@@ -71,7 +75,7 @@ export function Sidebar({ onSkillSettings }: SidebarProps) {
             icon="description"
             label={t.app.prompts}
             section="prompts"
-            onSelect={setAppSection}
+            onSelect={selectSection}
           />
           <SectionButton
             active={appSection === 'skills'}
@@ -79,7 +83,7 @@ export function Sidebar({ onSkillSettings }: SidebarProps) {
             icon="extension"
             label={t.app.skills}
             section="skills"
-            onSelect={setAppSection}
+            onSelect={selectSection}
           />
         </nav>
       )}
@@ -185,11 +189,11 @@ export function Sidebar({ onSkillSettings }: SidebarProps) {
             className={`flex h-10 w-full items-center rounded-lg text-muted transition-colors hover:bg-surface-dim hover:text-fg ${
               isCollapsed ? 'justify-center' : 'gap-3 px-3'
             }`}
-            aria-label={t.skills.settings}
-            title={t.skills.settings}
+            aria-label={t.skills.settingsTitle}
+            title={t.skills.settingsTitle}
           >
             <span className="material-symbols-outlined text-[20px]">settings</span>
-            {!isCollapsed && <span className="text-sm font-medium">{t.skills.settings}</span>}
+            {!isCollapsed && <span className="text-sm font-medium">{t.skills.settingsTitle}</span>}
           </button>
         </div>
       )}

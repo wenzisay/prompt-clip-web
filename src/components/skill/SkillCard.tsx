@@ -4,6 +4,7 @@ import type { AgentTool, SkillSummary, SkillToolState } from '@/types/skill';
 import { getAgentToolIcon } from '@/constants';
 import { useTranslation } from '@/i18n';
 import { useSkillStore } from '@/stores/skillStore';
+import { Tooltip } from '@/components/common';
 
 export interface SkillCardProps {
   skill: SkillSummary;
@@ -166,42 +167,51 @@ export function SkillCard({
           const statusLabel = getStatusLabel(state.status, t.skills);
 
           return (
-            <button
+            <Tooltip
               key={tool.id}
-              type="button"
-              aria-label={`${label} · ${statusLabel}`}
-              title={`${tool.name}: ${statusLabel}`}
-              disabled={!canToggle}
-              className="rounded-lg p-1 transition-colors hover:bg-surface-dim disabled:cursor-not-allowed"
-              onClick={(event) => {
-                event.stopPropagation();
-                if (!canToggle) return;
-                if (isConflict) {
-                  void confirmForceOverwrite(tool, state);
-                  return;
-                }
-                void setToolEnabled(skill.id, state.targetGroupId, !shouldDisable);
-              }}
+              side="top"
+              content={
+                <>
+                  <span className="font-medium">{tool.name}</span>
+                  <span className="opacity-70"> · {statusLabel}</span>
+                </>
+              }
             >
-              <span className="relative inline-flex">
-                <span
-                  className={`flex h-8 w-8 items-center justify-center rounded-lg bg-accent-soft p-1.5 transition ${
-                    state.status === 'disabled' ? 'grayscale opacity-45' : ''
-                  }`}
-                >
-                  <img src={getAgentToolIcon(tool.iconId)} alt="" className="h-full w-full object-contain" />
-                </span>
-                {isConflict && (
+              <button
+                type="button"
+                aria-label={`${label} · ${statusLabel}`}
+                disabled={!canToggle}
+                className="rounded-lg p-1 transition-colors hover:bg-surface-dim disabled:cursor-not-allowed"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  if (!canToggle) return;
+                  if (isConflict) {
+                    void confirmForceOverwrite(tool, state);
+                    return;
+                  }
+                  void setToolEnabled(skill.id, state.targetGroupId, !shouldDisable);
+                }}
+              >
+                <span className="relative inline-flex">
                   <span
-                    className={`material-symbols-outlined absolute -bottom-1 -right-1 rounded-full
-                      bg-surface text-[14px] text-red-600`}
-                    aria-hidden="true"
+                    className={`flex h-8 w-8 items-center justify-center rounded-lg bg-accent-soft p-1.5 transition ${
+                      state.status === 'disabled' ? 'grayscale opacity-45' : ''
+                    }`}
                   >
-                    warning
+                    <img src={getAgentToolIcon(tool.iconId)} alt="" className="h-full w-full object-contain" />
                   </span>
-                )}
-              </span>
-            </button>
+                  {isConflict && (
+                    <span
+                      className={`material-symbols-outlined absolute -bottom-1 -right-1 rounded-full
+                        bg-surface text-[14px] text-red-600`}
+                      aria-hidden="true"
+                    >
+                      warning
+                    </span>
+                  )}
+                </span>
+              </button>
+            </Tooltip>
           );
         })}
       </div>

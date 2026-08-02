@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { open, save } from '@tauri-apps/plugin-dialog';
 import { Sidebar } from '@/components/layout';
 import { useTranslation } from '@/i18n';
 import { SkillService } from '@/services/skillService';
 import { useSkillStore } from '@/stores/skillStore';
+import { useUIStore, type AppSection } from '@/stores/uiStore';
 import type {
   ArchivePreview,
   ExternalImportSelection,
@@ -16,7 +17,7 @@ import type {
 import { SkillArchiveImportModal } from './SkillArchiveImportModal';
 import { SkillCreateModal } from './SkillCreateModal';
 import { SkillDeleteModal } from './SkillDeleteModal';
-import { SkillDetailPage } from './SkillDetailPage';
+import { SkillDetailPage, type SkillDetailPageHandle } from './SkillDetailPage';
 import { SkillGrid } from './SkillGrid';
 import { SkillImportModal } from './SkillImportModal';
 import { SkillQuickSwitcher } from './SkillQuickSwitcher';
@@ -29,6 +30,7 @@ export function SkillManagerPage() {
     skills,
     filteredSkills,
     tools,
+    skillsPath,
     isLoading,
     load,
     error,
@@ -42,6 +44,9 @@ export function SkillManagerPage() {
   const [isCreateOpen, setCreateOpen] = useState(false);
   const [isSubmitting, setSubmitting] = useState(false);
   const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null);
+  /** 详情页 ref：用于在切换 appSection 前请求「未保存修改确认」 */
+  const detailRef = useRef<SkillDetailPageHandle>(null);
+  const { setAppSection } = useUIStore();
   const [selectedDeleteSkillId, setSelectedDeleteSkillId] = useState<string | null>(null);
   const [archivePath, setArchivePath] = useState<string | null>(null);
   const [archivePreview, setArchivePreview] = useState<ArchivePreview | null>(null);
@@ -81,6 +86,15 @@ export function SkillManagerPage() {
     setOperationError(false);
     try {
       await SkillService.revealExternal(targetGroupId, directoryName);
+    } catch {
+      setOperationError(true);
+    }
+  };
+
+  const revealStorage = async () => {
+    setOperationError(false);
+    try {
+      await SkillService.revealHub();
     } catch {
       setOperationError(true);
     }
@@ -182,12 +196,22 @@ export function SkillManagerPage() {
     }
   };
 
+  // 切换 Prompts/Skills：在 skill 详情页有未保存修改时先弹确认框，确认后才真正切换
+  const handleSelectSection = (section: AppSection) => {
+    if (selectedSkillId && detailRef.current) {
+      detailRef.current.requestNavigateAway(() => setAppSection(section));
+    } else {
+      setAppSection(section);
+    }
+  };
+
   return (
     <div className="flex h-screen w-screen bg-bg text-fg">
-      <Sidebar onSkillSettings={() => void openSettings()} />
+      <Sidebar onSkillSettings={() => void openSettings()} onSelectSection={handleSelectSection} />
       <div className="flex min-w-0 flex-1 flex-col">
         {selectedSkillId ? (
           <SkillDetailPage
+            ref={detailRef}
             skillId={selectedSkillId}
             onBack={() => setSelectedSkillId(null)}
             onExport={(skillId) => void exportOne(skillId)}
@@ -261,9 +285,11 @@ export function SkillManagerPage() {
           isOpen={isSettingsOpen}
           settings={settings}
           tools={tools}
+          skillsPath={skillsPath}
           isSaving={isSubmitting}
           onClose={() => setSettingsOpen(false)}
           onSave={(defaultMode, overrides) => void saveSettings(defaultMode, overrides)}
+          onRevealStorage={() => void revealStorage()}
         />
       )}
     </div>
