@@ -1,7 +1,7 @@
 <h1 align="center">PromptClip</h1>
 
 <p align="center">
-  <strong>本地优先的 AI 提示词管理工具</strong><br>
+  <strong>本地优先的 AI 提示词与Agent Skills 管理工具</strong><br>
   数据完全存储在本地，无需注册、无需云端、无需数据库<br>
   跨平台支持：桌面端支持web、macos、linux、windows，移动端支持iOS。
 </p>
