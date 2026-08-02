@@ -1,5 +1,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { AgentTool } from '@/types/skill';
+import { useSkillStore } from '@/stores/skillStore';
 import { useUIStore } from '@/stores/uiStore';
 import { Sidebar } from './Sidebar';
 
@@ -76,5 +78,65 @@ describe('Sidebar section navigation', () => {
     // 走外部处理器（用于未保存修改确认），而非直接改 store
     expect(onSelectSection).toHaveBeenCalledWith('skills');
     expect(useUIStore.getState().appSection).toBe('prompts');
+  });
+});
+
+describe('Sidebar Skills agents list', () => {
+  const codex: AgentTool = {
+    id: 'codex',
+    name: 'Codex',
+    installed: true,
+    detectionReasons: ['config'],
+    configPath: '/home/.codex',
+    skillsPath: '/home/.codex/skills',
+    targetGroupId: 'shared',
+    syncMode: 'inherit',
+    effectiveSyncMode: 'copy',
+    copyOnly: false,
+    iconId: 'codex',
+  };
+  const cursor: AgentTool = { ...codex, id: 'cursor', name: 'Cursor', iconId: 'cursor' };
+  const notInstalled: AgentTool = { ...codex, id: 'windsurf', name: 'Windsurf', installed: false };
+
+  beforeEach(() => {
+    runtime.isDesktop = true;
+    useUIStore.setState({ appSection: 'skills', modalType: null });
+    useSkillStore.getState().reset();
+  });
+
+  afterEach(cleanup);
+
+  it('lists only installed agents in the Skills section', () => {
+    useSkillStore.setState({ tools: [codex, cursor, notInstalled] });
+
+    render(<Sidebar />);
+
+    expect(screen.getByRole('button', { name: 'Codex' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Cursor' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Windsurf' })).toBeNull();
+  });
+
+  it('selects an agent and highlights it, then clears on second click', () => {
+    useSkillStore.setState({ tools: [codex] });
+
+    render(<Sidebar />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Codex' }));
+    expect(useSkillStore.getState().filter.agentToolId).toBe('codex');
+    expect(screen.getByRole('button', { name: 'Codex' }).getAttribute('aria-pressed')).toBe(
+      'true'
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Codex' }));
+    expect(useSkillStore.getState().filter.agentToolId).toBeNull();
+  });
+
+  it('shows an empty hint when no agent is installed', () => {
+    useSkillStore.setState({ tools: [notInstalled] });
+
+    render(<Sidebar />);
+
+    expect(screen.getByText('No installed agents detected')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Windsurf' })).toBeNull();
   });
 });

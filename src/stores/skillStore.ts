@@ -13,6 +13,8 @@ import type {
 interface SkillFilter {
   searchQuery: string;
   favoritesOnly: boolean;
+  /** 选中的 Agent 工具 id，null 表示不按 Agent 筛选 */
+  agentToolId: string | null;
 }
 
 interface SkillState {
@@ -33,6 +35,7 @@ interface SkillState {
   importExternalSelections: (selections: ExternalImportSelection[]) => Promise<void>;
   setSearchQuery: (searchQuery: string) => void;
   setFavoritesOnly: (favoritesOnly: boolean) => void;
+  setAgentToolFilter: (toolId: string | null) => void;
   setError: (error: SkillManagerError | null) => void;
   toggleFavorite: (skillId: string) => Promise<void>;
   deleteSkill: (skillId: string, mode: SkillDeleteMode) => Promise<boolean>;
@@ -49,6 +52,7 @@ interface SkillState {
 const INITIAL_FILTER: SkillFilter = {
   searchQuery: '',
   favoritesOnly: false,
+  agentToolId: null,
 };
 
 const INITIAL_STATE = {
@@ -121,7 +125,20 @@ export const useSkillStore = create<SkillState>()((set, get) => ({
   },
 
   setFavoritesOnly: (favoritesOnly) => {
-    set((state) => ({ filter: { ...state.filter, favoritesOnly } }));
+    // 切换 全部/收藏 pill 时清除 Agent 筛选（对标 prompt 区切换 pill 清除 tag）
+    set((state) => ({
+      filter: { ...state.filter, favoritesOnly, agentToolId: null },
+    }));
+    get().applyFilter();
+  },
+
+  setAgentToolFilter: (toolId) => {
+    set((state) => ({
+      filter: {
+        ...state.filter,
+        agentToolId: state.filter.agentToolId === toolId ? null : toolId,
+      },
+    }));
     get().applyFilter();
   },
 
@@ -204,8 +221,15 @@ export const useSkillStore = create<SkillState>()((set, get) => ({
   applyFilter: () => {
     const { skills, filter } = get();
     const query = filter.searchQuery.trim().toLocaleLowerCase();
+    const agentToolId = filter.agentToolId;
     const filteredSkills = skills
       .filter((skill) => !filter.favoritesOnly || skill.favoritedAt !== null)
+      .filter((skill) => {
+        if (!agentToolId) return true;
+        const status = skill.toolStates[agentToolId]?.status;
+        // 仅保留对该 Agent 已启用 / 同步中的 Skill（排除 disabled/broken/无记录）
+        return !!status && status !== 'disabled' && status !== 'broken';
+      })
       .filter((skill) => !query || skill.name.toLocaleLowerCase().includes(query))
       .sort((left, right) => left.name.localeCompare(right.name));
     set({ filteredSkills });

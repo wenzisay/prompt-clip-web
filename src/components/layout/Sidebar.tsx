@@ -3,10 +3,12 @@
  */
 
 import { TagTree } from '@/components/tag/TagTree';
+import { getAgentToolIcon } from '@/constants';
 import { useTranslation } from '@/i18n';
 import { isTauriRuntime } from '@/services/fileRepository/tauriFileRepository';
 import { useFileStore } from '@/stores/fileStore';
 import { usePromptStore } from '@/stores/promptStore';
+import { useSkillStore } from '@/stores/skillStore';
 import { useTagStore } from '@/stores/tagStore';
 import { useUIStore, type AppSection } from '@/stores/uiStore';
 import { useState } from 'react';
@@ -26,8 +28,10 @@ export function Sidebar({ onSkillSettings, onSelectSection }: SidebarProps) {
   const { clearPrompts } = usePromptStore();
   const { clearTags } = useTagStore();
   const { appSection, openModal, setAppSection } = useUIStore();
+  const { tools: agentTools, filter: skillFilter, setAgentToolFilter } = useSkillStore();
   const isDesktop = isTauriRuntime();
   const isPromptSection = appSection === 'prompts';
+  const installedAgentTools = agentTools.filter((tool) => tool.installed);
   // 切换 section：外部传入处理器时用之（用于未保存修改确认），否则直接切换
   const selectSection = onSelectSection ?? setAppSection;
 
@@ -100,7 +104,53 @@ export function Sidebar({ onSkillSettings, onSelectSection }: SidebarProps) {
         </div>
       )}
 
-      {(isCollapsed || !isPromptSection) && <div className="flex-1" />}
+      {/* Skills 区：Agents 列表 */}
+      {!isCollapsed && !isPromptSection && (
+        <div className="flex-1 overflow-y-auto">
+          <div className="px-3 py-3">
+            <h2 className="text-xs font-semibold text-muted uppercase tracking-wider mb-2 px-2">
+              {t.skills.agents}
+            </h2>
+            {installedAgentTools.length === 0 ? (
+              <p className="px-2 py-2 text-xs text-muted">{t.skills.noAgents}</p>
+            ) : (
+              <ul className="flex flex-col gap-0.5">
+                {installedAgentTools.map((tool) => {
+                  const isActive = skillFilter.agentToolId === tool.id;
+                  return (
+                    <li key={tool.id}>
+                      <button
+                        type="button"
+                        aria-pressed={isActive}
+                        onClick={() => setAgentToolFilter(tool.id)}
+                        title={tool.name}
+                        className={`w-full flex items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors ${
+                          isActive
+                            ? 'bg-accent-soft text-accent'
+                            : 'text-fg hover:bg-surface-dim'
+                        }`}
+                      >
+                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-accent-soft p-1">
+                          <img
+                            src={getAgentToolIcon(tool.iconId)}
+                            alt=""
+                            className="h-full w-full object-contain"
+                          />
+                        </span>
+                        <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                          {tool.name}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
+
+      {isCollapsed && <div className="flex-1" />}
 
       {/* 回收站入口 */}
       {!isCollapsed && isPromptSection && (

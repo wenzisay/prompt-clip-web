@@ -180,4 +180,62 @@ describe('skillStore', () => {
     expect(useSkillStore.getState().error?.code).toBe('skill_delete_failed');
     expect(mocks.scan).toHaveBeenCalledTimes(2);
   });
+
+  describe('agent tool filter', () => {
+    function skillForAgent(id: string, codexStatus: SkillSummary['toolStates'][string]['status'] | undefined) {
+      const base = skill(id);
+      if (codexStatus === undefined) {
+        delete base.toolStates.codex;
+      } else {
+        base.toolStates.codex.status = codexStatus;
+      }
+      return base;
+    }
+
+    it('keeps only skills enabled/syncing for the selected agent', async () => {
+      mocks.scan.mockResolvedValue(
+        scanResponse([
+          skillForAgent('enabled', 'enabled'),
+          skillForAgent('stale', 'stale'),
+          skillForAgent('pending', 'pending'),
+          skillForAgent('conflict', 'conflict'),
+          skillForAgent('disabled', 'disabled'),
+          skillForAgent('broken', 'broken'),
+          skillForAgent('absent', undefined),
+        ])
+      );
+      await useSkillStore.getState().load();
+
+      useSkillStore.getState().setAgentToolFilter('codex');
+
+      expect(useSkillStore.getState().filteredSkills.map((item) => item.id).sort()).toEqual([
+        'conflict',
+        'enabled',
+        'pending',
+        'stale',
+      ]);
+    });
+
+    it('toggles the same agent off and clears the filter', async () => {
+      mocks.scan.mockResolvedValue(scanResponse([skillForAgent('enabled', 'enabled')]));
+      await useSkillStore.getState().load();
+
+      useSkillStore.getState().setAgentToolFilter('codex');
+      useSkillStore.getState().setAgentToolFilter('codex');
+
+      expect(useSkillStore.getState().filter.agentToolId).toBeNull();
+      expect(useSkillStore.getState().filteredSkills.map((item) => item.id)).toEqual(['enabled']);
+    });
+
+    it('clears the agent filter when switching the all/favorites pill', async () => {
+      mocks.scan.mockResolvedValue(scanResponse([skillForAgent('enabled', 'enabled')]));
+      await useSkillStore.getState().load();
+
+      useSkillStore.getState().setAgentToolFilter('codex');
+      useSkillStore.getState().setFavoritesOnly(false);
+
+      expect(useSkillStore.getState().filter.agentToolId).toBeNull();
+      expect(useSkillStore.getState().filteredSkills.map((item) => item.id)).toEqual(['enabled']);
+    });
+  });
 });
