@@ -6,6 +6,8 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 const MAX_TEXT_FILE_SIZE: u64 = 2 * 1024 * 1024;
+// 拖拽上传走 IPC 传输字节，单独设置上限避免超大文件阻塞主进程。
+const MAX_BINARY_FILE_SIZE: u64 = 64 * 1024 * 1024;
 const TEXT_EXTENSIONS: &[&str] = &[
     "css", "csv", "html", "js", "json", "jsx", "md", "markdown", "py", "rs", "sh", "toml", "ts",
     "tsx", "txt", "xml", "yaml", "yml",
@@ -163,6 +165,25 @@ pub fn upload_file(
     ensure_parent_directory(&destination)?;
     let content = fs::read(source).map_err(|error| io_error("read_skill_upload", error))?;
     atomic_create(&destination, &content)
+}
+
+/// 写入前端拖拽上传的字节内容。
+///
+/// 与 `upload_file` 的区别在于内容直接来自前端 IPC，而不是磁盘上的源文件路径。
+/// 复用 `atomic_create`（不存在才创建，冲突返回 `skill_entry_exists`），
+/// 因此 SKILL.md 等既有文件不会被覆盖；沙箱校验由 `resolve_skill_path` 兜底。
+pub fn upload_bytes(
+    paths: &SkillPaths,
+    skill_id: &str,
+    destination_relative_path: &Path,
+    content: &[u8],
+) -> Result<(), SkillManagerError> {
+    if content.len() as u64 > MAX_BINARY_FILE_SIZE {
+        return Err(SkillManagerError::new("skill_file_too_large"));
+    }
+    let destination = paths.resolve_skill_path(skill_id, destination_relative_path)?;
+    ensure_parent_directory(&destination)?;
+    atomic_create(&destination, content)
 }
 
 pub fn download_file(
@@ -455,7 +476,8 @@ fn io_error(operation: &str, error: std::io::Error) -> SkillManagerError {
 mod tests {
     use super::{
         create_directory, create_skill, create_text_file, delete_entry, download_file,
-        list_skill_files, read_text_file, rename_entry, upload_file, write_text_file,
+        list_skill_files, read_text_file, rename_entry, upload_bytes, upload_file, write_text_file,
+        MAX_BINARY_FILE_SIZE,
     };
     use crate::skills::paths::SkillPaths;
     use std::fs;
@@ -647,6 +669,50 @@ mod tests {
         assert_eq!(
             fs::read(destination).expect("download should load"),
             [1, 2, 3]
+        );
+    }
+
+    #[test]
+    fn should_upload_bytes_and_reject_duplicate_or_oversized() {
+        let (_home, paths) = create_fixture();
+
+        upload_bytes(
+            &paths,
+            "demo-skill",
+            Path::new("references/image.png"),
+            &[0x89, 0x50, 0x4e, 0x47],
+        )
+        .expect("bytes should upload");
+        let duplicate = upload_bytes(
+            &paths,
+            "demo-skill",
+            Path::new("references/image.png"),
+            &[0x89, 0x50, 0x4e, 0x47],
+        );
+        let oversized = upload_bytes(
+            &paths,
+            "demo-skill",
+            Path::new("references/huge.bin"),
+            &vec![0u8; (MAX_BINARY_FILE_SIZE + 1) as usize],
+        );
+
+        assert_eq!(
+            fs::read(
+                paths
+                    .skill_root("demo-skill")
+                    .expect("skill root should resolve")
+                    .join("references/image.png")
+            )
+            .expect("uploaded file should load"),
+            [0x89, 0x50, 0x4e, 0x47]
+        );
+        assert_eq!(
+            duplicate.expect_err("duplicate should fail").code,
+            "skill_entry_exists"
+        );
+        assert_eq!(
+            oversized.expect_err("oversized upload should fail").code,
+            "skill_file_too_large"
         );
     }
 

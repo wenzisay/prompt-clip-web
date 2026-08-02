@@ -66,6 +66,11 @@ export async function revealExternalSkill(
   await invoke('skill_reveal_external', { targetGroupId, directoryName });
 }
 
+export async function revealHubSkill(): Promise<void> {
+  requireDesktop();
+  await invoke('skill_reveal_hub');
+}
+
 export async function setSkillEnabled(
   options: SetSkillEnabledOptions
 ): Promise<SyncOperationResult> {
@@ -192,6 +197,20 @@ export async function uploadSkillFile(
   return invoke('skill_upload_file', { skillId, sourcePath, destinationRelativePath });
 }
 
+export async function uploadSkillBytes(
+  skillId: string,
+  destinationRelativePath: string,
+  bytes: Uint8Array
+): Promise<SkillManagerError[]> {
+  requireDesktop();
+  // 沿用 workspace 仓库的字节 IPC 约定：Uint8Array → number[] → Rust Vec<u8>
+  return invoke('skill_upload_bytes', {
+    skillId,
+    destinationRelativePath,
+    content: Array.from(bytes),
+  });
+}
+
 export async function deleteSkillEntry(
   skillId: string,
   relativePath: string
@@ -222,6 +241,7 @@ export const SkillService = {
   scan: scanSkills,
   scanExternal: scanExternalSkills,
   revealExternal: revealExternalSkill,
+  revealHub: revealHubSkill,
   setEnabled: setSkillEnabled,
   forceEnable: forceEnableSkill,
   importExternal: importExternalSkill,
@@ -238,6 +258,7 @@ export const SkillService = {
   createTextFile: createSkillTextFile,
   renameEntry: renameSkillEntry,
   uploadFile: uploadSkillFile,
+  uploadBytes: uploadSkillBytes,
   deleteEntry: deleteSkillEntry,
   downloadFile: downloadSkillFile,
   updateSettings: updateSkillSettings,

@@ -427,6 +427,11 @@ export const messages = {
       confirm: '确定',
       deleteEntryConfirm: (name: string) => `确定删除“${name}”吗？`,
       deleteEntryNote: '此操作不可撤销。',
+      dropHint: '拖拽文件到此处导入',
+      dropFolderUnsupported: '暂不支持拖入文件夹，请选择文件。',
+      dropConflictSkipped: (count: number) => `${count} 个文件因同名已存在被跳过。`,
+      dropMoveIntoSelf: '不能移动到自身或其子目录中。',
+      dropConflictMove: (name: string) => `「${name}」同名已存在，移动失败。`,
     },
     metadataFields: {
       id: 'ID',
@@ -878,6 +883,11 @@ export const messages = {
       confirm: '確定',
       deleteEntryConfirm: (name: string) => `確定刪除「${name}」嗎？`,
       deleteEntryNote: '此操作無法復原。',
+      dropHint: '拖曳檔案到此處匯入',
+      dropFolderUnsupported: '暫不支援拖入資料夾，請選擇檔案。',
+      dropConflictSkipped: (count: number) => `${count} 個檔案因同名已存在被跳過。`,
+      dropMoveIntoSelf: '不能移動到自身或其子目錄中。',
+      dropConflictMove: (name: string) => `「${name}」同名已存在，移動失敗。`,
     },
     metadataFields: {
       id: 'ID',
@@ -1347,6 +1357,13 @@ export const messages = {
       confirm: 'Confirm',
       deleteEntryConfirm: (name: string) => `Delete "${name}"?`,
       deleteEntryNote: 'This action cannot be undone.',
+      dropHint: 'Drop files here to import',
+      dropFolderUnsupported: 'Folders are not supported. Please drop files only.',
+      dropConflictSkipped: (count: number) =>
+        `${count} file(s) skipped because a file with the same name already exists.`,
+      dropMoveIntoSelf: 'Cannot move an item into itself or one of its own subfolders.',
+      dropConflictMove: (name: string) =>
+        `A file named "${name}" already exists at the destination. Move failed.`,
     },
     metadataFields: {
       id: 'ID',
@@ -1816,6 +1833,12 @@ export const messages = {
       confirm: '確認',
       deleteEntryConfirm: (name: string) => `「${name}」を削除しますか？`,
       deleteEntryNote: 'この操作は元に戻せません。',
+      dropHint: 'ファイルをここにドロップして取り込む',
+      dropFolderUnsupported: 'フォルダの取り込みには対応していません。ファイルを指定してください。',
+      dropConflictSkipped: (count: number) =>
+        `${count} 件のファイルは同名のファイルがすでに存在するためスキップしました。`,
+      dropMoveIntoSelf: '自身または自身のサブフォルダには移動できません。',
+      dropConflictMove: (name: string) => `「${name}」と同名のファイルがすでに存在するため移動できませんでした。`,
     },
     metadataFields: {
       id: 'ID',

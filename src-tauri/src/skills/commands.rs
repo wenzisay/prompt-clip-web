@@ -10,7 +10,7 @@ use super::config::SkillConfigRepository;
 use super::detector::detect_tools;
 use super::files::{
     create_directory, create_skill, create_text_file, delete_entry, download_file,
-    list_skill_files, read_text_file, rename_entry, upload_file, write_text_file,
+    list_skill_files, read_text_file, rename_entry, upload_bytes, upload_file, write_text_file,
 };
 use super::import::{import_external_skill, ImportDecision, ImportOutcome};
 use super::models::{
@@ -59,6 +59,12 @@ pub fn skill_reveal_external(
     let path =
         resolve_external_entry_path(&initialization.tools, &target_group_id, &directory_name)?;
     reveal_in_file_manager(&path)
+}
+
+#[tauri::command]
+pub fn skill_reveal_hub() -> Result<(), SkillManagerError> {
+    let paths = initialized_paths()?;
+    reveal_in_file_manager(&paths.skills_dir())
 }
 
 #[tauri::command]
@@ -324,6 +330,17 @@ pub fn skill_upload_file(
     require_absolute_path(&source_path)?;
     mutate_and_refresh(&skill_id, |paths| {
         upload_file(paths, &skill_id, &source_path, &destination_relative_path)
+    })
+}
+
+#[tauri::command]
+pub fn skill_upload_bytes(
+    skill_id: String,
+    destination_relative_path: PathBuf,
+    content: Vec<u8>,
+) -> Result<Vec<SkillManagerError>, SkillManagerError> {
+    mutate_and_refresh(&skill_id, |paths| {
+        upload_bytes(paths, &skill_id, &destination_relative_path, &content)
     })
 }
 
