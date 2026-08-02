@@ -13,6 +13,7 @@ use tauri_plugin_global_shortcut::{
     Builder as ShortcutBuilder, GlobalShortcutExt, Shortcut, ShortcutState,
 };
 
+mod skills;
 mod webdav;
 
 const MAIN_WINDOW_LABEL: &str = "main";
@@ -619,6 +620,13 @@ mod tests {
 
         assert!(capability.contains("\"dialog:allow-message\""));
     }
+
+    #[test]
+    fn should_allow_save_dialogs_for_the_main_window() {
+        let capability = include_str!("../capabilities/default.json");
+
+        assert!(capability.contains("\"dialog:allow-save\""));
+    }
 }
 
 fn file_entry(
@@ -1021,6 +1029,32 @@ pub fn run() {
             }
         })
         .invoke_handler(tauri::generate_handler![
+            skills::commands::skill_initialize,
+            skills::commands::skill_detect_tools,
+            skills::commands::skill_scan,
+            skills::commands::skill_scan_external,
+            skills::commands::skill_reveal_external,
+            skills::commands::skill_reveal_hub,
+            skills::commands::skill_set_tool_enabled,
+            skills::commands::skill_force_enable,
+            skills::commands::skill_import_external,
+            skills::commands::skill_preview_archive,
+            skills::commands::skill_import_archive,
+            skills::commands::skill_export,
+            skills::commands::skill_set_favorite,
+            skills::commands::skill_update_settings,
+            skills::commands::skill_create,
+            skills::commands::skill_delete,
+            skills::commands::skill_list_files,
+            skills::commands::skill_read_text_file,
+            skills::commands::skill_write_text_file,
+            skills::commands::skill_create_directory,
+            skills::commands::skill_create_text_file,
+            skills::commands::skill_rename_entry,
+            skills::commands::skill_upload_file,
+            skills::commands::skill_upload_bytes,
+            skills::commands::skill_delete_entry,
+            skills::commands::skill_download_file,
             workspace_root_exists,
             workspace_exists,
             workspace_read_text,

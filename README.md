@@ -45,6 +45,7 @@
 - **Two-phase loading** — The first screen reads only file heads (frontmatter + preview snippet) to stay interactive; full bodies are backfilled in batches via `requestIdleCallback`
 - **Virtualized list** — Workspaces with 5K+ prompts render visible rows only via `@tanstack/react-virtual` — DOM node count is independent of list length
 - **Desktop app** — Native Tauri 2 app with system tray, single-instance, and hide-on-close
+- **Agent Skills manager (desktop only)** — Maintain one source at `~/.prompt-clip/skills`, detect installed Agent targets, import existing Skills, filter by target, and sync by symbolic link or file copy to Claude Code, Codex, OpenCode, Cursor, and `~/.agents/skills`
 - **Global quick search** — A system-wide shortcut (default `Cmd+Shift+Space` / `Ctrl+Shift+Space`) summons a standalone search bar over any app; pick a result to paste its content at the cursor, or open it in the main window. Shortcut is customizable in Settings
 - **WebDAV backup & restore** — Back up the whole workspace incrementally to a dedicated WebDAV folder (HTTPS + OS keychain for the password); a SHA-256 manifest syncs only changed files. Supports incremental full restore and config-conflict handling
 - **Usage analytics (web, optional)** — The web app sends anonymous Google Analytics 4 usage stats (page views and feature counts, IP anonymized, no prompt content collected) by default; toggle it in **Settings → General**. The desktop app ships no analytics at all
@@ -73,6 +74,12 @@ History versions:
 
 Share card:
 ![Share card](docs/screenshot/bettershot_1781859201346.jpg)
+
+Skill manage:
+![Skill manager](docs/screenshot/Skill-Manage.jpg)
+
+Skill Edit:
+![Skill Edit](docs/screenshot/Skill-Details.jpg)
 
 iPhone / iPad App:
 ![ios](docs/screenshot/app.jpg)
@@ -260,6 +267,16 @@ A GitHub Actions workflow (`.github/workflows/release.yml`) triggers on `v*.*.*`
 - Search data is served by the main window — the bar holds no business state. On macOS, auto-paste requires Accessibility permission
 - Toggle the feature, record a custom shortcut, or reset to default under **Settings → Quick search**
 
+### Agent Skills manager (desktop)
+
+- Open **Manage Skills** from the desktop landing page or switch from the Prompt toolbar; the Web and mobile builds do not expose this feature
+- PromptClip keeps the Hub at `~/.prompt-clip/skills`; each top-level directory is one Skill and must contain `SKILL.md`
+- Detects Claude Code, Codex, OpenCode, Cursor, and the shared `~/.agents/skills` target. Scan existing Skills, review same-name versions, and import the selected version
+- The sidebar lists installed Agent targets. Select one to show Skills with a managed state for that target; disabled, broken, and absent targets stay out of the filtered list. Choose **All** or **Favorites** to clear the target filter
+- Search Skills by name, use `Cmd/Ctrl + K` for quick switching, or show favorites only
+- Enable or disable a Skill per target without deleting the Hub source. Configure a global sync default and per-target overrides using symbolic links or file copies
+- Manage Skill files, import `.zip` / `.skill` archives, export a Skill as ZIP, and resolve conflicts explicitly. Archive validation blocks path traversal, links, and oversized content; `SKILL.md` cannot be renamed or deleted
+
 ### WebDAV backup & restore (desktop)
 
 - Configure a WebDAV target under **Settings → Backup**: HTTPS URL, username, password (stored in the OS keychain), and a remote dedicated directory
@@ -341,7 +358,7 @@ The app also generates these helper directories and files in the working directo
 
 ```
 src/
-├── types/                  # TypeScript data models (prompt / file / tag / annotation / share / ui)
+├── types/                  # TypeScript data models (prompt / file / tag / annotation / share / skill / ui)
 ├── constants/              # Static config (CONFIG / KEYBINDINGS / DEFAULTS / shareTemplates)
 ├── utils/                  # Pure functions (markdown / path / id / date / debounce / storage / errorMessage)
 ├── i18n/                   # In-house i18n (messages.ts + useTranslation hook)
@@ -354,6 +371,7 @@ src/
 │   ├── exportService.ts        # JSON / CSV / Markdown ZIP export
 │   ├── exportTargetService.ts  # Browser download vs Tauri native save dialog
 │   ├── annotationService.ts    # Annotation sidecar read/write
+│   ├── skillService.ts          # Agent Skills scanning / sync / file management
 │   ├── shareImageService.ts    # Share-card rendering (html-to-image / html2canvas)
 │   ├── folderConfigService.ts  # `_promptclip/promptclip.config.json` read/write
 │   ├── metadataRepairService.ts# Backfill frontmatter for imported files (e.g. Obsidian)
@@ -364,7 +382,8 @@ src/
 │   ├── tagStore.ts         # Tag tree / pin (pinned tags persisted to _promptclip/promptclip.config.json)
 │   ├── uiStore.ts          # UI state (selected / modals / Toast)
 │   ├── settingsStore.ts    # Settings (persist → localStorage)
-│   └── annotationStore.ts  # Annotation state
+│   ├── annotationStore.ts  # Annotation state
+│   └── skillStore.ts       # Agent Skills state / filters
 ├── hooks/                  # React Hooks
 │   ├── usePromptLoader.ts       # Two-phase loading
 │   ├── usePromptLazyLoad.ts     # Background batched content backfill
@@ -383,6 +402,7 @@ src/
 │   ├── settings/           #   Settings (SettingsModal)
 │   ├── export/             #   Export (ExportModal)
 │   ├── share/              #   Share card (ShareImageModal / ShareCardPreview)
+│   ├── skill/              #   Agent Skills manager (hub / sync / file editor)
 │   ├── recycle/            #   Recycle bin (RecycleModal / RecycleList / RecycleCard / RecycleDetailDrawer)
 │   ├── about/              #   About page (AboutPage)
 │   ├── privacy/            #   Privacy page (PrivacyPage)
@@ -433,6 +453,19 @@ A `FileRepository` interface unifies file operations across Web and Desktop, wit
 `readTextHead(path, byteLimit)` is the core of two-phase loading: Web slices with `File.slice + text()` by bytes; Desktop implements on demand.
 
 ### Desktop features
+
+#### Agent Skills manager
+
+- Open **Manage Skills** from the desktop landing page or switch from the Prompt toolbar; the Web and mobile builds do not expose this feature
+- Scan installed Agent tools and their existing Skills, then resolve same-name versions before importing
+- Follow top-level Agent Skill symlinks during scanning and importing; broken or invalid entries show their
+  source path, which can be revealed in the system file manager
+- Enable or disable each Skill per installed tool without deleting the Hub source
+- A conflicting external directory or wrong link is never replaced silently. Click its conflict icon and confirm to
+  overwrite it with the PromptClip version; replacement uses a transaction backup and restores the original on failure
+- Configure a global default sync mode with per-tool overrides; Windows symbolic links may require administrator privileges, so file copy is available as an alternative
+- Create or upload `.zip` / `.skill` archives, edit Markdown and text files in the built-in file manager, download binary files, search/favorite Skills, and export a Skill as ZIP
+- `SKILL.md` cannot be renamed or deleted, and deleting an entire source Skill is intentionally not included in this release
 
 A native Tauri 2 app with the Rust backend in `src-tauri/`, providing:
 

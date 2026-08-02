@@ -14,8 +14,14 @@ export type { ModalProps } from './Modal';
 export { Overlay } from './Overlay';
 export type { OverlayProps } from './Overlay';
 
+export { ContextMenu } from './ContextMenu';
+export type { MenuItem, ContextMenuProps } from './ContextMenu';
+
 export { Spinner } from './Spinner';
 export type { SpinnerProps, SpinnerSize } from './Spinner';
 
 export { SideDrawer } from './SideDrawer';
 export type { SideDrawerProps } from './SideDrawer';
+
+export { Tooltip } from './Tooltip';
+export type { TooltipProps } from './Tooltip';

@@ -4,6 +4,23 @@
 
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，并遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.0.5] - 2026-08-02
+
+### Added
+
+- **Agent Skills 管理（桌面端）**：新增独立 Skill 页面，以 `~/.prompt-clip/skills` 为唯一来源，
+  支持 Claude Code、Codex、OpenCode、Cursor 和共享的 `~/.agents/skills` 目标。
+- **同步与目标筛选**：支持全局默认同步方式和单工具覆盖，可选软链接或文件复制；可按已安装
+  Agent 筛选处于启用、同步或冲突状态的 Skills，启停操作不会删除 Hub 源文件；设置变更会迁移
+  已启用目标并报告部分失败。
+- **扫描与导入**：扫描各工具已有 Skills，按名称和内容版本分组后由用户选择导入；支持一级软链接、
+  断链提示以及 `.zip` / `.skill` 导入和单 Skill ZIP 导出，归档操作会校验路径穿越、链接和解压大小限制。
+- **Skill 文件管理器**：支持目录树、新建目录与文本文件、上传、重命名、删除、下载；Markdown
+  可编辑和预览，普通文本可编辑，二进制仅下载，文本保存包含并发修改检查。
+- **搜索与收藏**：支持名称搜索、`Cmd/Ctrl + K` 快速切换和独立收藏筛选。
+- **冲突目标接管**：确认后可用 PromptClip 版本覆盖工具中的同名目标；替换使用事务备份，失败时
+  恢复原内容，取消或对话框异常时不会执行覆盖。
+
 ## [1.0.4] - 2026-07-14
 
 ### Added
@@ -85,7 +102,8 @@
 
 > `0.1.0-beta.1` ~ `0.1.0-beta.6`（2026-05-19 ~ 2026-06-18）为更早的迭代预发布版本，逐步形成 1.0.0 的完整功能集。
 
-[Unreleased]: https://github.com/wenzisay/prompt-clip-web/compare/v1.0.4...HEAD
+[Unreleased]: https://github.com/wenzisay/prompt-clip-web/compare/v1.0.5...HEAD
+[1.0.5]: https://github.com/wenzisay/prompt-clip-web/releases/tag/v1.0.5
 [1.0.4]: https://github.com/wenzisay/prompt-clip-web/releases/tag/v1.0.4
 [1.0.3]: https://github.com/wenzisay/prompt-clip-web/releases/tag/v1.0.3
 [1.0.2]: https://github.com/wenzisay/prompt-clip-web/releases/tag/v1.0.2

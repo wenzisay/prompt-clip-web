@@ -26,6 +26,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 ROOT_DIR = SCRIPT_DIR.parent
 SRC_DIR = ROOT_DIR / "src"
 FONT_PATH = ROOT_DIR / "public" / "fonts" / "material-symbols-outlined.woff2"
+SOURCE_FONT_CACHE = SCRIPT_DIR / ".material-symbols-outlined.full.woff2"
 GLYPHS_TXT = SCRIPT_DIR / "icon-glyphs.txt"  # 脚本生成，作为文档 + 校验输入
 GLYPH_NAMES_TMP = SCRIPT_DIR / ".icon-glyph-names.txt"  # 临时，子集化后删除
 SUBSET_TMP = ROOT_DIR / "public" / "fonts" / "material-symbols-outlined.subset.woff2"
@@ -46,6 +47,10 @@ _SCAN_PATTERNS = [
     re.compile(r'\bicon=["\'](' + _ICON_NAME + r')["\']'),
     # icon: '...' / icon: "..."（对象数组字段，如菜单项、欢迎页特性）
     re.compile(r'\bicon:\s*["\'](' + _ICON_NAME + r')["\']'),
+    # helper 返回的图标名，例如 statusIcon()。
+    re.compile(r'\breturn\s+["\'](' + _ICON_NAME + r')["\']'),
+    # 条件表达式的每个字符串分支，兼容嵌套三元表达式。
+    re.compile(r'[?:]\s*["\'](' + _ICON_NAME + r')["\']'),
 ]
 
 
@@ -56,12 +61,6 @@ def scan_source_icons(src_dir):
         text = path.read_text(encoding="utf-8")
         for pattern in _SCAN_PATTERNS:
             icons.update(pattern.findall(text))
-        # 三元条件图标：cond ? 'a' : 'b' —— 两边都提取
-        for match in re.finditer(
-            r"\?\s*['\"](" + _ICON_NAME + r")['\"]\s*:\s*['\"](" + _ICON_NAME + r")['\"]",
-            text,
-        ):
-            icons.update(match.groups())
     return sorted(icons)
 
 
@@ -86,6 +85,41 @@ def collect_ligatures(font):
     return ligatures
 
 
+def prepare_source_font():
+    """准备可重复使用的完整字体，避免从旧子集继续裁剪。"""
+    if SOURCE_FONT_CACHE.exists():
+        return SOURCE_FONT_CACHE
+
+    if FONT_PATH.stat().st_size > 200 * 1024:
+        SOURCE_FONT_CACHE.write_bytes(FONT_PATH.read_bytes())
+        return SOURCE_FONT_CACHE
+
+    relative_font_path = FONT_PATH.relative_to(ROOT_DIR).as_posix()
+    history = subprocess.run(
+        ["git", "log", "--all", "--format=%H", "--", relative_font_path],
+        cwd=ROOT_DIR,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if history.returncode == 0:
+        for revision in history.stdout.splitlines():
+            archived = subprocess.run(
+                ["git", "show", f"{revision}:{relative_font_path}"],
+                cwd=ROOT_DIR,
+                check=False,
+                capture_output=True,
+            )
+            if archived.returncode == 0 and len(archived.stdout) > 200 * 1024:
+                SOURCE_FONT_CACHE.write_bytes(archived.stdout)
+                return SOURCE_FONT_CACHE
+
+    sys.exit(
+        "ERROR: 找不到完整 Material Symbols 字体。请将完整字体放到 "
+        f"{SOURCE_FONT_CACHE} 后重试。"
+    )
+
+
 def main():
     if not FONT_PATH.exists():
         sys.exit(f"ERROR: 源字体不存在: {FONT_PATH}")
@@ -97,7 +131,8 @@ def main():
     if not candidates:
         sys.exit("FAIL: 未能从 src 扫描到任何图标，请检查正则")
 
-    font = TTFont(FONT_PATH)
+    source_font_path = prepare_source_font()
+    font = TTFont(source_font_path)
     ligature_map = collect_ligatures(font)
 
     # 用源字体 ligature 过滤：扫描到的候选若在字体里无对应 ligature，多为被正则
@@ -128,9 +163,9 @@ def main():
     #    --no-layout-closure  禁止 closure 把未引用的图标 glyph 拉入保留集
     #    --layout-features=*  保留全部 feature（图标 ligature 在 rlig 而非 liga）；
     #                          glyph 集已受限，故仅目标 ligature 存活；fvar/gvar 保留 -> 可变轴不丢
-    before_bytes = FONT_PATH.stat().st_size
+    before_bytes = source_font_path.stat().st_size
     args = [
-        sys.executable, "-m", "fontTools.subset", str(FONT_PATH),
+        sys.executable, "-m", "fontTools.subset", str(source_font_path),
         f"--output-file={SUBSET_TMP}",
         "--flavor=woff2",
         f"--text-file={GLYPHS_TXT}",
@@ -155,6 +190,7 @@ def main():
     # 5) 校验通过，覆盖原字体。
     after_bytes = SUBSET_TMP.stat().st_size
     SUBSET_TMP.replace(FONT_PATH)
+    FONT_PATH.chmod(0o644)
 
     reduction = (before_bytes - after_bytes) * 100 // before_bytes
     print(

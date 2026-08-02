@@ -1,0 +1,11 @@
+mod archive;
+pub mod commands;
+mod config;
+mod detector;
+mod files;
+mod import;
+mod models;
+mod paths;
+mod registry;
+mod scanner;
+mod sync;

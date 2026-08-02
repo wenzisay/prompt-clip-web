@@ -1,4 +1,6 @@
-import { readFileSync, statSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -37,5 +39,79 @@ describe('icon font assets', () => {
     );
 
     expect(fontStats.size).toBeLessThan(200 * 1024);
+  });
+
+  it('should discover icons returned from helpers and nested conditions', () => {
+    const fixtureDir = mkdtempSync(join(tmpdir(), 'promptclip-material-symbols-'));
+    const fixturePath = join(fixtureDir, 'Fixture.tsx');
+    writeFileSync(
+      fixturePath,
+      `
+        <span className="material-symbols-outlined">search</span>
+        <Action icon="upload" />
+        const nested = first ? 'folder' : second ? 'markdown' : 'draft';
+        function statusIcon(enabled: boolean) {
+          if (enabled) return 'check_circle';
+          return 'warning';
+        }
+      `
+    );
+
+    try {
+      const scannerPath = join(rootDir, 'scripts', 'subset_material_symbols.py');
+      const python = `
+import importlib.util
+import json
+import sys
+import types
+from pathlib import Path
+
+sys.dont_write_bytecode = True
+font_tools = types.ModuleType('fontTools')
+tt_lib = types.ModuleType('fontTools.ttLib')
+tt_lib.TTFont = object
+font_tools.ttLib = tt_lib
+sys.modules['fontTools'] = font_tools
+sys.modules['fontTools.ttLib'] = tt_lib
+
+spec = importlib.util.spec_from_file_location('subset_material_symbols', sys.argv[1])
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+print(json.dumps(module.scan_source_icons(Path(sys.argv[2]))))
+`;
+      const output = execFileSync('python3', ['-c', python, scannerPath, fixtureDir], {
+        encoding: 'utf8',
+      });
+
+      expect(JSON.parse(output)).toEqual([
+        'check_circle',
+        'draft',
+        'folder',
+        'markdown',
+        'search',
+        'upload',
+        'warning',
+      ]);
+    } finally {
+      rmSync(fixtureDir, { recursive: true, force: true });
+    }
+  });
+
+  it('should include every skill management icon in the generated subset', () => {
+    const glyphs = new Set(
+      readFileSync(join(rootDir, 'scripts', 'icon-glyphs.txt'), 'utf8')
+        .split('\n')
+        .filter(Boolean)
+    );
+    const skillIcons = [
+      'extension',
+      'folder_zip',
+      'markdown',
+      'settings',
+      'upload',
+      'warning',
+    ];
+
+    expect(skillIcons.filter((icon) => !glyphs.has(icon))).toEqual([]);
   });
 });

@@ -1,7 +1,7 @@
 <h1 align="center">PromptClip</h1>
 
 <p align="center">
-  <strong>本地优先的 AI 提示词管理工具</strong><br>
+  <strong>本地优先的 AI 提示词与Agent Skills 管理工具</strong><br>
   数据完全存储在本地，无需注册、无需云端、无需数据库<br>
   跨平台支持：桌面端支持web、macos、linux、windows，移动端支持iOS。
 </p>
@@ -45,6 +45,7 @@
 - **两级加载** — 首屏只读文件头（frontmatter + 预览片段）保证可交互，正文由 `requestIdleCallback` 后台分批补全
 - **虚拟化列表** — 5K 级别工作区下用 `@tanstack/react-virtual` 渲染可视行，DOM 节点数与列表总长无关
 - **桌面端** — 基于 Tauri 2 的原生桌面应用，支持系统托盘、单实例运行、关闭即隐藏
+- **Agent Skills 管理（仅桌面端）** — 在 `~/.prompt-clip/skills` 统一维护 Skills，并通过软链接或文件复制同步到 Claude Code、Codex、Cursor、OpenCode 和 `~/.agents/skills`
 - **全局快速搜索** — 系统级快捷键（默认 `Cmd+Shift+Space` / `Ctrl+Shift+Space`）在任意应用中呼出独立搜索浮窗，选中后可一键粘贴到当前光标处，或在主窗口打开详情；快捷键可在设置中自定义录入
 - **WebDAV 备份与恢复** — 桌面端可将整个工作区增量备份到专用 WebDAV 目录（HTTPS + 系统钥匙串存密码），基于 SHA-256 清单只同步变化的文件；支持整库增量恢复与配置冲突处理
 - **使用统计（Web 端，可选）** — Web 版默认开启 Google Analytics 4 匿名使用统计（页面访问与功能计数，IP 匿名化，不收集 Prompt 内容），可在「设置 → 通用」关闭；桌面端不接入任何分析
@@ -258,6 +259,19 @@ npm run tauri:build
 - 输入关键词检索 Prompt，选中后回车将正文**粘贴到当前光标位置**（活动应用内），或选择「在主应用中打开详情」跳回主窗口
 - 搜索数据由主窗口提供，浮窗本身不持有业务状态；macOS 自动粘贴需要授予无障碍权限
 - 在「设置 → 全局搜索框」可开关功能、录入自定义快捷键或恢复默认
+
+### Agent Skills 管理（桌面端）
+
+- 在桌面入口页选择「管理 Skills」，或从 Prompt 顶栏切换；Web 与 iOS/Android 不提供该入口
+- Hub 固定为 `~/.prompt-clip/skills`，一个一级目录对应一个 Skill，入口文件必须为 `SKILL.md`
+- 可扫描 Agent 工具及已有 Skills，发现同名不同版本时由用户选择保留 PromptClip 版本或导入外部版本
+- 支持扫描 Agent Skill 目录中的一级软链接；断链或不合法条目会显示来源和原始路径，点击路径可在
+  系统文件管理器中定位
+- 每个 Skill 可独立为已安装工具启用/停用；设置中可配置全局默认同步方式及单工具覆盖
+- 当目标存在同名外部目录或错误链接时，卡片显示「存在冲突」；点击后确认即可使用 PromptClip
+  版本强制覆盖并接管。替换过程带事务备份，失败会恢复原目标
+- 软链接模式在 Windows 上可能需要管理员权限；无法使用时可切换为文件复制
+- 详情页支持管理 Skill 内文件；`SKILL.md` 不允许删除或重命名，整个源 Skill 本期不提供删除与回收站
 
 ### WebDAV 备份与恢复（桌面端）
 

@@ -39,3 +39,4 @@ IMPLEMENTATION_PLAN.md
 # Font subsetting tooling (Material Symbols subset script)
 scripts/.venv-fonttools/
 scripts/.icon-glyph-names.txt
+scripts/.material-symbols-outlined.full.woff2

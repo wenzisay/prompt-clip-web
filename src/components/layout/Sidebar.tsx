@@ -3,14 +3,23 @@
  */
 
 import { TagTree } from '@/components/tag/TagTree';
+import { getAgentToolIcon } from '@/constants';
 import { useTranslation } from '@/i18n';
+import { isTauriRuntime } from '@/services/fileRepository/tauriFileRepository';
 import { useFileStore } from '@/stores/fileStore';
 import { usePromptStore } from '@/stores/promptStore';
+import { useSkillStore } from '@/stores/skillStore';
 import { useTagStore } from '@/stores/tagStore';
-import { useUIStore } from '@/stores/uiStore';
+import { useUIStore, type AppSection } from '@/stores/uiStore';
 import { useState } from 'react';
 
-export function Sidebar() {
+export interface SidebarProps {
+  onSkillSettings?: () => void;
+  /** 切换 Prompts/Skills 的处理器；传入时用于在离开前做未保存修改确认 */
+  onSelectSection?: (section: AppSection) => void;
+}
+
+export function Sidebar({ onSkillSettings, onSelectSection }: SidebarProps) {
   // const { tagTree } = useTagStore();
   const { t } = useTranslation();
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -18,7 +27,13 @@ export function Sidebar() {
   const { workspaceName, clearWorkspace } = useFileStore();
   const { clearPrompts } = usePromptStore();
   const { clearTags } = useTagStore();
-  const { openModal } = useUIStore();
+  const { appSection, openModal, setAppSection } = useUIStore();
+  const { tools: agentTools, filter: skillFilter, setAgentToolFilter } = useSkillStore();
+  const isDesktop = isTauriRuntime();
+  const isPromptSection = appSection === 'prompts';
+  const installedAgentTools = agentTools.filter((tool) => tool.installed);
+  // 切换 section：外部传入处理器时用之（用于未保存修改确认），否则直接切换
+  const selectSection = onSelectSection ?? setAppSection;
 
   const handleSwitchDirectory = () => {
     clearPrompts();
@@ -56,8 +71,29 @@ export function Sidebar() {
         </button>
       </div>
 
+      {isDesktop && (
+        <nav className="border-b border-border px-3 py-3" aria-label="PromptClip">
+          <SectionButton
+            active={appSection === 'prompts'}
+            collapsed={isCollapsed}
+            icon="description"
+            label={t.app.prompts}
+            section="prompts"
+            onSelect={selectSection}
+          />
+          <SectionButton
+            active={appSection === 'skills'}
+            collapsed={isCollapsed}
+            icon="extension"
+            label={t.app.skills}
+            section="skills"
+            onSelect={selectSection}
+          />
+        </nav>
+      )}
+
       {/* 标签树 */}
-      {!isCollapsed && (
+      {!isCollapsed && isPromptSection && (
         <div className="flex-1 overflow-y-auto">
           <div className="px-3 py-3">
             <h2 className="text-xs font-semibold text-muted uppercase tracking-wider mb-2 px-2">
@@ -68,12 +104,61 @@ export function Sidebar() {
         </div>
       )}
 
+      {/* Skills 区：Agents 列表 */}
+      {!isCollapsed && !isPromptSection && (
+        <div className="flex-1 overflow-y-auto">
+          <div className="px-3 py-3">
+            <h2 className="text-xs font-semibold text-muted uppercase tracking-wider mb-2 px-2">
+              {t.skills.agents}
+            </h2>
+            {installedAgentTools.length === 0 ? (
+              <p className="px-2 py-2 text-xs text-muted">{t.skills.noAgents}</p>
+            ) : (
+              <ul className="flex flex-col gap-0.5">
+                {installedAgentTools.map((tool) => {
+                  const isActive = skillFilter.agentToolId === tool.id;
+                  return (
+                    <li key={tool.id}>
+                      <button
+                        type="button"
+                        aria-pressed={isActive}
+                        onClick={() => setAgentToolFilter(tool.id)}
+                        title={tool.name}
+                        className={`w-full flex items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors ${
+                          isActive
+                            ? 'bg-accent-soft text-accent'
+                            : 'text-fg hover:bg-surface-dim'
+                        }`}
+                      >
+                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-accent-soft p-1">
+                          <img
+                            src={getAgentToolIcon(tool.iconId)}
+                            alt=""
+                            className="h-full w-full object-contain"
+                          />
+                        </span>
+                        <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                          {tool.name}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
+
+      {isCollapsed && <div className="flex-1" />}
+
       {/* 回收站入口 */}
-      {!isCollapsed && (
+      {!isCollapsed && isPromptSection && (
         <div className="px-3 py-2 border-t border-border">
           <button
             type="button"
             onClick={() => openModal('recycleBin')}
+            aria-label={t.recycle.title}
             className="w-full flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-surface-dim transition-colors text-left"
           >
             <span className="material-symbols-outlined text-muted">delete</span>
@@ -83,7 +168,7 @@ export function Sidebar() {
       )}
 
       {/* 底部状态 */}
-      {!isCollapsed && (
+      {!isCollapsed && isPromptSection && (
         <div className="px-3 py-3 border-t border-border">
           <div className="rounded-lg border border-border bg-surface-dim px-3 py-2">
             <div className="flex items-center justify-between gap-2">
@@ -145,6 +230,61 @@ export function Sidebar() {
           </div>
         </div>
       )}
+
+      {!isPromptSection && (
+        <div className="border-t border-border p-3">
+          <button
+            type="button"
+            onClick={onSkillSettings}
+            className={`flex h-10 w-full items-center rounded-lg text-muted transition-colors hover:bg-surface-dim hover:text-fg ${
+              isCollapsed ? 'justify-center' : 'gap-3 px-3'
+            }`}
+            aria-label={t.skills.settingsTitle}
+            title={t.skills.settingsTitle}
+          >
+            <span className="material-symbols-outlined text-[20px]">settings</span>
+            {!isCollapsed && <span className="text-sm font-medium">{t.skills.settingsTitle}</span>}
+          </button>
+        </div>
+      )}
     </aside>
+  );
+}
+
+interface SectionButtonProps {
+  active: boolean;
+  collapsed: boolean;
+  icon: string;
+  label: string;
+  section: AppSection;
+  onSelect: (section: AppSection) => void;
+}
+
+function SectionButton({
+  active,
+  collapsed,
+  icon,
+  label,
+  section,
+  onSelect,
+}: SectionButtonProps) {
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(section)}
+      className={`mb-1 flex h-10 w-full items-center rounded-lg transition-colors last:mb-0 ${
+        collapsed ? 'justify-center' : 'gap-3 px-3'
+      } ${
+        active
+          ? 'bg-accent-soft font-medium text-accent'
+          : 'text-muted hover:bg-surface-dim hover:text-fg'
+      }`}
+      aria-current={active ? 'page' : undefined}
+      aria-label={label}
+      title={collapsed ? label : undefined}
+    >
+      <span className="material-symbols-outlined text-[21px]">{icon}</span>
+      {!collapsed && <span className="text-sm">{label}</span>}
+    </button>
   );
 }

@@ -106,6 +106,33 @@ export const useXxxStore = create<XxxState>()((set, get) => ({ ... }));
 - 自定义主题 token 定义在 `tailwind.config.js`（颜色: `accent`, `secondary`, `tertiary`, `surface`, `fg`, `muted` 等）
 - 图标使用 Material Symbols Outlined（字体文件已内置在 `public/fonts/`）
 
+#### Material Symbols 字体子集化
+
+`public/fonts/material-symbols-outlined.woff2` 是按源码引用生成的子集字体，不是完整字体。
+缺少图标 ligature 时，界面会显示图标名的首字母，例如 `bolt` 显示为 `B`、
+`warning` 显示为 `W`。
+
+- 新增、重命名或修改 Material Symbols 图标后，必须运行
+  `bash scripts/subset-material-symbols.sh`，并提交更新后的
+  `scripts/icon-glyphs.txt` 和 `public/fonts/material-symbols-outlined.woff2`。
+- 图标可能直接写在 `<span>` 中，也可能来自 `icon` prop、对象字段、helper 返回值或
+  嵌套条件表达式。若引入新的动态图标写法，必须先更新
+  `scripts/subset_material_symbols.py` 的扫描规则和 `src/iconFontAssets.test.ts` 的回归测试。
+- 禁止手工维护 `scripts/icon-glyphs.txt`，也禁止直接从当前 10–20KB 的子集字体继续裁剪；
+  生成脚本会使用缓存的完整字体，并在需要时从 Git 历史恢复完整源字体。
+- 字体生成后必须验证：
+
+```bash
+npm run test -- --run src/iconFontAssets.test.ts
+scripts/.venv-fonttools/bin/python scripts/verify-subset.py \
+  public/fonts/material-symbols-outlined.woff2 scripts/icon-glyphs.txt
+npm run build
+```
+
+- 验证输出必须确认所有清单图标的 ligature 完整；不能只检查字体文件存在或体积足够小。
+- 若页面出现单个字母、错误符号或新旧页面图标表现不一致，优先检查字体子集清单、
+  生成时间和浏览器/Tauri 字体缓存，修复后完全重启应用。
+
 ### Barrel 文件
 
 每个目录都有 `index.ts` 做 re-export。新增模块时记得更新对应的 barrel 文件。
