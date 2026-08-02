@@ -1,7 +1,7 @@
 <h1 align="center">PromptClip</h1>
 
 <p align="center">
-  <strong>A local-first AI prompt manager</strong><br>
+  <strong>A local-first AI prompt and Agent Skills manager</strong><br>
   All data stays on your device — no sign-up, no cloud, no database<br>
   Cross-platform support: The desktop version supports Web, macOS, Linux, and Windows; the mobile version supports iOS.
 </p>
