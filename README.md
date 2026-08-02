@@ -75,6 +75,12 @@ History versions:
 Share card:
 ![Share card](docs/screenshot/bettershot_1781859201346.jpg)
 
+Skill manage:
+![Skill manager](docs/screenshot/Skill-Manage.jpg)
+
+Skill Edit:
+![Skill Edit](docs/screenshot/Skill-Details.jpg)
+
 iPhone / iPad App:
 ![ios](docs/screenshot/app.jpg)
 
