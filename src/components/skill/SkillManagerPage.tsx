@@ -38,6 +38,10 @@ export function SkillManagerPage() {
     rescanExternal,
     importExternalSelections,
     deleteSkill,
+    addCustomTool,
+    removeCustomTool,
+    setToolEnabledState,
+    reorderTools,
   } = useSkillStore();
   const [isQuickSwitcherOpen, setQuickSwitcherOpen] = useState(false);
   const [isImportOpen, setImportOpen] = useState(false);
@@ -204,6 +208,65 @@ export function SkillManagerPage() {
     }
   };
 
+  // 切换某 Agent 工具的启用状态。settings 弹窗内逐项开关，无需关闭弹窗。
+  const toggleToolEnabled = async (toolId: string, enabled: boolean) => {
+    const ok = await setToolEnabledState(toolId, enabled);
+    if (!ok) {
+      setOperationError(true);
+      return;
+    }
+    // 同步刷新弹窗内的 settings 快照（disabledToolIds 已变）
+    try {
+      const initialization = await SkillService.initialize();
+      setSettings(initialization.settings);
+    } catch {
+      // 刷新快照失败不阻断，主状态已通过 store 更新
+    }
+  };
+
+  const handleAddCustomTool = async (name: string, skillsPath: string) => {
+    const ok = await addCustomTool(name, skillsPath);
+    if (!ok) {
+      setOperationError(true);
+      return ok;
+    }
+    try {
+      const initialization = await SkillService.initialize();
+      setSettings(initialization.settings);
+    } catch {
+      // 忽略快照刷新失败
+    }
+    return ok;
+  };
+
+  const handleRemoveCustomTool = async (toolId: string) => {
+    const ok = await removeCustomTool(toolId);
+    if (!ok) {
+      setOperationError(true);
+      return;
+    }
+    try {
+      const initialization = await SkillService.initialize();
+      setSettings(initialization.settings);
+    } catch {
+      // 忽略快照刷新失败
+    }
+  };
+
+  const handleReorderTools = async (toolOrder: string[]) => {
+    const ok = await reorderTools(toolOrder);
+    if (!ok) {
+      setOperationError(true);
+      return;
+    }
+    try {
+      const initialization = await SkillService.initialize();
+      setSettings(initialization.settings);
+    } catch {
+      // 忽略快照刷新失败
+    }
+  };
+
   // 切换 Prompts/Skills：在 skill 详情页有未保存修改时先弹确认框，确认后才真正切换
   const handleSelectSection = (section: AppSection) => {
     if (selectedSkillId && detailRef.current) {
@@ -299,6 +362,10 @@ export function SkillManagerPage() {
           onClose={() => setSettingsOpen(false)}
           onSave={(defaultMode, overrides) => void saveSettings(defaultMode, overrides)}
           onRevealStorage={() => void revealStorage()}
+          onToggleToolEnabled={(toolId, enabled) => void toggleToolEnabled(toolId, enabled)}
+          onAddCustomTool={(name, skillsPath) => handleAddCustomTool(name, skillsPath)}
+          onRemoveCustomTool={(toolId) => void handleRemoveCustomTool(toolId)}
+          onReorderTools={(toolOrder) => void handleReorderTools(toolOrder)}
         />
       )}
     </div>

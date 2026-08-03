@@ -1,10 +1,10 @@
 import { confirm } from '@tauri-apps/plugin-dialog';
 import { useEffect, useRef, useState } from 'react';
+import { AgentToolIcon, Tooltip } from '@/components/common';
 import type { AgentTool, SkillSummary, SkillToolState } from '@/types/skill';
-import { getAgentToolIcon } from '@/constants';
 import { useTranslation } from '@/i18n';
 import { useSkillStore } from '@/stores/skillStore';
-import { Tooltip } from '@/components/common';
+import { SkillAgentToolBar } from './SkillAgentToolBar';
 
 export interface SkillCardProps {
   skill: SkillSummary;
@@ -25,8 +25,9 @@ export function SkillCard({
   const toggleFavorite = useSkillStore((state) => state.toggleFavorite);
   const setError = useSkillStore((state) => state.setError);
   const setToolEnabled = useSkillStore((state) => state.setToolEnabled);
-  const installedTools = tools.filter((tool) => tool.installed);
+  const installedTools = tools.filter((tool) => tool.installed && tool.enabled);
   const [isMenuOpen, setMenuOpen] = useState(false);
+  const [isToolMenuOpen, setToolMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const openCard = () => onOpen?.(skill.id);
@@ -71,8 +72,8 @@ export function SkillCard({
 
   return (
     <article
-      className={`group flex min-h-[254px] cursor-pointer flex-col rounded-card border border-transparent bg-surface p-4 shadow-card transition-all hover:border-border hover:shadow-card-hover ${
-        isMenuOpen ? 'relative z-30' : ''
+      className={`group relative flex min-h-[254px] cursor-pointer flex-col rounded-card border border-transparent bg-surface p-4 shadow-card transition-all hover:border-border hover:shadow-card-hover ${
+        isMenuOpen || isToolMenuOpen ? 'z-30' : ''
       }`}
       onClick={openCard}
       onKeyDown={(event) => {
@@ -151,8 +152,11 @@ export function SkillCard({
         </div>
       </div>
 
-      <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-border pt-3">
-        {installedTools.map((tool) => {
+      <SkillAgentToolBar
+        tools={installedTools}
+        moreLabel={t.skills.moreTools}
+        onOpenChange={setToolMenuOpen}
+        renderTool={(tool, mode) => {
           const state = skill.toolStates[tool.id] ?? missingToolState(tool);
           const isConflict = state.status === 'conflict';
           const canToggle = !['pending', 'broken'].includes(state.status);
@@ -165,56 +169,87 @@ export function SkillCard({
                 ? t.skills.disableFor(tool.name)
                 : t.skills.enableFor(tool.name);
           const statusLabel = getStatusLabel(state.status, t.skills);
+          const handleClick = (event: React.MouseEvent) => {
+            event.stopPropagation();
+            if (!canToggle) return;
+            if (isConflict) {
+              void confirmForceOverwrite(tool, state);
+              return;
+            }
+            void setToolEnabled(skill.id, state.targetGroupId, !shouldDisable);
+          };
+
+          if (mode === 'menu') {
+            return (
+              <div
+                role="menuitem"
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-fg"
+              >
+                <button
+                  type="button"
+                  aria-label={`${label} · ${statusLabel}`}
+                  aria-pressed={state.status !== 'disabled'}
+                  disabled={!canToggle}
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-accent-soft p-1
+                    transition hover:bg-surface-dim disabled:cursor-not-allowed disabled:opacity-45"
+                  onClick={handleClick}
+                >
+                  <AgentToolIcon
+                    iconId={tool.iconId}
+                    className={`block h-full w-full object-contain transition ${
+                      state.status === 'disabled' ? 'grayscale' : ''
+                    }`}
+                  />
+                </button>
+                <span className="min-w-0 flex-1 truncate">{tool.name}</span>
+                <span className="shrink-0 text-xs text-muted">{statusLabel}</span>
+              </div>
+            );
+          }
 
           return (
-            <Tooltip
-              key={tool.id}
-              side="top"
-              content={
-                <>
-                  <span className="font-medium">{tool.name}</span>
-                  <span className="opacity-70"> · {statusLabel}</span>
-                </>
-              }
-            >
-              <button
-                type="button"
-                aria-label={`${label} · ${statusLabel}`}
-                disabled={!canToggle}
-                className="rounded-lg p-1 transition-colors hover:bg-surface-dim disabled:cursor-not-allowed"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  if (!canToggle) return;
-                  if (isConflict) {
-                    void confirmForceOverwrite(tool, state);
-                    return;
-                  }
-                  void setToolEnabled(skill.id, state.targetGroupId, !shouldDisable);
-                }}
+            <span className="inline-flex shrink-0">
+              <Tooltip
+                side="top"
+                content={
+                  <>
+                    <span className="font-medium">{tool.name}</span>
+                    <span className="opacity-70"> · {statusLabel}</span>
+                  </>
+                }
               >
-                <span className="relative inline-flex">
-                  <span
-                    className={`flex h-8 w-8 items-center justify-center rounded-lg bg-accent-soft p-1.5 transition ${
-                      state.status === 'disabled' ? 'grayscale opacity-45' : ''
-                    }`}
-                  >
-                    <img src={getAgentToolIcon(tool.iconId)} alt="" className="h-full w-full object-contain" />
-                  </span>
-                  {isConflict && (
+                <button
+                  type="button"
+                  aria-label={`${label} · ${statusLabel}`}
+                  disabled={!canToggle}
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg p-1
+                    transition-colors hover:bg-surface-dim disabled:cursor-not-allowed"
+                  onClick={handleClick}
+                >
+                  <span className="relative inline-flex">
                     <span
-                      className={`material-symbols-outlined absolute -bottom-1 -right-1 rounded-full
-                        bg-surface text-[14px] text-red-600`}
-                      aria-hidden="true"
+                      className={`flex h-8 w-8 items-center justify-center rounded-lg bg-accent-soft p-1.5 transition ${
+                        state.status === 'disabled' ? 'grayscale opacity-45' : ''
+                      }`}
                     >
-                      warning
+                      <AgentToolIcon iconId={tool.iconId} />
                     </span>
-                  )}
-                </span>
-              </button>
-            </Tooltip>
+                    {isConflict && (
+                      <span
+                        className={`material-symbols-outlined absolute -bottom-1 -right-1 rounded-full
+                          bg-surface text-[14px] text-red-600`}
+                        aria-hidden="true"
+                      >
+                        warning
+                      </span>
+                    )}
+                  </span>
+                </button>
+              </Tooltip>
+            </span>
           );
-        })}
-      </div>
+        }}
+      />
     </article>
   );
 }

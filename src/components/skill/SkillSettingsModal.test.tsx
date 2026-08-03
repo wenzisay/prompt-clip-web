@@ -8,6 +8,9 @@ const settings: SkillManagerSettings = {
   defaultSyncMode: 'symlink',
   toolOverrides: {},
   favorites: {},
+  customTools: [],
+  disabledToolIds: [],
+  toolOrder: [],
 };
 const tool: AgentTool = {
   id: 'codex',
@@ -21,6 +24,8 @@ const tool: AgentTool = {
   effectiveSyncMode: 'symlink',
   copyOnly: false,
   iconId: 'codex',
+  source: 'builtin',
+  enabled: true,
 };
 
 function renderModal(overrides: { onSave?: () => void; skillsPath?: string; onRevealStorage?: () => void } = {}) {

@@ -1,12 +1,14 @@
 use serde::Deserialize;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs::{self, File};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 #[cfg(windows)]
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use super::models::{SkillManagerError, SkillManagerSettings, SyncMode, ToolSyncMode};
+use super::models::{
+    CustomToolDefinition, SkillManagerError, SkillManagerSettings, SyncMode, ToolSyncMode,
+};
 use super::paths::SkillPaths;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -108,6 +110,14 @@ impl SkillConfigRepository {
 
 #[derive(Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
+struct RawCustomTool {
+    id: String,
+    name: String,
+    skills_path: PathBuf,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
 struct RawSettings {
     schema_version: Option<u32>,
     default_sync_mode: Option<String>,
@@ -115,6 +125,12 @@ struct RawSettings {
     tool_overrides: BTreeMap<String, String>,
     #[serde(default)]
     favorites: BTreeMap<String, String>,
+    #[serde(default)]
+    custom_tools: Vec<RawCustomTool>,
+    #[serde(default)]
+    disabled_tool_ids: BTreeSet<String>,
+    #[serde(default)]
+    tool_order: Vec<String>,
 }
 
 fn parse_settings(content: &str) -> Result<LoadedSettings, String> {
@@ -134,12 +150,38 @@ fn parse_settings(content: &str) -> Result<LoadedSettings, String> {
         warnings.push("unsupported_schema_version".to_string());
     }
 
+    // 自定义工具：逐项解析，跳过缺 id/name/skills_path 的非法项并记 warning。
+    // 重复 id / 空名 / 空路径在此剔除，保证后续检测逻辑拿到合法集合。
+    let mut custom_tools = Vec::new();
+    let mut seen_ids = BTreeSet::new();
+    for tool in raw.custom_tools {
+        if tool.id.trim().is_empty()
+            || tool.name.trim().is_empty()
+            || tool.skills_path.as_os_str().is_empty()
+        {
+            warnings.push("invalid_custom_tool_skipped".to_string());
+            continue;
+        }
+        if !seen_ids.insert(tool.id.clone()) {
+            warnings.push(format!("duplicate_custom_tool_id:{}", tool.id));
+            continue;
+        }
+        custom_tools.push(CustomToolDefinition {
+            id: tool.id,
+            name: tool.name,
+            skills_path: tool.skills_path,
+        });
+    }
+
     Ok(LoadedSettings {
         settings: SkillManagerSettings {
             schema_version: 1,
             default_sync_mode,
             tool_overrides,
             favorites: raw.favorites,
+            custom_tools,
+            disabled_tool_ids: raw.disabled_tool_ids,
+            tool_order: raw.tool_order,
         },
         warnings,
     })
@@ -252,5 +294,70 @@ mod tests {
             Some(&ToolSyncMode::Inherit)
         );
         assert_eq!(loaded.warnings.len(), 2);
+    }
+
+    #[test]
+    fn should_round_trip_custom_tools_and_disabled_ids() {
+        use crate::skills::models::CustomToolDefinition;
+        use std::path::PathBuf;
+
+        let temp = tempdir().expect("temp directory should be created");
+        let paths = SkillPaths::new(temp.path());
+        let repository = SkillConfigRepository::new(&paths);
+        let mut settings = repository
+            .load_or_create()
+            .expect("settings should initialize")
+            .settings;
+        settings.custom_tools.push(CustomToolDefinition {
+            id: "custom-mytool".to_string(),
+            name: "MyTool".to_string(),
+            skills_path: PathBuf::from("/home/u/.mytool/skills"),
+        });
+        settings.disabled_tool_ids.insert("codex".to_string());
+        settings.tool_order = vec!["codex".to_string(), "custom-mytool".to_string()];
+
+        repository.save(&settings).expect("settings should save");
+        let reloaded = repository.load_or_create().expect("settings should reload");
+
+        assert_eq!(reloaded.settings.custom_tools.len(), 1);
+        assert_eq!(reloaded.settings.custom_tools[0].id, "custom-mytool");
+        assert!(reloaded
+            .settings
+            .disabled_tool_ids
+            .contains("codex"));
+        assert_eq!(reloaded.settings.tool_order, settings.tool_order);
+    }
+
+    #[test]
+    fn should_skip_invalid_custom_tool_entries() {
+        let temp = tempdir().expect("temp directory should be created");
+        let paths = SkillPaths::new(temp.path());
+        paths.initialize().expect("hub should initialize");
+        fs::write(
+            paths.settings_file(),
+            r#"{
+              "schemaVersion": 1,
+              "defaultSyncMode": "symlink",
+              "toolOverrides": {},
+              "favorites": {},
+              "customTools": [
+                {"id": "custom-ok", "name": "Ok", "skillsPath": "/tmp/skills"},
+                {"id": "", "name": "NoId", "skillsPath": "/tmp/skills"},
+                {"id": "custom-ok", "name": "Dup", "skillsPath": "/tmp/skills"}
+              ],
+              "disabledToolIds": ["codex"]
+            }"#,
+        )
+        .expect("settings should be written");
+        let repository = SkillConfigRepository::new(&paths);
+
+        let loaded = repository.load_or_create().expect("settings should load");
+
+        assert_eq!(loaded.settings.custom_tools.len(), 1);
+        assert_eq!(loaded.settings.custom_tools[0].id, "custom-ok");
+        assert!(loaded
+            .settings
+            .disabled_tool_ids
+            .contains("codex"));
     }
 }

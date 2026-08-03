@@ -23,6 +23,8 @@ const tools: AgentTool[] = [
     effectiveSyncMode: 'copy',
     copyOnly: false,
     iconId: 'codex',
+    source: 'builtin',
+    enabled: true,
   },
   {
     id: 'cursor',
@@ -36,8 +38,18 @@ const tools: AgentTool[] = [
     effectiveSyncMode: 'copy',
     copyOnly: false,
     iconId: 'cursor',
+    source: 'builtin',
+    enabled: true,
   },
 ];
+
+const manyTools: AgentTool[] = Array.from({ length: 12 }, (_, index) => ({
+  ...tools[0],
+  id: `agent-${index}`,
+  name: `Agent ${index}`,
+  iconId: 'codex',
+  targetGroupId: `agent-group-${index}`,
+}));
 
 const skill: SkillSummary = {
   id: 'review-code',
@@ -178,6 +190,93 @@ describe('SkillCard', () => {
     fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
 
     expect(screen.getByRole('button', { name: 'Remove Skill from favorites' })).toBeTruthy();
+  });
+
+  it('keeps Agent tools on one row and exposes overflow through a more menu', () => {
+    render(<SkillCard skill={skill} tools={manyTools} />);
+
+    const toolbar = screen.getByTestId('skill-agent-tools');
+    expect(toolbar.className).toContain('flex-nowrap');
+    expect(screen.getByRole('button', { name: 'More tools' })).toBeTruthy();
+  });
+
+  it('keeps hidden tools actionable from the overflow menu', () => {
+    const setToolEnabled = vi.fn();
+    useSkillStore.setState({ setToolEnabled });
+    const manyToolStates = Object.fromEntries(
+      manyTools.map((tool) => [
+        tool.id,
+        {
+          toolId: tool.id,
+          targetGroupId: tool.targetGroupId,
+          status: 'disabled' as const,
+          actualMode: null,
+          message: null,
+        },
+      ])
+    );
+
+    render(
+      <SkillCard
+        skill={{ ...skill, toolStates: manyToolStates }}
+        tools={manyTools}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'More tools' }));
+
+    const menu = screen.getByRole('menu');
+    const hiddenTool = within(menu).getByRole('button', { name: /Enable for Agent 7/ });
+    fireEvent.click(hiddenTool);
+
+    expect(setToolEnabled).toHaveBeenCalledWith(
+      'review-code',
+      'agent-group-7',
+      true
+    );
+  });
+
+  it('keeps the overflow menu open after toggling a hidden tool', () => {
+    const setToolEnabled = vi.fn();
+    useSkillStore.setState({ setToolEnabled });
+    const manyToolStates = Object.fromEntries(
+      manyTools.map((tool) => [
+        tool.id,
+        {
+          toolId: tool.id,
+          targetGroupId: tool.targetGroupId,
+          status: 'disabled' as const,
+          actualMode: null,
+          message: null,
+        },
+      ])
+    );
+
+    render(
+      <SkillCard
+        skill={{ ...skill, toolStates: manyToolStates }}
+        tools={manyTools}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'More tools' }));
+
+    const hiddenTool = within(screen.getByRole('menu')).getByRole('button', {
+      name: /Enable for Agent 7/,
+    });
+    fireEvent.click(hiddenTool);
+
+    expect(setToolEnabled).toHaveBeenCalled();
+    // Menu must remain open so users can toggle multiple tools in one go.
+    expect(screen.getByRole('menu')).toBeTruthy();
+  });
+
+  it('opens the overflow menu when the more button is clicked', () => {
+    render(<SkillCard skill={skill} tools={manyTools} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'More tools' }));
+
+    expect(screen.getByRole('menu')).toBeTruthy();
   });
 
   it('increases the minimum card height by about one third', () => {

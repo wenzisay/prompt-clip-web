@@ -16,6 +16,8 @@ const codex: AgentTool = {
   effectiveSyncMode: 'copy',
   copyOnly: false,
   iconId: 'codex',
+  source: 'builtin',
+  enabled: true,
 };
 
 describe('SkillFilterTabs', () => {

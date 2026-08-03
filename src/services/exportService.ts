@@ -2,7 +2,6 @@
  * Prompt 导出服务
  */
 
-import JSZip from 'jszip';
 import type { Prompt } from '@/types/prompt';
 import { serializeMarkdown } from '@/utils/markdown';
 import { filenameFromTitle } from '@/utils/id';
@@ -41,6 +40,7 @@ export async function exportCSV(prompts: Prompt[]): Promise<boolean> {
 }
 
 export async function exportMDArchive(prompts: Prompt[]): Promise<boolean> {
+  const { default: JSZip } = await import('jszip');
   const zip = new JSZip();
   const usedFilenames = new Set<string>();
 
