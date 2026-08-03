@@ -8,11 +8,13 @@ import type {
   SkillSummary,
 } from '@/types/skill';
 import { useTranslation } from '@/i18n';
+import { Spinner } from '@/components/common';
 
 export interface SkillImportModalProps {
   isOpen: boolean;
   scan: ExternalScanResult | null;
   hubSkills: SkillSummary[];
+  isImporting?: boolean;
   onClose: () => void;
   onConfirm: (selections: ExternalImportSelection[]) => void;
   onRevealExternal: (targetGroupId: string, directoryName: string) => void;
@@ -27,6 +29,7 @@ export function SkillImportModal({
   isOpen,
   scan,
   hubSkills,
+  isImporting = false,
   onClose,
   onConfirm,
   onRevealExternal,
@@ -166,8 +169,9 @@ export function SkillImportModal({
           <button
             type="button"
             aria-label={t.skills.close}
-            onClick={onClose}
-            className="material-symbols-outlined rounded-lg p-1 text-muted hover:bg-surface-dim"
+            onClick={isImporting ? undefined : onClose}
+            disabled={isImporting}
+            className="material-symbols-outlined rounded-lg p-1 text-muted hover:bg-surface-dim disabled:cursor-not-allowed disabled:opacity-40"
           >
             close
           </button>
@@ -240,11 +244,22 @@ export function SkillImportModal({
         </div>
 
         <div className="flex justify-end gap-2 border-t border-border px-5 py-4">
-          <button type="button" onClick={onClose} className="rounded-lg px-4 py-2 text-sm text-muted hover:bg-surface-dim">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isImporting}
+            className="rounded-lg px-4 py-2 text-sm text-muted hover:bg-surface-dim disabled:cursor-not-allowed disabled:opacity-50"
+          >
             {t.skills.close}
           </button>
-          <button type="button" onClick={confirm} className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90">
-            {t.skills.confirmImport}
+          <button
+            type="button"
+            onClick={confirm}
+            disabled={isImporting}
+            className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isImporting && <Spinner size="sm" color="white" />}
+            {isImporting ? t.skills.importing : t.skills.confirmImport}
           </button>
         </div>
       </div>

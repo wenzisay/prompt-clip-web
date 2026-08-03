@@ -377,6 +377,7 @@ export const messages = {
       useExternal: '使用这个外部版本',
       skipImport: '跳过',
       confirmImport: '确认导入',
+      importing: '正在导入…',
       close: '关闭',
       sourceCount: (count: number) => `${count} 个来源`,
       invalidExternalEntries: (count: number) => `${count} 个外部 Skill 无法扫描`,
@@ -881,6 +882,7 @@ export const messages = {
       useExternal: '使用此外部版本',
       skipImport: '略過',
       confirmImport: '確認匯入',
+      importing: '正在匯入…',
       close: '關閉',
       sourceCount: (count: number) => `${count} 個來源`,
       invalidExternalEntries: (count: number) => `${count} 個外部 Skill 無法掃描`,
@@ -1399,6 +1401,7 @@ export const messages = {
       useExternal: 'Use this external version',
       skipImport: 'Skip',
       confirmImport: 'Confirm import',
+      importing: 'Importing…',
       close: 'Close',
       sourceCount: (count: number) => `${count} sources`,
       invalidExternalEntries: (count: number) =>
@@ -1921,6 +1924,7 @@ export const messages = {
       useExternal: 'この外部バージョンを使用',
       skipImport: 'スキップ',
       confirmImport: '読み込みを確定',
+      importing: '読み込み中…',
       close: '閉じる',
       sourceCount: (count: number) => `${count} 件のソース`,
       invalidExternalEntries: (count: number) =>

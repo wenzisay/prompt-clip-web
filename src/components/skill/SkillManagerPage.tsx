@@ -43,6 +43,7 @@ export function SkillManagerPage() {
   const [isImportOpen, setImportOpen] = useState(false);
   const [isCreateOpen, setCreateOpen] = useState(false);
   const [isSubmitting, setSubmitting] = useState(false);
+  const [isImporting, setImporting] = useState(false);
   const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null);
   /** 详情页 ref：用于在切换 appSection 前请求「未保存修改确认」 */
   const detailRef = useRef<SkillDetailPageHandle>(null);
@@ -78,8 +79,15 @@ export function SkillManagerPage() {
   };
 
   const confirmImport = async (selections: ExternalImportSelection[]) => {
-    setImportOpen(false);
-    await importExternalSelections(selections);
+    // 保持弹窗打开并进入 loading，直到导入完成/失败——避免后台静默导入
+    // 让用户无法区分"还没完成"与"导入失败"。
+    setImporting(true);
+    try {
+      await importExternalSelections(selections);
+    } finally {
+      setImporting(false);
+      setImportOpen(false);
+    }
   };
 
   const revealExternal = async (targetGroupId: string, directoryName: string) => {
@@ -252,6 +260,7 @@ export function SkillManagerPage() {
         isOpen={isImportOpen}
         scan={externalScan}
         hubSkills={skills}
+        isImporting={isImporting}
         onClose={() => setImportOpen(false)}
         onConfirm={(selections) => void confirmImport(selections)}
         onRevealExternal={(targetGroupId, directoryName) =>
