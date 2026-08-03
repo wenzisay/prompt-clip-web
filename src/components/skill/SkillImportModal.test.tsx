@@ -323,4 +323,27 @@ describe('SkillImportModal', () => {
     ).toBeTruthy();
     expect(screen.queryByText('some_unknown_code')).toBeNull();
   });
+
+  it('disables close and confirm while importing', () => {
+    render(
+      <SkillImportModal
+        isOpen
+        scan={scan}
+        hubSkills={[]}
+        isImporting
+        onClose={vi.fn()}
+        onConfirm={vi.fn()}
+        onRevealExternal={vi.fn()}
+      />
+    );
+
+    const confirmButton = screen.getByRole('button', { name: /Importing/ });
+    expect((confirmButton as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText('Importing…')).toBeTruthy();
+
+    const closeButtons = screen.getAllByRole('button', { name: 'Close' });
+    for (const button of closeButtons) {
+      expect((button as HTMLButtonElement).disabled).toBe(true);
+    }
+  });
 });
