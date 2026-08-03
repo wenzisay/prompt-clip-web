@@ -17,6 +17,14 @@ export interface SkillManagerError {
   params: Record<string, string>;
 }
 
+export type ToolSource = 'builtin' | 'custom';
+
+export interface CustomToolDefinition {
+  id: string;
+  name: string;
+  skillsPath: string;
+}
+
 export interface AgentTool {
   id: string;
   name: string;
@@ -29,6 +37,9 @@ export interface AgentTool {
   effectiveSyncMode: SyncMode;
   copyOnly: boolean;
   iconId: string;
+  source: ToolSource;
+  /** 是否启用：被用户关闭的工具不参与同步、不出现在卡片工具栏与侧边栏。 */
+  enabled: boolean;
 }
 
 export interface TargetState {
@@ -62,6 +73,10 @@ export interface SkillManagerSettings {
   defaultSyncMode: SyncMode;
   toolOverrides: Record<string, ToolSyncMode>;
   favorites: Record<string, string>;
+  customTools: CustomToolDefinition[];
+  disabledToolIds: string[];
+  /** 用户自定义的工具 id 顺序（builtin + custom 全局统一）。空数组表示用默认顺序。 */
+  toolOrder: string[];
 }
 
 export interface SkillManagerInitialization {

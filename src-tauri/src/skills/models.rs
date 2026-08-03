@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::path::PathBuf;
 
@@ -35,6 +35,24 @@ pub enum ActualSyncMode {
     Symlink,
     Junction,
     Copy,
+}
+
+/// 工具来源：内置（编译期常量）或自定义（用户在设置中新增）。
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum ToolSource {
+    Builtin,
+    Custom,
+}
+
+/// 用户自定义工具的持久化定义。
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct CustomToolDefinition {
+    pub id: String,
+    pub name: String,
+    /// 用户直接指定的 skills 目录绝对路径。
+    pub skills_path: PathBuf,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
@@ -93,6 +111,9 @@ pub struct AgentTool {
     pub effective_sync_mode: SyncMode,
     pub copy_only: bool,
     pub icon_id: String,
+    pub source: ToolSource,
+    /// 是否启用：被用户关闭的工具不参与同步、不出现在卡片工具栏与侧边栏。
+    pub enabled: bool,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
@@ -243,6 +264,15 @@ pub struct SkillManagerSettings {
     pub default_sync_mode: SyncMode,
     pub tool_overrides: BTreeMap<String, ToolSyncMode>,
     pub favorites: BTreeMap<String, String>,
+    #[serde(default)]
+    pub custom_tools: Vec<CustomToolDefinition>,
+    /// 被用户手动关闭的工具 id（含 builtin 与 custom）。
+    #[serde(default)]
+    pub disabled_tool_ids: BTreeSet<String>,
+    /// 用户自定义的工具 id 顺序（builtin + custom 全局统一）。
+    /// 空数组表示使用 registry/custom 原始顺序（默认行为）。
+    #[serde(default)]
+    pub tool_order: Vec<String>,
 }
 
 impl Default for SkillManagerSettings {
@@ -252,6 +282,9 @@ impl Default for SkillManagerSettings {
             default_sync_mode: SyncMode::Symlink,
             tool_overrides: BTreeMap::new(),
             favorites: BTreeMap::new(),
+            custom_tools: Vec::new(),
+            disabled_tool_ids: BTreeSet::new(),
+            tool_order: Vec::new(),
         }
     }
 }
@@ -287,8 +320,11 @@ impl std::error::Error for SkillManagerError {}
 
 #[cfg(test)]
 mod tests {
-    use super::{SkillManagerError, SkillManagerSettings, SyncMode, ToolSyncMode};
+    use super::{
+        CustomToolDefinition, SkillManagerError, SkillManagerSettings, SyncMode, ToolSyncMode,
+    };
     use serde_json::json;
+    use std::path::PathBuf;
 
     #[test]
     fn should_default_to_symlink_without_tool_overrides() {
@@ -297,6 +333,9 @@ mod tests {
         assert_eq!(settings.default_sync_mode, SyncMode::Symlink);
         assert!(settings.tool_overrides.is_empty());
         assert!(settings.favorites.is_empty());
+        assert!(settings.custom_tools.is_empty());
+        assert!(settings.disabled_tool_ids.is_empty());
+        assert!(settings.tool_order.is_empty());
     }
 
     #[test]
@@ -312,9 +351,30 @@ mod tests {
                 "schemaVersion": 1,
                 "defaultSyncMode": "symlink",
                 "toolOverrides": {"codex": "copy"},
-                "favorites": {}
+                "favorites": {},
+                "customTools": [],
+                "disabledToolIds": [],
+                "toolOrder": []
             })
         );
+    }
+
+    #[test]
+    fn should_round_trip_custom_tools_and_disabled_ids() {
+        let mut settings = SkillManagerSettings::default();
+        settings.custom_tools.push(CustomToolDefinition {
+            id: "custom-mytool".to_string(),
+            name: "MyTool".to_string(),
+            skills_path: PathBuf::from("/home/u/.mytool/skills"),
+        });
+        settings.disabled_tool_ids.insert("codex".to_string());
+        settings.tool_order = vec!["codex".to_string(), "custom-mytool".to_string()];
+
+        let value = serde_json::to_value(&settings).expect("settings should serialize");
+        let restored: SkillManagerSettings =
+            serde_json::from_value(value).expect("settings should deserialize");
+
+        assert_eq!(restored, settings);
     }
 
     #[test]

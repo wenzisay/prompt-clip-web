@@ -5,6 +5,9 @@
 export { Button } from './Button';
 export type { ButtonProps, ButtonVariant, ButtonSize } from './Button';
 
+export { AgentToolIcon } from './AgentToolIcon';
+export type { AgentToolIconProps } from './AgentToolIcon';
+
 export { IconButton } from './IconButton';
 export type { IconButtonProps, IconButtonSize } from './IconButton';
 

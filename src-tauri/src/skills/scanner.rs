@@ -359,7 +359,7 @@ fn io_error(operation: &str, error: std::io::Error) -> SkillManagerError {
 #[cfg(test)]
 mod tests {
     use super::{compute_skill_hash, scan_external_skills, scan_hub};
-    use crate::skills::models::{AgentTool, SyncMode, ToolSyncMode};
+    use crate::skills::models::{AgentTool, SyncMode, ToolSource, ToolSyncMode};
     use std::fs;
     use std::path::Path;
     use tempfile::tempdir;
@@ -387,6 +387,8 @@ mod tests {
             effective_sync_mode: SyncMode::Copy,
             copy_only: false,
             icon_id: id.to_string(),
+            source: ToolSource::Builtin,
+            enabled: true,
         }
     }
 

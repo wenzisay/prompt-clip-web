@@ -28,6 +28,8 @@ const codex: AgentTool = {
   effectiveSyncMode: 'copy',
   copyOnly: false,
   iconId: 'codex',
+  source: 'builtin',
+  enabled: true,
 };
 
 function skill(id: string, favoritedAt: string | null = null): SkillSummary {

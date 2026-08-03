@@ -3,7 +3,7 @@
  */
 
 import { TagTree } from '@/components/tag/TagTree';
-import { getAgentToolIcon } from '@/constants';
+import { AgentToolIcon } from '@/components/common';
 import { useTranslation } from '@/i18n';
 import { isTauriRuntime } from '@/services/fileRepository/tauriFileRepository';
 import { useFileStore } from '@/stores/fileStore';
@@ -31,7 +31,9 @@ export function Sidebar({ onSkillSettings, onSelectSection }: SidebarProps) {
   const { tools: agentTools, filter: skillFilter, setAgentToolFilter } = useSkillStore();
   const isDesktop = isTauriRuntime();
   const isPromptSection = appSection === 'prompts';
-  const installedAgentTools = agentTools.filter((tool) => tool.installed);
+  const installedAgentTools = agentTools.filter(
+    (tool) => tool.installed && tool.enabled
+  );
   // 切换 section：外部传入处理器时用之（用于未保存修改确认），否则直接切换
   const selectSection = onSelectSection ?? setAppSection;
 
@@ -131,11 +133,7 @@ export function Sidebar({ onSkillSettings, onSelectSection }: SidebarProps) {
                         }`}
                       >
                         <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-accent-soft p-1">
-                          <img
-                            src={getAgentToolIcon(tool.iconId)}
-                            alt=""
-                            className="h-full w-full object-contain"
-                          />
+                          <AgentToolIcon iconId={tool.iconId} />
                         </span>
                         <span className="min-w-0 flex-1 truncate text-sm font-medium">
                           {tool.name}

@@ -94,6 +94,8 @@ describe('Sidebar Skills agents list', () => {
     effectiveSyncMode: 'copy',
     copyOnly: false,
     iconId: 'codex',
+    source: 'builtin',
+    enabled: true,
   };
   const cursor: AgentTool = { ...codex, id: 'cursor', name: 'Cursor', iconId: 'cursor' };
   const notInstalled: AgentTool = { ...codex, id: 'windsurf', name: 'Windsurf', installed: false };

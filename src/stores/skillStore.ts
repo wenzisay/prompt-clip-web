@@ -46,6 +46,10 @@ interface SkillState {
     enabled: boolean,
     force?: boolean
   ) => Promise<void>;
+  addCustomTool: (name: string, skillsPath: string) => Promise<boolean>;
+  removeCustomTool: (toolId: string) => Promise<boolean>;
+  setToolEnabledState: (toolId: string, enabled: boolean) => Promise<boolean>;
+  reorderTools: (toolOrder: string[]) => Promise<boolean>;
   reset: () => void;
   applyFilter: () => void;
 }
@@ -233,6 +237,66 @@ export const useSkillStore = create<SkillState>()((set, get) => ({
     }
   },
 
+  addCustomTool: async (name, skillsPath) => {
+    set({ error: null });
+    try {
+      const response = await SkillService.addCustomTool(name, skillsPath);
+      applyScanResponse(set, response);
+      get().applyFilter();
+      return true;
+    } catch (error) {
+      set({ error: normalizeError(error) });
+      return false;
+    }
+  },
+
+  removeCustomTool: async (toolId) => {
+    set({ error: null });
+    try {
+      const response = await SkillService.removeCustomTool(toolId);
+      // 删除工具后，若当前 Agent 筛选指向被删工具，清除筛选避免空列表
+      if (get().filter.agentToolId === toolId) {
+        set((state) => ({ filter: { ...state.filter, agentToolId: null } }));
+      }
+      applyScanResponse(set, response);
+      get().applyFilter();
+      return true;
+    } catch (error) {
+      set({ error: normalizeError(error) });
+      return false;
+    }
+  },
+
+  setToolEnabledState: async (toolId, enabled) => {
+    set({ error: null });
+    try {
+      const response = await SkillService.setToolEnabledState(toolId, enabled);
+      // 关闭的 Agent 若正作为筛选条件，清除筛选（其 skill 状态已从 tool_states 移除）
+      if (!enabled && get().filter.agentToolId === toolId) {
+        set((state) => ({ filter: { ...state.filter, agentToolId: null } }));
+      }
+      applyScanResponse(set, response);
+      get().applyFilter();
+      return true;
+    } catch (error) {
+      set({ error: normalizeError(error) });
+      return false;
+    }
+  },
+
+  reorderTools: async (toolOrder) => {
+    set({ error: null });
+    try {
+      const response = await SkillService.reorderTools(toolOrder);
+      applyScanResponse(set, response);
+      get().applyFilter();
+      return true;
+    } catch (error) {
+      set({ error: normalizeError(error) });
+      return false;
+    }
+  },
+
   reset: () => set({ ...INITIAL_STATE, filter: { ...INITIAL_FILTER } }),
 
   applyFilter: () => {
@@ -252,6 +316,24 @@ export const useSkillStore = create<SkillState>()((set, get) => ({
     set({ filteredSkills });
   },
 }));
+
+/** 将一次 skill_scan 返回的快照写回 store。供 add/remove/set-enabled 等 IPC 复用。 */
+function applyScanResponse(
+  set: (
+    partial:
+      | Partial<SkillState>
+      | ((state: SkillState) => Partial<SkillState>)
+  ) => void,
+  response: SkillScanResponse
+): void {
+  set({
+    skillsPath: response.skillsPath,
+    skills: response.skills,
+    tools: response.tools,
+    invalidEntries: response.invalidEntries,
+    scanErrors: response.errors,
+  });
+}
 
 function updateTargetGroup(
   skills: SkillSummary[],

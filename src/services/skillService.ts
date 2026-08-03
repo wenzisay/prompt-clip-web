@@ -236,6 +236,33 @@ export async function updateSkillSettings(
   return invoke('skill_update_settings', { defaultSyncMode, toolOverrides });
 }
 
+/** 新增一个自定义 Agent 工具，返回最新 SkillScanResponse。 */
+export async function addCustomTool(name: string, skillsPath: string): Promise<SkillScanResponse> {
+  requireDesktop();
+  return invoke('skill_add_custom_tool', { name, skillsPath });
+}
+
+/** 删除一个自定义 Agent 工具（仅 custom），返回最新 SkillScanResponse。 */
+export async function removeCustomTool(toolId: string): Promise<SkillScanResponse> {
+  requireDesktop();
+  return invoke('skill_remove_custom_tool', { toolId });
+}
+
+/** 设置某个 Agent 工具（builtin/custom）的启用状态，返回最新 SkillScanResponse。 */
+export async function setToolEnabledState(
+  toolId: string,
+  enabled: boolean
+): Promise<SkillScanResponse> {
+  requireDesktop();
+  return invoke('skill_set_tool_enabled_state', { toolId, enabled });
+}
+
+/** 更新工具的自定义顺序，返回最新 SkillScanResponse。 */
+export async function reorderTools(toolOrder: string[]): Promise<SkillScanResponse> {
+  requireDesktop();
+  return invoke('skill_reorder_tools', { toolOrder });
+}
+
 export const SkillService = {
   initialize: initializeSkillManager,
   scan: scanSkills,
@@ -262,4 +289,8 @@ export const SkillService = {
   deleteEntry: deleteSkillEntry,
   downloadFile: downloadSkillFile,
   updateSettings: updateSkillSettings,
+  addCustomTool,
+  removeCustomTool,
+  setToolEnabledState,
+  reorderTools,
 } as const;

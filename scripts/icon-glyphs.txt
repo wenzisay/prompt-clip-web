@@ -25,6 +25,7 @@ description
 devices
 download
 draft
+drag_indicator
 drive_file_rename_outline
 drive_folder_upload
 edit
@@ -39,7 +40,6 @@ folder_zip
 history
 image
 info
-integration_instructions
 ios_share
 keep_off
 lock

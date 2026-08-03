@@ -1,4 +1,4 @@
-import { getAgentToolIcon } from '@/constants';
+import { AgentToolIcon } from '@/components/common';
 import { useTranslation } from '@/i18n';
 import { useSkillStore } from '@/stores/skillStore';
 
@@ -28,11 +28,7 @@ export function SkillFilterTabs() {
           title={selectedAgent.name}
         >
           <span className="flex h-4 w-4 shrink-0 items-center justify-center">
-            <img
-              src={getAgentToolIcon(selectedAgent.iconId)}
-              alt=""
-              className="h-full w-full object-contain"
-            />
+            <AgentToolIcon iconId={selectedAgent.iconId} />
           </span>
           <span className="truncate">{selectedAgent.name}</span>
         </div>
