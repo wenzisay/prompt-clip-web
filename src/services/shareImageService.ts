@@ -1,6 +1,4 @@
-import { toBlob } from 'html-to-image';
 import type { Options } from 'html-to-image/lib/types';
-import html2canvas from 'html2canvas';
 import { SHARE_CONTENT_CHARACTER_LIMIT } from '@/constants/shareTemplates';
 import type { PromptAnnotation } from '@/types/annotation';
 
@@ -75,6 +73,7 @@ export async function renderShareNodeToBlob(node: HTMLElement): Promise<Blob> {
   await waitForNodeImages(node);
 
   try {
+    const { toBlob } = await import('html-to-image');
     const blob = await toBlob(node, getShareImageRenderOptions());
 
     if (blob) {
@@ -94,6 +93,7 @@ export async function renderShareNodeToBlob(node: HTMLElement): Promise<Blob> {
 }
 
 async function renderShareNodeWithCanvas(node: HTMLElement): Promise<Blob | null> {
+  const { default: html2canvas } = await import('html2canvas');
   const canvas = await html2canvas(node, {
     backgroundColor: '#ffffff',
     scale: 1,
