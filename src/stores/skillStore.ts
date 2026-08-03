@@ -7,6 +7,7 @@ import type {
   InvalidSkillEntry,
   SkillManagerError,
   SkillDeleteMode,
+  SkillScanResponse,
   SkillSummary,
 } from '@/types/skill';
 
@@ -103,20 +104,36 @@ export const useSkillStore = create<SkillState>()((set, get) => ({
 
   importExternalSelections: async (selections) => {
     const importErrors: SkillManagerError[] = [];
+    let response: SkillScanResponse | null = null;
     for (const selection of selections) {
       try {
-        await SkillService.importExternal(selection);
+        // 每次导入命令在 Rust 侧同步完成「写入 + 重新扫描 hub」并返回最新快照，
+        // 避免跨 IPC 重新读取在 Windows 上读到陈旧的目录枚举（首次导入尤甚）。
+        response = await SkillService.importExternal(selection);
       } catch (error) {
         importErrors.push(
           normalizeError(error, { skillId: selection.skillId })
         );
       }
     }
-    await get().load();
-    set((state) => ({
-      externalScan: null,
-      scanErrors: [...state.scanErrors, ...importErrors],
-    }));
+    if (response) {
+      set({
+        skillsPath: response.skillsPath,
+        skills: response.skills,
+        tools: response.tools,
+        invalidEntries: response.invalidEntries,
+        scanErrors: [...response.errors, ...importErrors],
+        externalScan: null,
+      });
+      get().applyFilter();
+    } else {
+      // 全部导入失败：仍刷新一次以保持状态一致，并合并错误
+      await get().load();
+      set((state) => ({
+        scanErrors: [...state.scanErrors, ...importErrors],
+        externalScan: null,
+      }));
+    }
   },
 
   setSearchQuery: (searchQuery) => {
