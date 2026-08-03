@@ -87,7 +87,7 @@ export async function forceEnableSkill(
 
 export async function importExternalSkill(
   options: ImportExternalSkillOptions
-): Promise<ImportOutcome> {
+): Promise<SkillScanResponse> {
   requireDesktop();
   return invoke('skill_import_external', { ...options });
 }

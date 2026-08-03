@@ -133,7 +133,7 @@ pub fn skill_import_external(
     content_hash: String,
     target_group_id: String,
     decision: ImportDecision,
-) -> Result<ImportOutcome, SkillManagerError> {
+) -> Result<SkillScanResponse, SkillManagerError> {
     let home_dir = home_directory()?;
     let initialization = initialize_at(&home_dir, &executable_directories())?;
     let scan = scan_external_skills(&initialization.tools)?;
@@ -160,7 +160,10 @@ pub fn skill_import_external(
         &skill_id,
         &content_hash,
         decision,
-    )
+    )?;
+    // 在同一命令内重新扫描 hub，保证写入后前端立即拿到一致状态
+    // （跨 IPC 重新读取在 Windows 上对刚创建的目录可能读到陈旧枚举）。
+    scan_at(&home_dir, &executable_directories())
 }
 
 #[tauri::command]

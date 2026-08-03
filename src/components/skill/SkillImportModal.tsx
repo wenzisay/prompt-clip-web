@@ -187,7 +187,7 @@ export function SkillImportModal({
                   >
                     <div className="flex flex-wrap gap-x-2">
                       <span className="font-medium">{entry.directoryName}</span>
-                      <span>{t.skills.externalScanError(entry.error.code)}</span>
+                      <span>{t.skills.skillScanError(entry.error.code, entry.error.params)}</span>
                     </div>
                     <div className="flex min-w-0 items-center gap-2 text-muted">
                       <span>{entry.source.toolIds.join(', ')}</span>

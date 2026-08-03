@@ -380,8 +380,40 @@ export const messages = {
       close: '关闭',
       sourceCount: (count: number) => `${count} 个来源`,
       invalidExternalEntries: (count: number) => `${count} 个外部 Skill 无法扫描`,
-      externalScanError: (code: string) =>
-        code === 'skill_external_link_invalid' ? '符号链接已断开或未指向文件夹' : code,
+      skillScanError: (code: string, params: Record<string, string>) => {
+        switch (code) {
+          case 'invalid_skill_id':
+            return `目录名「${params.skillId ?? ''}」不是合法的 Skill 名称（仅允许小写字母、数字、单个连字符或冒号，最长 64 个字符）。`;
+          case 'skill_name_mismatch':
+            return `元数据 name「${params.metadataName ?? ''}」与目录名「${params.directoryName ?? ''}」不一致。`;
+          case 'skill_markdown_missing':
+            return '缺少 Skill 入口文件（SKILL.md）。';
+          case 'skill_markdown_invalid_type':
+            return 'Skill 入口文件必须是普通文件，不能是链接。';
+          case 'skill_source_invalid':
+            return '该 Skill 目录既不是文件夹，也不是有效的链接。';
+          case 'skill_external_link_invalid':
+            return '符号链接已断开或未指向文件夹。';
+          case 'skill_frontmatter_missing':
+            return 'Skill 文件缺少 YAML frontmatter（必须以「---」开头）。';
+          case 'skill_frontmatter_unclosed':
+            return 'YAML frontmatter 未闭合（缺少结尾的「---」）。';
+          case 'skill_frontmatter_invalid':
+            return 'YAML frontmatter 解析失败（必须包含 name 和 description）。';
+          case 'skill_description_empty':
+            return 'Skill 描述为空。';
+          case 'skill_content_symlink':
+            return `Skill 内部包含符号链接（「${params.path ?? ''}」），不被允许。`;
+          case 'skill_content_special_file':
+            return `Skill 内部包含不支持的特殊文件（「${params.path ?? ''}」）。`;
+          case 'skill_io_error':
+            return `执行 ${params.operation ?? ''} 时发生文件系统错误：${params.message ?? ''}`;
+          case 'skill_path_outside_root':
+            return 'Skill 目录结构无效。';
+          default:
+            return '该 Skill 无法扫描，请检查其目录结构。';
+        }
+      },
       revealExternalPath: (path: string) => `在文件管理器中显示 ${path}`,
       createTitle: '新建 Skill',
       skillName: 'Skill 名称',
@@ -852,8 +884,40 @@ export const messages = {
       close: '關閉',
       sourceCount: (count: number) => `${count} 個來源`,
       invalidExternalEntries: (count: number) => `${count} 個外部 Skill 無法掃描`,
-      externalScanError: (code: string) =>
-        code === 'skill_external_link_invalid' ? '符號連結已中斷或未指向資料夾' : code,
+      skillScanError: (code: string, params: Record<string, string>) => {
+        switch (code) {
+          case 'invalid_skill_id':
+            return `目錄名「${params.skillId ?? ''}」不是合法的 Skill 名稱（僅允許小寫字母、數字、單個連字號或冒號，最長 64 個字元）。`;
+          case 'skill_name_mismatch':
+            return `元資料 name「${params.metadataName ?? ''}」與目錄名「${params.directoryName ?? ''}」不一致。`;
+          case 'skill_markdown_missing':
+            return '缺少 Skill 入口檔案（SKILL.md）。';
+          case 'skill_markdown_invalid_type':
+            return 'Skill 入口檔案必須是普通檔案，不能是連結。';
+          case 'skill_source_invalid':
+            return '該 Skill 目錄既不是資料夾，也不是有效的連結。';
+          case 'skill_external_link_invalid':
+            return '符號連結已中斷或未指向資料夾。';
+          case 'skill_frontmatter_missing':
+            return 'Skill 檔案缺少 YAML frontmatter（必須以「---」開頭）。';
+          case 'skill_frontmatter_unclosed':
+            return 'YAML frontmatter 未閉合（缺少結尾的「---」）。';
+          case 'skill_frontmatter_invalid':
+            return 'YAML frontmatter 解析失敗（必須包含 name 和 description）。';
+          case 'skill_description_empty':
+            return 'Skill 描述為空。';
+          case 'skill_content_symlink':
+            return `Skill 內部包含符號連結（「${params.path ?? ''}」），不被允許。`;
+          case 'skill_content_special_file':
+            return `Skill 內部包含不支援的特殊檔案（「${params.path ?? ''}」）。`;
+          case 'skill_io_error':
+            return `執行 ${params.operation ?? ''} 時發生檔案系統錯誤：${params.message ?? ''}`;
+          case 'skill_path_outside_root':
+            return 'Skill 目錄結構無效。';
+          default:
+            return '該 Skill 無法掃描，請檢查其目錄結構。';
+        }
+      },
       revealExternalPath: (path: string) => `在檔案管理器中顯示 ${path}`,
       createTitle: '新增 Skill',
       skillName: 'Skill 名稱',
@@ -1301,10 +1365,10 @@ export const messages = {
       favorites: 'Favorites',
       agents: 'Agents',
       noAgents: 'No installed agents detected',
-      refresh: 'Scan Skills',
+      refresh: 'Scan',
       refreshHint: 'Scan existing Skills on local Agents and import them',
-      create: 'New Skill',
-      upload: 'Upload Skill',
+      create: 'New',
+      upload: 'Upload',
       settings: 'Sync settings',
       loading: 'Loading Skills…',
       noSkills: 'No Skills yet',
@@ -1339,10 +1403,40 @@ export const messages = {
       sourceCount: (count: number) => `${count} sources`,
       invalidExternalEntries: (count: number) =>
         `${count} external ${count === 1 ? 'Skill' : 'Skills'} could not be scanned`,
-      externalScanError: (code: string) =>
-        code === 'skill_external_link_invalid'
-          ? 'The symbolic link is broken or does not point to a directory'
-          : code,
+      skillScanError: (code: string, params: Record<string, string>) => {
+        switch (code) {
+          case 'invalid_skill_id':
+            return `The directory name "${params.skillId ?? ''}" is not a valid skill id (lowercase letters, digits, single hyphens/colons, max 64 chars).`;
+          case 'skill_name_mismatch':
+            return `The frontmatter name "${params.metadataName ?? ''}" does not match the directory name "${params.directoryName ?? ''}".`;
+          case 'skill_markdown_missing':
+            return 'Missing the skill entry file (SKILL.md).';
+          case 'skill_markdown_invalid_type':
+            return 'The skill entry file must be a regular file, not a link.';
+          case 'skill_source_invalid':
+            return 'The skill directory is neither a folder nor a valid link.';
+          case 'skill_external_link_invalid':
+            return 'The symbolic link is broken or does not point to a directory.';
+          case 'skill_frontmatter_missing':
+            return 'The skill file is missing its YAML frontmatter (must start with "---").';
+          case 'skill_frontmatter_unclosed':
+            return 'The YAML frontmatter is not closed (missing a closing "---").';
+          case 'skill_frontmatter_invalid':
+            return 'The YAML frontmatter could not be parsed (must contain name and description).';
+          case 'skill_description_empty':
+            return 'The skill description is empty.';
+          case 'skill_content_symlink':
+            return `The skill contains a symbolic link ("${params.path ?? ''}"), which is not allowed.`;
+          case 'skill_content_special_file':
+            return `The skill contains an unsupported special file ("${params.path ?? ''}").`;
+          case 'skill_io_error':
+            return `A file system error occurred during ${params.operation ?? ''}: ${params.message ?? ''}`;
+          case 'skill_path_outside_root':
+            return 'The skill directory structure is invalid.';
+          default:
+            return 'This skill could not be scanned. Please check its directory structure.';
+        }
+      },
       revealExternalPath: (path: string) => `Show ${path} in file manager`,
       createTitle: 'Create Skill',
       skillName: 'Skill name',
@@ -1831,10 +1925,40 @@ export const messages = {
       sourceCount: (count: number) => `${count} 件のソース`,
       invalidExternalEntries: (count: number) =>
         `${count} 件の外部 Skill をスキャンできませんでした`,
-      externalScanError: (code: string) =>
-        code === 'skill_external_link_invalid'
-          ? 'シンボリックリンクが壊れているか、フォルダーを指していません'
-          : code,
+      skillScanError: (code: string, params: Record<string, string>) => {
+        switch (code) {
+          case 'invalid_skill_id':
+            return `ディレクトリ名「${params.skillId ?? ''}」は有効な Skill 名ではありません（小文字・数字、単一のハイフンまたはコロン、最大 64 文字）。`;
+          case 'skill_name_mismatch':
+            return `フロントマターの name「${params.metadataName ?? ''}」がディレクトリ名「${params.directoryName ?? ''}」と一致しません。`;
+          case 'skill_markdown_missing':
+            return 'Skill 入口ファイル（SKILL.md）がありません。';
+          case 'skill_markdown_invalid_type':
+            return 'Skill 入口ファイルは通常のファイルである必要があります（リンクは不可）。';
+          case 'skill_source_invalid':
+            return 'この Skill ディレクトリはフォルダーでも有効なリンクでもありません。';
+          case 'skill_external_link_invalid':
+            return 'シンボリックリンクが壊れているか、フォルダーを指していません。';
+          case 'skill_frontmatter_missing':
+            return 'Skill ファイルに YAML フロントマターがありません（「---」で始まる必要があります）。';
+          case 'skill_frontmatter_unclosed':
+            return 'YAML フロントマターが閉じられていません（末尾の「---」がありません）。';
+          case 'skill_frontmatter_invalid':
+            return 'YAML フロントマターを解析できませんでした（name と description が必要です）。';
+          case 'skill_description_empty':
+            return 'Skill の説明が空です。';
+          case 'skill_content_symlink':
+            return `Skill 内にシンボリックリンク（「${params.path ?? ''}」）が含まれており、許可されていません。`;
+          case 'skill_content_special_file':
+            return `Skill 内に未対応の特殊ファイル（「${params.path ?? ''}」）が含まれています。`;
+          case 'skill_io_error':
+            return `${params.operation ?? ''} の実行中にファイルシステムエラーが発生しました：${params.message ?? ''}`;
+          case 'skill_path_outside_root':
+            return 'Skill ディレクトリの構造が無効です。';
+          default:
+            return 'この Skill はスキャンできませんでした。ディレクトリ構造を確認してください。';
+        }
+      },
       revealExternalPath: (path: string) => `ファイルマネージャーで ${path} を表示`,
       createTitle: 'Skill を新規作成',
       skillName: 'Skill 名',

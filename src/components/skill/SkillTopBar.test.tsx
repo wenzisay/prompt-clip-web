@@ -37,14 +37,14 @@ describe('SkillTopBar', () => {
       <SkillTopBar onCreate={onCreate} onUpload={onUpload} onRescan={onRescan} />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Scan Skills' }));
-    fireEvent.click(screen.getByRole('button', { name: 'New Skill' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Upload Skill' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Scan' }));
+    fireEvent.click(screen.getByRole('button', { name: 'New' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Upload' }));
 
     expect(onRescan).toHaveBeenCalledOnce();
     expect(onCreate).toHaveBeenCalledOnce();
     expect(onUpload).toHaveBeenCalledOnce();
-    expect(screen.getByText('Scan Skills').className).toContain('lg:inline');
+    expect(screen.getByText('Scan').className).toContain('lg:inline');
   });
 
   it('places a text-only quick switch action inside the search field', () => {

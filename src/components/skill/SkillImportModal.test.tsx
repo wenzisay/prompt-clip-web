@@ -244,7 +244,7 @@ describe('SkillImportModal', () => {
     expect(screen.getByText('1 external Skill could not be scanned')).toBeTruthy();
     expect(screen.getByText('broken-skill')).toBeTruthy();
     expect(
-      screen.getByText('The symbolic link is broken or does not point to a directory')
+      screen.getByText('The symbolic link is broken or does not point to a directory.')
     ).toBeTruthy();
     fireEvent.click(
       screen.getByRole('button', {
@@ -252,5 +252,75 @@ describe('SkillImportModal', () => {
       })
     );
     expect(onRevealExternal).toHaveBeenCalledWith('claude-group', 'broken-skill');
+  });
+
+  it('shows a specific message with params for a name mismatch', () => {
+    render(
+      <SkillImportModal
+        isOpen
+        scan={{
+          groups: [],
+          invalidEntries: [
+            {
+              directoryName: 'review-code',
+              error: {
+                code: 'skill_name_mismatch',
+                params: { directoryName: 'review-code', metadataName: 'ReviewCode' },
+              },
+              source: {
+                targetGroupId: 'codex-group',
+                toolIds: ['codex'],
+                path: '/home/.codex/skills/review-code',
+              },
+            },
+          ],
+        }}
+        hubSkills={[]}
+        onClose={vi.fn()}
+        onConfirm={vi.fn()}
+        onRevealExternal={vi.fn()}
+      />
+    );
+
+    expect(
+      screen.getByText(
+        'The frontmatter name "ReviewCode" does not match the directory name "review-code".'
+      )
+    ).toBeTruthy();
+    expect(screen.getByText('review-code')).toBeTruthy();
+  });
+
+  it('falls back to a generic message for an unknown error code', () => {
+    render(
+      <SkillImportModal
+        isOpen
+        scan={{
+          groups: [],
+          invalidEntries: [
+            {
+              directoryName: 'mystery-skill',
+              error: {
+                code: 'some_unknown_code',
+                params: {},
+              },
+              source: {
+                targetGroupId: 'codex-group',
+                toolIds: ['codex'],
+                path: '/home/.codex/skills/mystery-skill',
+              },
+            },
+          ],
+        }}
+        hubSkills={[]}
+        onClose={vi.fn()}
+        onConfirm={vi.fn()}
+        onRevealExternal={vi.fn()}
+      />
+    );
+
+    expect(
+      screen.getByText('This skill could not be scanned. Please check its directory structure.')
+    ).toBeTruthy();
+    expect(screen.queryByText('some_unknown_code')).toBeNull();
   });
 });
