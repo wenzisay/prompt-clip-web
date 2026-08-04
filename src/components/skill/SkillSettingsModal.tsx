@@ -468,8 +468,8 @@ function ToggleSwitch({ checked, disabled, onChange }: ToggleSwitchProps) {
       aria-checked={checked}
       disabled={disabled}
       onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-50 ${
-        checked ? 'bg-accent' : 'bg-surface-high'
+      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full border transition-colors focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-50 ${
+        checked ? 'border-accent bg-accent' : 'border-muted/30 bg-surfaceHigh'
       }`}
     >
       <span

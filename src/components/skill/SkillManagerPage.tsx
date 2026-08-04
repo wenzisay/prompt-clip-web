@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { open, save } from '@tauri-apps/plugin-dialog';
 import { Sidebar } from '@/components/layout';
 import { useTranslation } from '@/i18n';
@@ -51,6 +51,9 @@ export function SkillManagerPage() {
   const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null);
   /** 详情页 ref：用于在切换 appSection 前请求「未保存修改确认」 */
   const detailRef = useRef<SkillDetailPageHandle>(null);
+  /** 列表滚动容器：进入/返回详情页时保存与恢复滚动位置 */
+  const listScrollRef = useRef<HTMLDivElement>(null);
+  const savedScrollTopRef = useRef<number>(0);
   const { setAppSection } = useUIStore();
   const [selectedDeleteSkillId, setSelectedDeleteSkillId] = useState<string | null>(null);
   const [archivePath, setArchivePath] = useState<string | null>(null);
@@ -62,6 +65,21 @@ export function SkillManagerPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // 返回列表时恢复滚动位置（在浏览器绘制前同步执行，避免闪到顶部再回弹）
+  useLayoutEffect(() => {
+    if (!selectedSkillId && listScrollRef.current) {
+      listScrollRef.current.scrollTop = savedScrollTopRef.current;
+    }
+  }, [selectedSkillId]);
+
+  // 进入详情页前保存列表滚动位置——此时 <main> 仍挂载，ref 可用
+  const openSkill = (skillId: string) => {
+    if (listScrollRef.current) {
+      savedScrollTopRef.current = listScrollRef.current.scrollTop;
+    }
+    setSelectedSkillId(skillId);
+  };
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -119,7 +137,7 @@ export function SkillManagerPage() {
       await SkillService.create(skillId, description);
       await load();
       setCreateOpen(false);
-      setSelectedSkillId(skillId);
+      openSkill(skillId);
     } catch {
       setOperationError(true);
     } finally {
@@ -152,7 +170,7 @@ export function SkillManagerPage() {
       setArchivePreview(null);
       await load();
       if (decision !== 'keepHub' && decision !== 'skip') {
-        setSelectedSkillId(archivePreview.skillId);
+        openSkill(archivePreview.skillId);
       }
     } catch {
       setOperationError(true);
@@ -300,12 +318,12 @@ export function SkillManagerPage() {
                 {t.skills.operationFailed}
               </div>
             )}
-            <main className="min-h-0 flex-1 overflow-y-auto p-6">
+            <main ref={listScrollRef} className="min-h-0 flex-1 overflow-y-auto p-6">
               <SkillGrid
                 skills={filteredSkills}
                 tools={tools}
                 isLoading={isLoading}
-                onOpenSkill={setSelectedSkillId}
+                onOpenSkill={openSkill}
                 onExportSkill={(skillId) => void exportOne(skillId)}
                 onDeleteSkill={setSelectedDeleteSkillId}
               />
@@ -317,7 +335,7 @@ export function SkillManagerPage() {
         isOpen={isQuickSwitcherOpen}
         skills={skills}
         onClose={() => setQuickSwitcherOpen(false)}
-        onSelect={setSelectedSkillId}
+        onSelect={openSkill}
       />
       <SkillImportModal
         isOpen={isImportOpen}
