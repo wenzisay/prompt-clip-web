@@ -28,16 +28,25 @@ const tool: AgentTool = {
   enabled: true,
 };
 
-function renderModal(overrides: { onSave?: () => void; skillsPath?: string; onRevealStorage?: () => void } = {}) {
+function renderModal(
+  overrides: {
+    onSave?: () => void;
+    skillsPath?: string;
+    onRevealStorage?: () => void;
+    tools?: AgentTool[];
+    onToggleToolEnabled?: (toolId: string, enabled: boolean) => void;
+  } = {}
+) {
   return render(
     <SkillSettingsModal
       isOpen
       settings={settings}
-      tools={[tool]}
+      tools={overrides.tools ?? [tool]}
       skillsPath={overrides.skillsPath ?? '/home/.prompt-clip/skills'}
       onClose={() => undefined}
       onSave={overrides.onSave ?? (() => undefined)}
       onRevealStorage={overrides.onRevealStorage ?? (() => undefined)}
+      onToggleToolEnabled={overrides.onToggleToolEnabled}
     />
   );
 }
@@ -63,6 +72,17 @@ describe('SkillSettingsModal', () => {
 
     expect(path.classList.contains('text-xs')).toBe(true);
     expect(path.previousElementSibling?.textContent).toBe('Codex');
+  });
+
+  it('shows a visible track when an agent tool is disabled', () => {
+    renderModal({
+      tools: [{ ...tool, enabled: false }],
+      onToggleToolEnabled: () => undefined,
+    });
+
+    const toggle = screen.getByRole('switch', { name: 'Enable Codex' });
+
+    expect(toggle.className).toContain('border-muted/30 bg-surfaceHigh');
   });
 
   it('renders a sidebar with the sync settings category and a footer save button', () => {
