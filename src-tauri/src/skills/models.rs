@@ -55,6 +55,15 @@ pub struct CustomToolDefinition {
     pub skills_path: PathBuf,
 }
 
+/// 用户自定义的 Skill 分类。id 稳定（重命名不变），支持多选指派。
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SkillCategory {
+    pub id: String,
+    pub name: String,
+    pub created_at: String,
+}
+
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub enum SkillDeleteMode {
@@ -134,6 +143,9 @@ pub struct SkillSummary {
     pub relative_path: String,
     pub content_hash: String,
     pub favorited_at: Option<String>,
+    /// 该 Skill 所属的分类 id 列表（来自 settings.skill_categories）。
+    #[serde(default)]
+    pub category_ids: Vec<String>,
     pub tool_states: BTreeMap<String, SkillToolState>,
 }
 
@@ -273,6 +285,13 @@ pub struct SkillManagerSettings {
     /// 空数组表示使用 registry/custom 原始顺序（默认行为）。
     #[serde(default)]
     pub tool_order: Vec<String>,
+    /// 用户自定义的 Skill 分类。不含内置「默认类别」（默认类别为虚拟收纳桶，
+    /// 由未指派任何分类的 Skill 派生）。
+    #[serde(default)]
+    pub categories: Vec<SkillCategory>,
+    /// Skill id → 分类 id 列表的多选映射。空数组或缺失条目视为该 Skill 属于「默认类别」。
+    #[serde(default)]
+    pub skill_categories: BTreeMap<String, Vec<String>>,
 }
 
 impl Default for SkillManagerSettings {
@@ -285,6 +304,8 @@ impl Default for SkillManagerSettings {
             custom_tools: Vec::new(),
             disabled_tool_ids: BTreeSet::new(),
             tool_order: Vec::new(),
+            categories: Vec::new(),
+            skill_categories: BTreeMap::new(),
         }
     }
 }
@@ -336,6 +357,8 @@ mod tests {
         assert!(settings.custom_tools.is_empty());
         assert!(settings.disabled_tool_ids.is_empty());
         assert!(settings.tool_order.is_empty());
+        assert!(settings.categories.is_empty());
+        assert!(settings.skill_categories.is_empty());
     }
 
     #[test]
@@ -354,7 +377,9 @@ mod tests {
                 "favorites": {},
                 "customTools": [],
                 "disabledToolIds": [],
-                "toolOrder": []
+                "toolOrder": [],
+                "categories": [],
+                "skillCategories": {}
             })
         );
     }
