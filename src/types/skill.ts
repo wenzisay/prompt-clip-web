@@ -25,6 +25,13 @@ export interface CustomToolDefinition {
   skillsPath: string;
 }
 
+/** 用户自定义的 Skill 分类。id 稳定（重命名不变），支持多选指派。 */
+export interface SkillCategory {
+  id: string;
+  name: string;
+  createdAt: string;
+}
+
 export interface AgentTool {
   id: string;
   name: string;
@@ -60,6 +67,8 @@ export interface SkillSummary {
   relativePath: string;
   contentHash: string;
   favoritedAt: string | null;
+  /** 该 Skill 所属的分类 id 列表（空数组表示属于「默认类别」）。 */
+  categoryIds: string[];
   toolStates: Record<string, SkillToolState>;
 }
 
@@ -77,6 +86,10 @@ export interface SkillManagerSettings {
   disabledToolIds: string[];
   /** 用户自定义的工具 id 顺序（builtin + custom 全局统一）。空数组表示用默认顺序。 */
   toolOrder: string[];
+  /** 用户自定义的 Skill 分类（不含内置「默认类别」）。 */
+  categories: SkillCategory[];
+  /** Skill id → 分类 id 列表的多选映射；空数组或缺失表示该 Skill 属于「默认类别」。 */
+  skillCategories: Record<string, string[]>;
 }
 
 export interface SkillManagerInitialization {

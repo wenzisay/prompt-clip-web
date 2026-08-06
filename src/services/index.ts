@@ -17,3 +17,4 @@ export * from './shareImageService';
 export * from './annotationService';
 export * from './analyticsService';
 export * from './skillService';
+export * from './categoryService';

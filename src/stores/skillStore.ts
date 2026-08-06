@@ -1,11 +1,15 @@
 import { create } from 'zustand';
 import { SkillService } from '@/services/skillService';
+import { buildCategoryCounts } from '@/services/categoryService';
+import { DEFAULT_CATEGORY_ID } from '@/constants/defaults';
 import type {
   AgentTool,
   ExternalScanResult,
   ExternalImportSelection,
   InvalidSkillEntry,
+  SkillCategory,
   SkillManagerError,
+  SkillManagerSettings,
   SkillDeleteMode,
   SkillScanResponse,
   SkillSummary,
@@ -16,6 +20,8 @@ interface SkillFilter {
   favoritesOnly: boolean;
   /** 选中的 Agent 工具 id，null 表示不按 Agent 筛选 */
   agentToolId: string | null;
+  /** 选中的分类 id（含 DEFAULT_CATEGORY_ID），null 表示不按分类筛选 */
+  category: string | null;
 }
 
 interface SkillState {
@@ -26,6 +32,12 @@ interface SkillState {
   invalidEntries: InvalidSkillEntry[];
   scanErrors: SkillManagerError[];
   externalScan: ExternalScanResult | null;
+  /** 用户自定义分类（不含默认类别）。 */
+  categories: SkillCategory[];
+  /** Skill id → 分类 id 列表的多选映射。 */
+  skillCategories: Record<string, string[]>;
+  /** 每个分类的 Skill 计数（含 DEFAULT_CATEGORY_ID）。 */
+  categoryCounts: Record<string, number>;
   filter: SkillFilter;
   isLoading: boolean;
   isScanningExternal: boolean;
@@ -37,6 +49,7 @@ interface SkillState {
   setSearchQuery: (searchQuery: string) => void;
   setFavoritesOnly: (favoritesOnly: boolean) => void;
   setAgentToolFilter: (toolId: string | null) => void;
+  setCategoryFilter: (categoryId: string | null) => void;
   setError: (error: SkillManagerError | null) => void;
   toggleFavorite: (skillId: string) => Promise<void>;
   deleteSkill: (skillId: string, mode: SkillDeleteMode) => Promise<boolean>;
@@ -50,6 +63,10 @@ interface SkillState {
   removeCustomTool: (toolId: string) => Promise<boolean>;
   setToolEnabledState: (toolId: string, enabled: boolean) => Promise<boolean>;
   reorderTools: (toolOrder: string[]) => Promise<boolean>;
+  addCategory: (name: string) => Promise<boolean>;
+  renameCategory: (id: string, name: string) => Promise<boolean>;
+  deleteCategory: (id: string) => Promise<boolean>;
+  setSkillCategories: (skillId: string, categoryIds: string[]) => Promise<boolean>;
   reset: () => void;
   applyFilter: () => void;
 }
@@ -58,6 +75,7 @@ const INITIAL_FILTER: SkillFilter = {
   searchQuery: '',
   favoritesOnly: false,
   agentToolId: null,
+  category: null,
 };
 
 const INITIAL_STATE = {
@@ -68,6 +86,9 @@ const INITIAL_STATE = {
   invalidEntries: [] as InvalidSkillEntry[],
   scanErrors: [] as SkillManagerError[],
   externalScan: null as ExternalScanResult | null,
+  categories: [] as SkillCategory[],
+  skillCategories: {} as Record<string, string[]>,
+  categoryCounts: {} as Record<string, number>,
   filter: INITIAL_FILTER,
   isLoading: false,
   isScanningExternal: false,
@@ -81,7 +102,15 @@ export const useSkillStore = create<SkillState>()((set, get) => ({
   load: async () => {
     set({ isLoading: true, error: null });
     try {
+      // scan 不返回 settings，故并行取一次 initialize 以同步分类元数据；
+      // initialize 失败（如测试环境未 mock 返回值）不应阻断扫描。
       const response = await SkillService.scan();
+      let initialization: { settings: SkillManagerSettings } | null = null;
+      try {
+        initialization = await SkillService.initialize();
+      } catch {
+        initialization = null;
+      }
       set({
         skillsPath: response.skillsPath,
         skills: response.skills,
@@ -90,6 +119,9 @@ export const useSkillStore = create<SkillState>()((set, get) => ({
         scanErrors: response.errors,
         isLoading: false,
       });
+      if (initialization) {
+        applySettings(set, initialization.settings, response.skills);
+      }
       get().applyFilter();
     } catch (error) {
       set({ isLoading: false, error: normalizeError(error) });
@@ -146,18 +178,34 @@ export const useSkillStore = create<SkillState>()((set, get) => ({
   },
 
   setFavoritesOnly: (favoritesOnly) => {
-    // 切换 全部/收藏 pill 时清除 Agent 筛选（对标 prompt 区切换 pill 清除 tag）
+    // [全部]/[收藏] 与 Agent、分类互斥：切换 pill 时清空另外两个维度。
     set((state) => ({
-      filter: { ...state.filter, favoritesOnly, agentToolId: null },
+      filter: { ...state.filter, favoritesOnly, agentToolId: null, category: null },
     }));
     get().applyFilter();
   },
 
   setAgentToolFilter: (toolId) => {
+    // Agent 与 [全部]/[收藏]、分类互斥：选中 Agent 时清空 pill 与分类维度。
     set((state) => ({
       filter: {
         ...state.filter,
+        favoritesOnly: false,
+        category: null,
         agentToolId: state.filter.agentToolId === toolId ? null : toolId,
+      },
+    }));
+    get().applyFilter();
+  },
+
+  setCategoryFilter: (categoryId) => {
+    // 分类与 [全部]/[收藏]、Agent 互斥：选中分类时清空 pill 与 Agent 维度。
+    set((state) => ({
+      filter: {
+        ...state.filter,
+        favoritesOnly: false,
+        agentToolId: null,
+        category: state.filter.category === categoryId ? null : categoryId,
       },
     }));
     get().applyFilter();
@@ -188,9 +236,17 @@ export const useSkillStore = create<SkillState>()((set, get) => ({
     set({ error: null });
     try {
       await SkillService.delete(skillId, mode);
-      set((state) => ({
-        skills: state.skills.filter((skill) => skill.id !== skillId),
-      }));
+      set((state) => {
+        const skills = state.skills.filter((skill) => skill.id !== skillId);
+        // Rust delete_at 已清理 skill_categories 中该 skillId；前端同步移除并重算计数。
+        const skillCategories = { ...state.skillCategories };
+        delete skillCategories[skillId];
+        return {
+          skills,
+          skillCategories,
+          categoryCounts: buildCategoryCounts(skills, { categories: state.categories }),
+        };
+      });
       get().applyFilter();
       return true;
     } catch (error) {
@@ -297,12 +353,84 @@ export const useSkillStore = create<SkillState>()((set, get) => ({
     }
   },
 
+  addCategory: async (name) => {
+    set({ error: null });
+    try {
+      const settings = await SkillService.addCategory(name);
+      applySettings(set, settings, get().skills);
+      get().applyFilter();
+      return true;
+    } catch (error) {
+      set({ error: normalizeError(error) });
+      return false;
+    }
+  },
+
+  renameCategory: async (id, name) => {
+    set({ error: null });
+    try {
+      const settings = await SkillService.renameCategory(id, name);
+      applySettings(set, settings, get().skills);
+      get().applyFilter();
+      return true;
+    } catch (error) {
+      set({ error: normalizeError(error) });
+      return false;
+    }
+  },
+
+  deleteCategory: async (id) => {
+    set({ error: null });
+    try {
+      const settings = await SkillService.deleteCategory(id);
+      set((state) => {
+        const skills = state.skills.map((skill) => ({
+          ...skill,
+          categoryIds: skill.categoryIds.filter((categoryId) => categoryId !== id),
+        }));
+        return {
+          skills,
+          // 删除分类后若当前正按该分类筛选，清除筛选避免空列表。
+          filter:
+            state.filter.category === id
+              ? { ...state.filter, category: null }
+              : state.filter,
+        };
+      });
+      applySettings(set, settings, get().skills);
+      get().applyFilter();
+      return true;
+    } catch (error) {
+      set({ error: normalizeError(error) });
+      return false;
+    }
+  },
+
+  setSkillCategories: async (skillId, categoryIds) => {
+    set({ error: null });
+    try {
+      const settings = await SkillService.setSkillCategories(skillId, categoryIds);
+      set((state) => ({
+        skills: state.skills.map((skill) =>
+          skill.id === skillId ? { ...skill, categoryIds: [...categoryIds] } : skill
+        ),
+      }));
+      applySettings(set, settings, get().skills);
+      get().applyFilter();
+      return true;
+    } catch (error) {
+      set({ error: normalizeError(error) });
+      return false;
+    }
+  },
+
   reset: () => set({ ...INITIAL_STATE, filter: { ...INITIAL_FILTER } }),
 
   applyFilter: () => {
     const { skills, filter } = get();
     const query = filter.searchQuery.trim().toLocaleLowerCase();
     const agentToolId = filter.agentToolId;
+    const categoryId = filter.category;
     const filteredSkills = skills
       .filter((skill) => !filter.favoritesOnly || skill.favoritedAt !== null)
       .filter((skill) => {
@@ -310,6 +438,12 @@ export const useSkillStore = create<SkillState>()((set, get) => ({
         const status = skill.toolStates[agentToolId]?.status;
         // 仅保留对该 Agent 已启用 / 同步中的 Skill（排除 disabled/broken/无记录）
         return !!status && status !== 'disabled' && status !== 'broken';
+      })
+      .filter((skill) => {
+        if (!categoryId) return true;
+        // 默认类别特判：未指派任何分类的 Skill。
+        if (categoryId === DEFAULT_CATEGORY_ID) return skill.categoryIds.length === 0;
+        return skill.categoryIds.includes(categoryId);
       })
       .filter((skill) => !query || skill.name.toLocaleLowerCase().includes(query))
       .sort((left, right) => left.name.localeCompare(right.name));
@@ -332,6 +466,26 @@ function applyScanResponse(
     tools: response.tools,
     invalidEntries: response.invalidEntries,
     scanErrors: response.errors,
+  });
+}
+
+/**
+ * 把一次 IPC 返回的最新 settings 同步进 store：分类列表、指派映射与计数。
+ * skills 用于重算计数；调用方需保证传入的 skills 已是最新（含 categoryIds）。
+ */
+function applySettings(
+  set: (
+    partial:
+      | Partial<SkillState>
+      | ((state: SkillState) => Partial<SkillState>)
+  ) => void,
+  settings: SkillManagerSettings,
+  skills: SkillSummary[]
+): void {
+  set({
+    categories: settings.categories,
+    skillCategories: settings.skillCategories,
+    categoryCounts: buildCategoryCounts(skills, { categories: settings.categories }),
   });
 }
 

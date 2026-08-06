@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { AgentTool, SkillScanResponse, SkillSummary } from '@/types/skill';
+import type {
+  AgentTool,
+  SkillCategory,
+  SkillManagerSettings,
+  SkillScanResponse,
+  SkillSummary,
+} from '@/types/skill';
 
 const mocks = vi.hoisted(() => ({
   scan: vi.fn(),
@@ -8,6 +14,11 @@ const mocks = vi.hoisted(() => ({
   forceEnable: vi.fn(),
   setFavorite: vi.fn(),
   delete: vi.fn(),
+  initialize: vi.fn(),
+  addCategory: vi.fn(),
+  renameCategory: vi.fn(),
+  deleteCategory: vi.fn(),
+  setSkillCategories: vi.fn(),
 }));
 
 vi.mock('@/services/skillService', () => ({
@@ -40,6 +51,7 @@ function skill(id: string, favoritedAt: string | null = null): SkillSummary {
     relativePath: id,
     contentHash: `${id}-hash`,
     favoritedAt,
+    categoryIds: [],
     toolStates: {
       codex: {
         toolId: 'codex',
@@ -238,6 +250,207 @@ describe('skillStore', () => {
 
       expect(useSkillStore.getState().filter.agentToolId).toBeNull();
       expect(useSkillStore.getState().filteredSkills.map((item) => item.id)).toEqual(['enabled']);
+    });
+  });
+
+  describe('categories', () => {
+    const category: SkillCategory = {
+      id: 'c1',
+      name: 'Work',
+      createdAt: '2026-08-01T00:00:00Z',
+    };
+
+    function settingsWith(
+      overrides: Partial<SkillManagerSettings> = {}
+    ): SkillManagerSettings {
+      return {
+        schemaVersion: 1,
+        defaultSyncMode: 'symlink',
+        toolOverrides: {},
+        favorites: {},
+        customTools: [],
+        disabledToolIds: [],
+        toolOrder: [],
+        categories: [category],
+        skillCategories: {},
+        ...overrides,
+      };
+    }
+
+    function skillInCategory(id: string, categoryIds: string[] = []): SkillSummary {
+      return { ...skill(id), categoryIds };
+    }
+
+    it('filters by category and combines with search (AND)', async () => {
+      mocks.scan.mockResolvedValue(
+        scanResponse([
+          skillInCategory('alpha', ['c1']),
+          skillInCategory('beta', ['c1']),
+          skillInCategory('gamma'),
+        ])
+      );
+      mocks.initialize.mockResolvedValue({
+        skillsPath: '/home/.prompt-clip/skills',
+        settings: settingsWith({
+          skillCategories: { alpha: ['c1'], beta: ['c1'] },
+        }),
+        settingsWarnings: [],
+        tools: [codex],
+      });
+      await useSkillStore.getState().load();
+
+      useSkillStore.getState().setCategoryFilter('c1');
+      expect(useSkillStore.getState().filteredSkills.map((item) => item.id)).toEqual([
+        'alpha',
+        'beta',
+      ]);
+
+      // AND with search
+      useSkillStore.getState().setSearchQuery('alph');
+      expect(useSkillStore.getState().filteredSkills.map((item) => item.id)).toEqual(['alpha']);
+    });
+
+    it('default category includes only unassigned skills', async () => {
+      mocks.scan.mockResolvedValue(
+        scanResponse([
+          skillInCategory('assigned', ['c1']),
+          skillInCategory('loose'),
+        ])
+      );
+      mocks.initialize.mockResolvedValue({
+        skillsPath: '/home/.prompt-clip/skills',
+        settings: settingsWith({ skillCategories: { assigned: ['c1'] } }),
+        settingsWarnings: [],
+        tools: [codex],
+      });
+      await useSkillStore.getState().load();
+
+      useSkillStore.getState().setCategoryFilter('__default__');
+      expect(useSkillStore.getState().filteredSkills.map((item) => item.id)).toEqual(['loose']);
+    });
+
+    it('toggles the same category off', async () => {
+      mocks.scan.mockResolvedValue(scanResponse([skillInCategory('alpha')]));
+      await useSkillStore.getState().load();
+
+      useSkillStore.getState().setCategoryFilter('c1');
+      expect(useSkillStore.getState().filter.category).toBe('c1');
+      useSkillStore.getState().setCategoryFilter('c1');
+      expect(useSkillStore.getState().filter.category).toBeNull();
+    });
+
+    it('treats all/favorites/agent/category as mutually exclusive', async () => {
+      mocks.scan.mockResolvedValue(scanResponse([skillInCategory('alpha', ['c1'])]));
+      mocks.initialize.mockResolvedValue({
+        skillsPath: '/home/.prompt-clip/skills',
+        settings: settingsWith({ skillCategories: { alpha: ['c1'] } }),
+        settingsWarnings: [],
+        tools: [codex],
+      });
+      await useSkillStore.getState().load();
+
+      // 选分类 → 清空 favorites/agent
+      useSkillStore.getState().setCategoryFilter('c1');
+      expect(useSkillStore.getState().filter).toMatchObject({
+        category: 'c1',
+        favoritesOnly: false,
+        agentToolId: null,
+      });
+
+      // 选 agent → 清空分类/favorites
+      useSkillStore.getState().setAgentToolFilter('codex');
+      expect(useSkillStore.getState().filter).toMatchObject({
+        category: null,
+        favoritesOnly: false,
+        agentToolId: 'codex',
+      });
+
+      // 选收藏 → 清空 agent/分类
+      useSkillStore.getState().setFavoritesOnly(true);
+      expect(useSkillStore.getState().filter).toMatchObject({
+        category: null,
+        favoritesOnly: true,
+        agentToolId: null,
+      });
+
+      // 选全部 → 清空 favorites/分类/agent
+      useSkillStore.getState().setFavoritesOnly(false);
+      expect(useSkillStore.getState().filter).toMatchObject({
+        category: null,
+        favoritesOnly: false,
+        agentToolId: null,
+      });
+    });
+
+    it('adds a category via service and syncs settings', async () => {
+      mocks.scan.mockResolvedValue(scanResponse([skill('alpha')]));
+      mocks.initialize.mockResolvedValue({
+        skillsPath: '/home/.prompt-clip/skills',
+        settings: settingsWith({ categories: [] }),
+        settingsWarnings: [],
+        tools: [codex],
+      });
+      mocks.addCategory.mockResolvedValue(settingsWith({ categories: [category] }));
+      await useSkillStore.getState().load();
+
+      const ok = await useSkillStore.getState().addCategory('Work');
+      expect(ok).toBe(true);
+      expect(mocks.addCategory).toHaveBeenCalledWith('Work');
+      expect(useSkillStore.getState().categories).toEqual([category]);
+    });
+
+    it('deletes a category, releases assignments, and clears active filter', async () => {
+      mocks.scan.mockResolvedValue(scanResponse([skillInCategory('alpha', ['c1'])]));
+      mocks.initialize.mockResolvedValue({
+        skillsPath: '/home/.prompt-clip/skills',
+        settings: settingsWith({ skillCategories: { alpha: ['c1'] } }),
+        settingsWarnings: [],
+        tools: [codex],
+      });
+      // 删除后 Rust 返回空分类 + 空指派
+      mocks.deleteCategory.mockResolvedValue(
+        settingsWith({ categories: [], skillCategories: {} })
+      );
+      await useSkillStore.getState().load();
+      useSkillStore.getState().setCategoryFilter('c1');
+
+      const ok = await useSkillStore.getState().deleteCategory('c1');
+      expect(ok).toBe(true);
+      expect(mocks.deleteCategory).toHaveBeenCalledWith('c1');
+      expect(useSkillStore.getState().categories).toEqual([]);
+      // 当前筛选指向被删分类 → 应被清空
+      expect(useSkillStore.getState().filter.category).toBeNull();
+      // 前端 skill 的 categoryIds 也应被清理
+      expect(useSkillStore.getState().skills[0].categoryIds).toEqual([]);
+    });
+
+    it('assigns categories to a skill and updates local state', async () => {
+      mocks.scan.mockResolvedValue(scanResponse([skill('alpha')]));
+      mocks.initialize.mockResolvedValue({
+        skillsPath: '/home/.prompt-clip/skills',
+        settings: settingsWith(),
+        settingsWarnings: [],
+        tools: [codex],
+      });
+      mocks.setSkillCategories.mockResolvedValue(
+        settingsWith({ skillCategories: { alpha: ['c1'] } })
+      );
+      await useSkillStore.getState().load();
+
+      const ok = await useSkillStore.getState().setSkillCategories('alpha', ['c1']);
+      expect(ok).toBe(true);
+      expect(mocks.setSkillCategories).toHaveBeenCalledWith('alpha', ['c1']);
+      expect(useSkillStore.getState().skills[0].categoryIds).toEqual(['c1']);
+    });
+
+    it('propagates category errors and returns false', async () => {
+      mocks.scan.mockResolvedValue(scanResponse([skill('alpha')]));
+      mocks.addCategory.mockRejectedValue({ code: 'skill_category_name_duplicate', params: {} });
+      await useSkillStore.getState().load();
+
+      const ok = await useSkillStore.getState().addCategory('dup');
+      expect(ok).toBe(false);
+      expect(useSkillStore.getState().error?.code).toBe('skill_category_name_duplicate');
     });
   });
 });
