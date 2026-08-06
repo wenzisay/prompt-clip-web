@@ -10,6 +10,7 @@ const hubSkill: SkillSummary = {
   relativePath: 'review-code',
   contentHash: 'hub-hash',
   favoritedAt: null,
+  categoryIds: [],
   toolStates: {},
 };
 

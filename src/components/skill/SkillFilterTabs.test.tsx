@@ -42,7 +42,7 @@ describe('SkillFilterTabs', () => {
   });
 
   it('shows a chip for the selected agent', () => {
-    useSkillStore.setState({ tools: [codex], filter: { searchQuery: '', favoritesOnly: false, agentToolId: 'codex' } });
+    useSkillStore.setState({ tools: [codex], filter: { searchQuery: '', favoritesOnly: false, agentToolId: 'codex', category: null } });
 
     render(<SkillFilterTabs />);
 
@@ -55,12 +55,54 @@ describe('SkillFilterTabs', () => {
   });
 
   it('clears the agent chip when switching to a pill', () => {
-    useSkillStore.setState({ tools: [codex], filter: { searchQuery: '', favoritesOnly: false, agentToolId: 'codex' } });
+    useSkillStore.setState({ tools: [codex], filter: { searchQuery: '', favoritesOnly: false, agentToolId: 'codex', category: null } });
 
     render(<SkillFilterTabs />);
     fireEvent.click(screen.getByRole('button', { name: 'Favorites' }));
 
     expect(useSkillStore.getState().filter.agentToolId).toBeNull();
     expect(screen.queryByText('Codex')).toBeNull();
+  });
+
+  it('shows a chip for the selected user category', () => {
+    useSkillStore.setState({
+      tools: [codex],
+      categories: [{ id: 'c1', name: 'Work', createdAt: '' }],
+      filter: { searchQuery: '', favoritesOnly: false, agentToolId: null, category: 'c1' },
+    });
+
+    render(<SkillFilterTabs />);
+
+    expect(screen.getByText('Work')).toBeTruthy();
+    // 全部/收藏此时都不是选中态（分类与它们互斥）
+    expect(screen.getByRole('button', { name: 'All' }).getAttribute('aria-pressed')).toBe('false');
+    expect(screen.getByRole('button', { name: 'Favorites' }).getAttribute('aria-pressed')).toBe(
+      'false'
+    );
+  });
+
+  it('shows a chip for the default category', () => {
+    useSkillStore.setState({
+      tools: [codex],
+      filter: { searchQuery: '', favoritesOnly: false, agentToolId: null, category: '__default__' },
+    });
+
+    render(<SkillFilterTabs />);
+
+    expect(screen.getByText('Default')).toBeTruthy();
+  });
+
+  it('clears the category chip when switching to a pill', () => {
+    useSkillStore.setState({
+      tools: [codex],
+      categories: [{ id: 'c1', name: 'Work', createdAt: '' }],
+      filter: { searchQuery: '', favoritesOnly: false, agentToolId: null, category: 'c1' },
+    });
+
+    render(<SkillFilterTabs />);
+    fireEvent.click(screen.getByRole('button', { name: 'All' }));
+
+    expect(useSkillStore.getState().filter.category).toBeNull();
+    expect(screen.queryByText('Work')).toBeNull();
   });
 });

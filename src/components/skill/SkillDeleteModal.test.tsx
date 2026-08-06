@@ -11,6 +11,7 @@ function createSkill(status: 'disabled' | 'enabled' | 'stale' | 'broken'): Skill
     relativePath: 'review-code',
     contentHash: 'hash',
     favoritedAt: null,
+    categoryIds: [],
     toolStates: {
       codex: {
         toolId: 'codex',

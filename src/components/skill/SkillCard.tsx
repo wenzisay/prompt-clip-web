@@ -4,7 +4,11 @@ import { AgentToolIcon, Tooltip } from '@/components/common';
 import type { AgentTool, SkillSummary, SkillToolState } from '@/types/skill';
 import { useTranslation } from '@/i18n';
 import { useSkillStore } from '@/stores/skillStore';
+import { TagService } from '@/services/tagService';
+import { findCategory } from '@/services/categoryService';
+import { TagPill } from '@/components/tag/TagPill';
 import { SkillAgentToolBar } from './SkillAgentToolBar';
+import { SkillCategoryAssignPanel } from './SkillCategoryAssignPanel';
 
 export interface SkillCardProps {
   skill: SkillSummary;
@@ -25,13 +29,19 @@ export function SkillCard({
   const toggleFavorite = useSkillStore((state) => state.toggleFavorite);
   const setError = useSkillStore((state) => state.setError);
   const setToolEnabled = useSkillStore((state) => state.setToolEnabled);
+  const categories = useSkillStore((state) => state.categories);
+  const setCategoryFilter = useSkillStore((state) => state.setCategoryFilter);
   const installedTools = tools.filter((tool) => tool.installed && tool.enabled);
   const [isMenuOpen, setMenuOpen] = useState(false);
   const [isToolMenuOpen, setToolMenuOpen] = useState(false);
+  const [isCategoryPanelOpen, setCategoryPanelOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const openCard = () => onOpen?.(skill.id);
-  const closeMenu = () => setMenuOpen(false);
+  const closeMenu = () => {
+    setMenuOpen(false);
+    setCategoryPanelOpen(false);
+  };
 
   useEffect(() => {
     if (!isMenuOpen) return;
@@ -137,6 +147,14 @@ export function SkillCard({
                   }}
                 />
                 <SkillMenuButton
+                  icon="category"
+                  label={t.skills.addToCategory}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setCategoryPanelOpen((open) => !open);
+                  }}
+                />
+                <SkillMenuButton
                   icon="delete"
                   label={t.skills.delete}
                   className="text-red-600 hover:bg-red-50"
@@ -148,9 +166,35 @@ export function SkillCard({
                 />
               </div>
             )}
+            {isCategoryPanelOpen && (
+              <SkillCategoryAssignPanel skill={skill} onClose={() => setCategoryPanelOpen(false)} />
+            )}
           </div>
         </div>
       </div>
+
+      {/* 分类 pills */}
+      {skill.categoryIds.length > 0 && (
+        <div className="mt-3 flex min-h-5 flex-wrap gap-2">
+          {skill.categoryIds.slice(0, 4).map((categoryId) => {
+            const category = findCategory(categoryId, { categories });
+            if (!category) return null;
+            return (
+              <TagPill
+                key={categoryId}
+                label={category.name}
+                color={TagService.getTagColor(category.name)}
+                size="sm"
+                clickable
+                onClick={() => setCategoryFilter(categoryId)}
+              />
+            );
+          })}
+          {skill.categoryIds.length > 4 && (
+            <span className="text-xs text-muted">+{skill.categoryIds.length - 4}</span>
+          )}
+        </div>
+      )}
 
       <SkillAgentToolBar
         tools={installedTools}

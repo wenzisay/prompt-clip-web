@@ -58,6 +58,7 @@ const skill: SkillSummary = {
   relativePath: 'review-code',
   contentHash: 'hash',
   favoritedAt: null,
+  categoryIds: [],
   toolStates: {
     codex: {
       toolId: 'codex',
@@ -359,5 +360,65 @@ describe('SkillCard', () => {
 
     await waitFor(() => expect(setError).toHaveBeenCalled());
     expect(setToolEnabled).not.toHaveBeenCalled();
+  });
+
+  describe('categories', () => {
+    const categorizedSkill: SkillSummary = { ...skill, categoryIds: ['c1', 'c2'] };
+
+    beforeEach(() => {
+      useSkillStore.setState({
+        categories: [
+          { id: 'c1', name: 'Work', createdAt: '2026-08-01T00:00:00Z' },
+          { id: 'c2', name: 'Personal', createdAt: '2026-08-02T00:00:00Z' },
+        ],
+        setCategoryFilter: vi.fn(),
+        setSkillCategories: vi.fn(),
+      });
+    });
+
+    it('renders category pills and filters on click', () => {
+      const setCategoryFilter = vi.fn();
+      useSkillStore.setState({ setCategoryFilter });
+      render(<SkillCard skill={categorizedSkill} tools={tools} />);
+
+      expect(screen.getByText('#Work')).toBeTruthy();
+      expect(screen.getByText('#Personal')).toBeTruthy();
+
+      fireEvent.click(screen.getByText('#Work'));
+      expect(setCategoryFilter).toHaveBeenCalledWith('c1');
+    });
+
+    it('truncates pills when more than four categories', () => {
+      const manySkill: SkillSummary = {
+        ...skill,
+        categoryIds: ['c1', 'c2', 'c3', 'c4', 'c5'],
+      };
+      useSkillStore.setState({
+        categories: [
+          { id: 'c1', name: 'A', createdAt: '' },
+          { id: 'c2', name: 'B', createdAt: '' },
+          { id: 'c3', name: 'C', createdAt: '' },
+          { id: 'c4', name: 'D', createdAt: '' },
+          { id: 'c5', name: 'E', createdAt: '' },
+        ],
+      });
+      render(<SkillCard skill={manySkill} tools={tools} />);
+
+      expect(screen.getByText('+1')).toBeTruthy();
+    });
+
+    it('opens the assign panel from the card menu', async () => {
+      const setSkillCategories = vi.fn();
+      useSkillStore.setState({ setSkillCategories });
+      render(<SkillCard skill={skill} tools={tools} />);
+
+      fireEvent.click(screen.getByLabelText('More actions'));
+      fireEvent.click(screen.getByText('Add to category'));
+
+      // Panel lists categories; toggling one persists.
+      expect(screen.getByText('Work')).toBeTruthy();
+      fireEvent.click(screen.getByText('Work'));
+      await waitFor(() => expect(setSkillCategories).toHaveBeenCalledWith('review-code', ['c1']));
+    });
   });
 });
