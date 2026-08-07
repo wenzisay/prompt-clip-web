@@ -175,7 +175,7 @@ export function SkillCard({
 
       {/* 分类 pills */}
       {skill.categoryIds.length > 0 && (
-        <div className="mt-3 flex min-h-5 flex-wrap gap-2">
+        <div className="mb-3 mt-3 flex min-h-5 flex-wrap gap-2">
           {skill.categoryIds.slice(0, 4).map((categoryId) => {
             const category = findCategory(categoryId, { categories });
             if (!category) return null;

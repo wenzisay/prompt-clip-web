@@ -381,10 +381,14 @@ describe('SkillCard', () => {
       useSkillStore.setState({ setCategoryFilter });
       render(<SkillCard skill={categorizedSkill} tools={tools} />);
 
-      expect(screen.getByText('#Work')).toBeTruthy();
-      expect(screen.getByText('#Personal')).toBeTruthy();
+      const workCategory = screen.getByText('#Work');
+      const categoryList = workCategory.parentElement;
 
-      fireEvent.click(screen.getByText('#Work'));
+      expect(workCategory).toBeTruthy();
+      expect(screen.getByText('#Personal')).toBeTruthy();
+      expect(categoryList?.className).toContain('mb-3');
+
+      fireEvent.click(workCategory);
       expect(setCategoryFilter).toHaveBeenCalledWith('c1');
     });
 
