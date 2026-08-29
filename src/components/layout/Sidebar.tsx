@@ -3,6 +3,7 @@
  */
 
 import { TagTree } from '@/components/tag/TagTree';
+import { SkillCategoryTree } from '@/components/skill/SkillCategoryTree';
 import { AgentToolIcon } from '@/components/common';
 import { useTranslation } from '@/i18n';
 import { isTauriRuntime } from '@/services/fileRepository/tauriFileRepository';
@@ -145,6 +146,7 @@ export function Sidebar({ onSkillSettings, onSelectSection }: SidebarProps) {
               </ul>
             )}
           </div>
+          <SkillCategoryTree />
         </div>
       )}
 

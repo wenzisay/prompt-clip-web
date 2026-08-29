@@ -19,6 +19,7 @@ const skill: SkillSummary = {
   relativePath: 'review-code',
   contentHash: 'hash',
   favoritedAt: null,
+  categoryIds: [],
   toolStates: {},
 };
 

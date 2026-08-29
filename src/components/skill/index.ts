@@ -17,3 +17,5 @@ export { SkillFilterTabs } from './SkillFilterTabs';
 export { SkillTopBar } from './SkillTopBar';
 export { SkillQuickSwitcher } from './SkillQuickSwitcher';
 export { SkillImportModal } from './SkillImportModal';
+export { SkillCategoryTree } from './SkillCategoryTree';
+export { SkillCategoryAssignPanel } from './SkillCategoryAssignPanel';

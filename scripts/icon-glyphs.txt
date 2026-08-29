@@ -5,6 +5,7 @@ arrow_back
 arrow_forward
 auto_awesome
 auto_fix_high
+category
 chat_bubble
 check
 check_box

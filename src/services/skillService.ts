@@ -236,6 +236,36 @@ export async function updateSkillSettings(
   return invoke('skill_update_settings', { defaultSyncMode, toolOverrides });
 }
 
+/** 新增一个 Skill 分类，返回最新 settings。 */
+export async function addCategory(name: string): Promise<SkillManagerSettings> {
+  requireDesktop();
+  return invoke('skill_add_category', { name });
+}
+
+/** 重命名一个 Skill 分类（id 不变），返回最新 settings。 */
+export async function renameCategory(
+  id: string,
+  name: string
+): Promise<SkillManagerSettings> {
+  requireDesktop();
+  return invoke('skill_rename_category', { id, name });
+}
+
+/** 删除一个 Skill 分类并解除所有指派，返回最新 settings。 */
+export async function deleteCategory(id: string): Promise<SkillManagerSettings> {
+  requireDesktop();
+  return invoke('skill_delete_category', { id });
+}
+
+/** 设置某个 Skill 所属的分类 id 列表（多选），返回最新 settings。 */
+export async function setSkillCategories(
+  skillId: string,
+  categoryIds: string[]
+): Promise<SkillManagerSettings> {
+  requireDesktop();
+  return invoke('skill_set_skill_categories', { skillId, categoryIds });
+}
+
 /** 新增一个自定义 Agent 工具，返回最新 SkillScanResponse。 */
 export async function addCustomTool(name: string, skillsPath: string): Promise<SkillScanResponse> {
   requireDesktop();
@@ -293,4 +323,8 @@ export const SkillService = {
   removeCustomTool,
   setToolEnabledState,
   reorderTools,
+  addCategory,
+  renameCategory,
+  deleteCategory,
+  setSkillCategories,
 } as const;

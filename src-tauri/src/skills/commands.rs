@@ -2,6 +2,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::env;
 use std::fs;
 use std::path::{Component, Path, PathBuf};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::archive::{
     export_skill_archive, import_skill_archive as import_archive, preview_skill_archive,
@@ -14,10 +15,10 @@ use super::files::{
 };
 use super::import::{import_external_skill, ImportDecision, ImportOutcome};
 use super::models::{
-    AgentTool, ArchivePreview, ExternalScanResult, SkillDeleteMode, SkillFileEntry,
-    SkillManagerError, SkillManagerInitialization, SkillScanResponse, SkillSettingsUpdateResult,
-    SkillTextFile, SkillTextWriteResult, SkillToolState, SyncMode, SyncOperationResult,
-    ToolSyncMode,
+    AgentTool, ArchivePreview, ExternalScanResult, SkillCategory, SkillDeleteMode, SkillFileEntry,
+    SkillManagerError, SkillManagerInitialization, SkillManagerSettings, SkillScanResponse,
+    SkillSettingsUpdateResult, SkillTextFile, SkillTextWriteResult, SkillToolState, SyncMode,
+    SyncOperationResult, ToolSyncMode,
 };
 use super::paths::SkillPaths;
 use super::registry::builtin_tool_definitions;
@@ -233,6 +234,242 @@ pub fn skill_update_settings(
         default_sync_mode,
         tool_overrides,
     )
+}
+
+/// 新增一个 Skill 分类。返回最新 settings 供前端刷新。
+#[tauri::command]
+pub fn skill_add_category(name: String) -> Result<SkillManagerSettings, SkillManagerError> {
+    let home_dir = home_directory()?;
+    add_category_at(&home_dir, name)
+}
+
+/// 重命名一个 Skill 分类（id 不变）。返回最新 settings。
+#[tauri::command]
+pub fn skill_rename_category(
+    id: String,
+    name: String,
+) -> Result<SkillManagerSettings, SkillManagerError> {
+    let home_dir = home_directory()?;
+    rename_category_at(&home_dir, id, name)
+}
+
+/// 删除一个 Skill 分类；解除所有指派。返回最新 settings。
+#[tauri::command]
+pub fn skill_delete_category(id: String) -> Result<SkillManagerSettings, SkillManagerError> {
+    let home_dir = home_directory()?;
+    delete_category_at(&home_dir, id)
+}
+
+/// 设置某个 Skill 所属的分类 id 列表（多选）。返回最新 settings。
+#[tauri::command]
+pub fn skill_set_skill_categories(
+    skill_id: String,
+    category_ids: Vec<String>,
+) -> Result<SkillManagerSettings, SkillManagerError> {
+    let home_dir = home_directory()?;
+    set_skill_categories_at(&home_dir, skill_id, category_ids)
+}
+
+fn add_category_at(
+    home_dir: &Path,
+    name: String,
+) -> Result<SkillManagerSettings, SkillManagerError> {
+    let trimmed = name.trim();
+    let paths = SkillPaths::new(home_dir);
+    paths.initialize()?;
+    let repository = SkillConfigRepository::new(&paths);
+    let mut settings = repository.load_or_create()?.settings;
+    validate_category_name(trimmed, &settings)?;
+    let category = SkillCategory {
+        id: generate_category_id(trimmed),
+        name: trimmed.to_string(),
+        created_at: now_iso_z(),
+    };
+    settings.categories.push(category);
+    repository.save(&settings)?;
+    Ok(settings)
+}
+
+fn rename_category_at(
+    home_dir: &Path,
+    id: String,
+    name: String,
+) -> Result<SkillManagerSettings, SkillManagerError> {
+    let trimmed = name.trim();
+    let paths = SkillPaths::new(home_dir);
+    paths.initialize()?;
+    let repository = SkillConfigRepository::new(&paths);
+    let mut settings = repository.load_or_create()?.settings;
+    // 先排除自身再做重名校验，避免把自己判为重名。
+    let other_names: Vec<String> = settings
+        .categories
+        .iter()
+        .filter(|category| category.id != id)
+        .map(|category| category.name.clone())
+        .collect();
+    validate_category_name_against(trimmed, &other_names)?;
+    let target = settings
+        .categories
+        .iter_mut()
+        .find(|category| category.id == id)
+        .ok_or_else(|| SkillManagerError::new("skill_category_not_found"))?;
+    target.name = trimmed.to_string();
+    repository.save(&settings)?;
+    Ok(settings)
+}
+
+fn delete_category_at(
+    home_dir: &Path,
+    id: String,
+) -> Result<SkillManagerSettings, SkillManagerError> {
+    let paths = SkillPaths::new(home_dir);
+    paths.initialize()?;
+    let repository = SkillConfigRepository::new(&paths);
+    let mut settings = repository.load_or_create()?.settings;
+    let existed = settings.categories.iter().any(|category| category.id == id);
+    if !existed {
+        return Err(SkillManagerError::new("skill_category_not_found"));
+    }
+    settings.categories.retain(|category| category.id != id);
+    // 解除所有 skill 对该分类的指派；清空后落回默认类别（删除空条目）。
+    for category_ids in settings.skill_categories.values_mut() {
+        category_ids.retain(|candidate| candidate != &id);
+    }
+    settings.skill_categories.retain(|_, ids| !ids.is_empty());
+    repository.save(&settings)?;
+    Ok(settings)
+}
+
+fn set_skill_categories_at(
+    home_dir: &Path,
+    skill_id: String,
+    category_ids: Vec<String>,
+) -> Result<SkillManagerSettings, SkillManagerError> {
+    let paths = SkillPaths::new(home_dir);
+    paths.initialize()?;
+    // 校验 skill 存在（复用收藏的同款校验：必须是 hub 内真实目录）。
+    let skill_root = paths.skill_root(&skill_id)?;
+    let metadata = std::fs::symlink_metadata(&skill_root)
+        .map_err(|_| SkillManagerError::new("skill_not_found"))?;
+    if metadata.file_type().is_symlink() || !metadata.is_dir() {
+        return Err(SkillManagerError::new("skill_source_invalid"));
+    }
+    let repository = SkillConfigRepository::new(&paths);
+    let mut settings = repository.load_or_create()?.settings;
+    let valid_ids: BTreeSet<String> = settings
+        .categories
+        .iter()
+        .map(|category| category.id.clone())
+        .collect();
+    // 去重 + 过滤不存在的分类 id，保持稳定顺序。
+    let mut filtered: Vec<String> = Vec::new();
+    for id in category_ids {
+        if valid_ids.contains(&id) && !filtered.contains(&id) {
+            filtered.push(id);
+        }
+    }
+    if filtered.is_empty() {
+        settings.skill_categories.remove(&skill_id);
+    } else {
+        settings.skill_categories.insert(skill_id, filtered);
+    }
+    repository.save(&settings)?;
+    Ok(settings)
+}
+
+/// 校验分类名：非空、长度 ≤20、非保留字、大小写不敏感唯一。
+fn validate_category_name(
+    name: &str,
+    settings: &SkillManagerSettings,
+) -> Result<(), SkillManagerError> {
+    let existing: Vec<String> = settings.categories.iter().map(|c| c.name.clone()).collect();
+    validate_category_name_against(name, &existing)
+}
+
+fn validate_category_name_against(
+    name: &str,
+    existing: &[String],
+) -> Result<(), SkillManagerError> {
+    if name.is_empty() {
+        return Err(SkillManagerError::new("skill_category_name_required"));
+    }
+    let chars = name.chars().count();
+    if chars > CATEGORY_NAME_MAX_CHARS {
+        return Err(SkillManagerError::new("skill_category_name_too_long"));
+    }
+    if is_reserved_category_name(name) {
+        return Err(SkillManagerError::new("skill_category_name_reserved"));
+    }
+    let lower = name.to_lowercase();
+    if existing.iter().any(|item| item.to_lowercase() == lower) {
+        return Err(SkillManagerError::new("skill_category_name_duplicate"));
+    }
+    Ok(())
+}
+
+/// 四语言「默认类别」文案与常见变体均为保留字（大小写不敏感比对）。
+fn is_reserved_category_name(name: &str) -> bool {
+    const RESERVED: &[&str] = &[
+        "默认类别",
+        "預設類別",
+        "default",
+        "デフォルト",
+    ];
+    let lower = name.to_lowercase();
+    RESERVED.iter().any(|reserved| reserved.to_lowercase() == lower)
+}
+
+const CATEGORY_NAME_MAX_CHARS: usize = 20;
+
+/// 基于名称 slug + 时间种子的稳定分类 id（沿用 custom tool 的命名风格）。
+fn generate_category_id(name: &str) -> String {
+    let slug: String = name
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric())
+        .flat_map(|c| c.to_lowercase())
+        .collect();
+    let slug = if slug.is_empty() { "category".to_string() } else { slug };
+    let seed: u64 = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos() as u64;
+    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+    hash ^= seed;
+    hash = hash.wrapping_mul(0x0100_0000_01b3);
+    for byte in name.as_bytes() {
+        hash ^= *byte as u64;
+        hash = hash.wrapping_mul(0x0100_0000_01b3);
+    }
+    format!("category-{slug}-{:x}", hash & 0xffff)
+}
+
+/// 生成以 Z 结尾的 UTC ISO-8601 时间戳（与收藏时间戳格式一致；无 chrono 依赖）。
+fn now_iso_z() -> String {
+    let secs = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    let days = secs.div_euclid(86_400);
+    let remainder = secs.rem_euclid(86_400);
+    let hour = remainder / 3600;
+    let minute = (remainder % 3600) / 60;
+    let second = remainder % 60;
+    let (year, month, day) = civil_from_days(days as i64);
+    format!("{year:04}-{month:02}-{day:02}T{hour:02}:{minute:02}:{second:02}Z")
+}
+
+/// 将自 1970-01-01 起的天数转换为 (年, 月, 日)，沿用 Howard Hinnant 的 civil_from_days 算法。
+fn civil_from_days(z: i64) -> (i64, u32, u32) {
+    let z = z + 719_468;
+    let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
+    let doe = (z - era * 146_097) as u64; // [0, 146096]
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365; // [0, 399]
+    let y = yoe as i64 + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100); // [0, 365]
+    let mp = (5 * doy + 2) / 153; // [0, 11]
+    let d = (doy - (153 * mp + 2) / 5 + 1) as u32; // [1, 31]
+    let m = if mp < 10 { mp + 3 } else { mp - 9 } as u32; // [1, 12]
+    (if m <= 2 { y + 1 } else { y }, m, d)
 }
 
 /// 新增一个自定义 Agent 工具。返回最新 SkillScanResponse 供前端刷新。
@@ -612,6 +849,12 @@ fn scan_at(
     let paths = SkillPaths::new(home_dir);
     for skill in &mut hub.skills {
         skill.favorited_at = initialization.settings.favorites.get(&skill.id).cloned();
+        skill.category_ids = initialization
+            .settings
+            .skill_categories
+            .get(&skill.id)
+            .cloned()
+            .unwrap_or_default();
         let entry_path = paths.resolve_skill_path(&skill.id, Path::new("SKILL.md"))?;
         let source = entry_path
             .parent()
@@ -803,7 +1046,9 @@ fn delete_skill_at(
     })?;
     let repository = SkillConfigRepository::new(&paths);
     let mut settings = repository.load_or_create()?.settings;
-    if settings.favorites.remove(skill_id).is_some() {
+    let mut changed = settings.favorites.remove(skill_id).is_some();
+    changed |= settings.skill_categories.remove(skill_id).is_some();
+    if changed {
         repository.save(&settings)?;
     }
     Ok(())
@@ -923,9 +1168,10 @@ fn reveal_in_file_manager(path: &Path) -> Result<(), SkillManagerError> {
 #[cfg(test)]
 mod tests {
     use super::{
-        add_custom_tool_at, delete_skill_at, initialize_at, remove_custom_tool_at,
-        reorder_tools_at, resolve_external_entry_path, scan_at, set_favorite_at,
-        set_tool_enabled_state_at, update_settings_at,
+        add_category_at, add_custom_tool_at, delete_category_at, delete_skill_at, initialize_at,
+        remove_custom_tool_at, rename_category_at, reorder_tools_at, resolve_external_entry_path,
+        scan_at, set_favorite_at, set_skill_categories_at, set_tool_enabled_state_at,
+        update_settings_at,
     };
     use crate::skills::models::{SkillDeleteMode, SyncMode, ToolSyncMode};
     use std::collections::BTreeMap;
@@ -1340,5 +1586,180 @@ mod tests {
         let err = reorder_tools_at(home.path(), &[], extra)
             .expect_err("extra id should be rejected");
         assert_eq!(err.code, "skill_tool_order_invalid");
+    }
+
+    /// 创建一个带 SKILL.md 的 hub skill 目录，供分类相关测试复用。
+    fn create_test_skill(home: &tempfile::TempDir, id: &str) {
+        let skill = home.path().join(format!(".prompt-clip/skills/{id}"));
+        fs::create_dir_all(&skill).expect("skill directory should be created");
+        fs::write(
+            skill.join("SKILL.md"),
+            format!("---\nname: {id}\ndescription: {id} skill\n---\n"),
+        )
+        .expect("SKILL.md should be written");
+    }
+
+    #[test]
+    fn should_add_rename_and_delete_category() {
+        let home = tempdir().expect("home should be created");
+
+        let settings = add_category_at(home.path(), "Writing".to_string())
+            .expect("category should be added");
+        assert_eq!(settings.categories.len(), 1);
+        assert_eq!(settings.categories[0].name, "Writing");
+        let writing_id = settings.categories[0].id.clone();
+        assert!(settings.categories[0].created_at.ends_with('Z'));
+
+        // 重命名（id 不变）
+        let settings =
+            rename_category_at(home.path(), writing_id.clone(), "Drafts".to_string())
+                .expect("category should be renamed");
+        assert_eq!(settings.categories.len(), 1);
+        assert_eq!(settings.categories[0].id, writing_id);
+        assert_eq!(settings.categories[0].name, "Drafts");
+
+        // 删除
+        let settings = delete_category_at(home.path(), writing_id)
+            .expect("category should be deleted");
+        assert!(settings.categories.is_empty());
+    }
+
+    #[test]
+    fn should_reject_invalid_and_duplicate_category_names() {
+        let home = tempdir().expect("home should be created");
+        add_category_at(home.path(), "Work".to_string()).expect("first category should be added");
+
+        // 空名
+        let err = add_category_at(home.path(), "   ".to_string())
+            .expect_err("empty name should be rejected");
+        assert_eq!(err.code, "skill_category_name_required");
+
+        // 大小写不敏感重名（Work vs work）
+        let err = add_category_at(home.path(), "work".to_string())
+            .expect_err("duplicate name (case-insensitive) should be rejected");
+        assert_eq!(err.code, "skill_category_name_duplicate");
+
+        // 保留字（四语言「默认类别」）
+        let err = add_category_at(home.path(), "Default".to_string())
+            .expect_err("reserved name should be rejected");
+        assert_eq!(err.code, "skill_category_name_reserved");
+        let err = add_category_at(home.path(), "默认类别".to_string())
+            .expect_err("reserved zh name should be rejected");
+        assert_eq!(err.code, "skill_category_name_reserved");
+
+        // 过长（>20 字符）
+        let err = add_category_at(home.path(), "abcdefghijklmnopqrstuvwxyz".to_string())
+            .expect_err("too long name should be rejected");
+        assert_eq!(err.code, "skill_category_name_too_long");
+
+        // rename 到已有名也应拒绝
+        let settings = add_category_at(home.path(), "Other".to_string()).expect("second category");
+        let other_id = settings.categories.iter().find(|c| c.name == "Other").unwrap().id.clone();
+        let err = rename_category_at(home.path(), other_id, "work".to_string())
+            .expect_err("rename to duplicate should be rejected");
+        assert_eq!(err.code, "skill_category_name_duplicate");
+    }
+
+    #[test]
+    fn should_assign_and_clear_skill_categories() {
+        let home = tempdir().expect("home should be created");
+        create_test_skill(&home, "test-skill");
+        let settings = add_category_at(home.path(), "Work".to_string()).expect("category added");
+        let work_id = settings.categories[0].id.clone();
+        let settings = add_category_at(home.path(), "Personal".to_string()).expect("category added");
+        let personal_id = settings
+            .categories
+            .iter()
+            .find(|c| c.name == "Personal")
+            .unwrap()
+            .id
+            .clone();
+
+        // 多选指派
+        let settings = set_skill_categories_at(
+            home.path(),
+            "test-skill".to_string(),
+            vec![work_id.clone(), personal_id.clone()],
+        )
+        .expect("categories should be assigned");
+        assert_eq!(
+            settings.skill_categories.get("test-skill"),
+            Some(&vec![work_id.clone(), personal_id.clone()])
+        );
+
+        // scan 应把 category_ids 合并进 SkillSummary
+        let scan = scan_at(home.path(), &[]).expect("skills should scan");
+        assert_eq!(scan.skills[0].category_ids.len(), 2);
+
+        // 清空指派（回到默认类别）
+        let settings = set_skill_categories_at(home.path(), "test-skill".to_string(), vec![])
+            .expect("categories should be cleared");
+        assert!(!settings.skill_categories.contains_key("test-skill"));
+    }
+
+    #[test]
+    fn should_reject_assigning_to_unknown_skill_and_unknown_category() {
+        let home = tempdir().expect("home should be created");
+        create_test_skill(&home, "real-skill");
+        let settings = add_category_at(home.path(), "Work".to_string()).expect("category added");
+        let work_id = settings.categories[0].id.clone();
+
+        // 不存在的 skill
+        let err = set_skill_categories_at(
+            home.path(),
+            "ghost-skill".to_string(),
+            vec![work_id.clone()],
+        )
+        .expect_err("unknown skill should be rejected");
+        assert_eq!(err.code, "skill_not_found");
+
+        // 不存在的分类 id 应被静默过滤（不报错），结果为空则移除条目
+        let settings = set_skill_categories_at(
+            home.path(),
+            "real-skill".to_string(),
+            vec!["nonexistent-category".to_string()],
+        )
+        .expect("unknown category ids should be filtered, not error");
+        assert!(!settings.skill_categories.contains_key("real-skill"));
+    }
+
+    #[test]
+    fn should_release_assignments_when_deleting_category() {
+        let home = tempdir().expect("home should be created");
+        create_test_skill(&home, "test-skill");
+        let settings = add_category_at(home.path(), "Work".to_string()).expect("category added");
+        let work_id = settings.categories[0].id.clone();
+
+        set_skill_categories_at(home.path(), "test-skill".to_string(), vec![work_id.clone()])
+            .expect("assign");
+
+        // 删除分类后，该 skill 的指派应被解除（落回默认类别）
+        let settings = delete_category_at(home.path(), work_id).expect("delete category");
+        assert!(settings.categories.is_empty());
+        // 空指派条目应被移除
+        assert!(!settings.skill_categories.contains_key("test-skill"));
+    }
+
+    #[test]
+    fn should_cleanup_skill_categories_on_skill_delete() {
+        let home = tempdir().expect("home should be created");
+        create_test_skill(&home, "doomed-skill");
+        let settings = add_category_at(home.path(), "Work".to_string()).expect("category added");
+        let work_id = settings.categories[0].id.clone();
+        set_skill_categories_at(home.path(), "doomed-skill".to_string(), vec![work_id])
+            .expect("assign");
+
+        // 删除 skill 后，skill_categories 中的该条目应被清理
+        delete_skill_at(home.path(), &[], "doomed-skill", SkillDeleteMode::All)
+            .expect("skill should be deleted");
+
+        let scan = scan_at(home.path(), &[]).expect("skills should scan");
+        assert!(scan.skills.is_empty());
+        // 重新加载 settings 确认清理已持久化
+        let repository = crate::skills::config::SkillConfigRepository::new(
+            &crate::skills::paths::SkillPaths::new(home.path()),
+        );
+        let settings = repository.load_or_create().expect("settings reload").settings;
+        assert!(!settings.skill_categories.contains_key("doomed-skill"));
     }
 }

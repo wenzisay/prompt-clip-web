@@ -11,6 +11,8 @@ const settings: SkillManagerSettings = {
   customTools: [],
   disabledToolIds: [],
   toolOrder: [],
+  categories: [],
+  skillCategories: {},
 };
 const tool: AgentTool = {
   id: 'codex',

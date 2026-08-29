@@ -7,7 +7,8 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::models::{
-    CustomToolDefinition, SkillManagerError, SkillManagerSettings, SyncMode, ToolSyncMode,
+    CustomToolDefinition, SkillCategory, SkillManagerError, SkillManagerSettings, SyncMode,
+    ToolSyncMode,
 };
 use super::paths::SkillPaths;
 
@@ -118,6 +119,14 @@ struct RawCustomTool {
 
 #[derive(Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
+struct RawCategory {
+    id: String,
+    name: String,
+    created_at: String,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
 struct RawSettings {
     schema_version: Option<u32>,
     default_sync_mode: Option<String>,
@@ -131,6 +140,10 @@ struct RawSettings {
     disabled_tool_ids: BTreeSet<String>,
     #[serde(default)]
     tool_order: Vec<String>,
+    #[serde(default)]
+    categories: Vec<RawCategory>,
+    #[serde(default)]
+    skill_categories: BTreeMap<String, Vec<String>>,
 }
 
 fn parse_settings(content: &str) -> Result<LoadedSettings, String> {
@@ -173,6 +186,48 @@ fn parse_settings(content: &str) -> Result<LoadedSettings, String> {
         });
     }
 
+    // 分类：逐项解析，跳过缺 id/name/created_at 的非法项并记 warning；
+    // 重复 id 在此剔除，保证后续逻辑拿到合法集合。
+    let valid_category_ids: BTreeSet<String> = raw
+        .categories
+        .iter()
+        .map(|category| category.id.clone())
+        .collect();
+    let mut categories = Vec::new();
+    let mut seen_category_ids = BTreeSet::new();
+    for category in raw.categories {
+        if category.id.trim().is_empty()
+            || category.name.trim().is_empty()
+            || category.created_at.trim().is_empty()
+        {
+            warnings.push("invalid_skill_category_skipped".to_string());
+            continue;
+        }
+        if !seen_category_ids.insert(category.id.clone()) {
+            warnings.push(format!("duplicate_skill_category_id:{}", category.id));
+            continue;
+        }
+        categories.push(SkillCategory {
+            id: category.id,
+            name: category.name,
+            created_at: category.created_at,
+        });
+    }
+
+    // 过滤掉指向不存在分类的 skill_categories 条目，避免脏数据残留。
+    let mut skill_categories = BTreeMap::new();
+    for (skill_id, category_ids) in raw.skill_categories {
+        let filtered: Vec<String> = category_ids
+            .into_iter()
+            .filter(|id| valid_category_ids.contains(id))
+            .collect();
+        if filtered.is_empty() {
+            warnings.push(format!("orphan_skill_categories:{}", skill_id));
+            continue;
+        }
+        skill_categories.insert(skill_id, filtered);
+    }
+
     Ok(LoadedSettings {
         settings: SkillManagerSettings {
             schema_version: 1,
@@ -182,6 +237,8 @@ fn parse_settings(content: &str) -> Result<LoadedSettings, String> {
             custom_tools,
             disabled_tool_ids: raw.disabled_tool_ids,
             tool_order: raw.tool_order,
+            categories,
+            skill_categories,
         },
         warnings,
     })

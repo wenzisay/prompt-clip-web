@@ -255,6 +255,7 @@ pub(crate) fn scan_skill_directory(
         relative_path: directory_name.to_string(),
         content_hash: compute_skill_hash(skill_path)?,
         favorited_at: None,
+        category_ids: Vec::new(),
         tool_states: std::collections::BTreeMap::new(),
     })
 }

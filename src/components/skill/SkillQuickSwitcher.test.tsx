@@ -11,6 +11,7 @@ function skill(id: string): SkillSummary {
     relativePath: id,
     contentHash: `${id}-hash`,
     favoritedAt: null,
+    categoryIds: [],
     toolStates: {},
   };
 }
