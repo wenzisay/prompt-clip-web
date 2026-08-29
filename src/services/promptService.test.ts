@@ -705,6 +705,59 @@ describe('PromptService repository integration', () => {
     expect(repository.dumpFiles()['Favorite.md']).not.toContain('pinned_at');
   });
 
+  it('preserves file content when toggling pin on a head-only loaded prompt', async () => {
+    const repository = createFakeFileRepository({
+      files: {
+        'Favorite.md': [
+          '---',
+          'id: "11111111111111111"',
+          'title: Favorite',
+          '---',
+          '',
+          'Full body text',
+        ].join('\n'),
+      },
+    });
+    const [prompt] = await PromptService.loadPrompts(repository, workspace);
+    expect(prompt.isContentLoaded).toBe(false);
+    expect(prompt.content).toBe('');
+
+    const favorited = await PromptService.togglePinned(repository, workspace, prompt);
+
+    expect(favorited.pinned).toBe(true);
+    expect(favorited.isContentLoaded).toBe(true);
+    expect(favorited.content).toBe('Full body text');
+    expect(repository.dumpFiles()['Favorite.md']).toContain('Full body text');
+    expect(repository.dumpFiles()['Favorite.md']).toContain('pinned: true');
+  });
+
+  it('preserves file content for copy count and tag updates on unloaded prompts', async () => {
+    const repository = createFakeFileRepository({
+      files: {
+        'Meta.md': [
+          '---',
+          'id: "11111111111111111"',
+          'title: Meta',
+          '---',
+          '',
+          'Body before metadata update',
+        ].join('\n'),
+      },
+    });
+    const [prompt] = await PromptService.loadPrompts(repository, workspace);
+    expect(prompt.isContentLoaded).toBe(false);
+
+    const counted = await PromptService.incrementCopyCount(repository, workspace, prompt);
+    const retagged = await PromptService.updatePrompt(repository, workspace, counted, {
+      id: counted.id,
+      tags: ['kept'],
+    });
+
+    expect(retagged.tags).toEqual(['kept']);
+    expect(retagged.content).toBe('Body before metadata update');
+    expect(repository.dumpFiles()['Meta.md']).toContain('Body before metadata update');
+  });
+
   it('preserves nested directories when updating and renaming prompts', async () => {
     const repository = createFakeFileRepository({
       files: {

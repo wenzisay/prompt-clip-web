@@ -232,10 +232,17 @@ export async function updatePrompt(
     await createHistoryVersion(repository, workspace, prompt);
   }
 
+  // 元数据更新（收藏、复制计数、标签等）不携带新正文；若内存中的正文尚未懒加载
+  // （content 为空占位），必须先从磁盘读回，否则会把空正文序列化写回、清空文件内容
+  let base = prompt;
+  if (updates.content === undefined && !prompt.isContentLoaded) {
+    base = await ensureContent(repository, workspace, prompt);
+  }
+
   const now = new Date();
   const updatedTitle = updates.title?.trim();
   const updatedPrompt: Prompt = {
-    ...prompt,
+    ...base,
     ...(updatedTitle !== undefined && { title: updatedTitle }),
     ...(updates.content !== undefined && {
       content: updates.content,
@@ -246,7 +253,7 @@ export async function updatePrompt(
     ...(updates.createdAt !== undefined && { createdAt: updates.createdAt }),
     ...(updates.copyCount !== undefined && { copyCount: updates.copyCount }),
     ...(updates.pinned !== undefined && { pinned: updates.pinned }),
-    pinnedAt: getNextPinnedAt(prompt, updates.pinned, updates.pinnedAt, now),
+    pinnedAt: getNextPinnedAt(base, updates.pinned, updates.pinnedAt, now),
     updatedAt: now,
   };
 
