@@ -1,8 +1,14 @@
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { PromptContent } from '@/components/prompt/PromptContent';
 import { useTranslation } from '@/i18n';
 import { splitFrontmatter } from '@/utils/markdown';
 import type { SkillFileEntry, SkillTextFile } from '@/types/skill';
+
+const MarkdownLiveEditor = lazy(() =>
+  import('@/components/markdown/MarkdownLiveEditor').then((module) => ({
+    default: module.MarkdownLiveEditor,
+  }))
+);
 
 const isHtmlFileName = (name: string): boolean => {
   const lower = name.toLowerCase();
@@ -106,6 +112,23 @@ export function SkillFileEditor({
         <div className="min-h-0 flex-1 overflow-y-auto p-5">
           <SkillMarkdownPreview value={content} name={entry.name} />
         </div>
+      ) : entry.isMarkdown ? (
+        <Suspense
+          fallback={
+            <div className="flex min-h-0 flex-1 items-center justify-center text-sm text-muted">
+              {t.app.loading}
+            </div>
+          }
+        >
+          <MarkdownLiveEditor
+            value={content}
+            onChange={setContent}
+            mode="live"
+            ariaLabel={entry.name}
+            protectFrontmatter
+            className="min-h-0 flex-1 border-0"
+          />
+        </Suspense>
       ) : (
         <textarea
           aria-label={entry.name}

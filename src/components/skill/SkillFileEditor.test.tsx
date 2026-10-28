@@ -1,7 +1,26 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SkillFileEntry, SkillTextFile } from '@/types/skill';
 import { SkillFileEditor } from './SkillFileEditor';
+
+vi.mock('@/components/markdown/MarkdownLiveEditor', () => ({
+  MarkdownLiveEditor: ({
+    value,
+    onChange,
+    ariaLabel,
+  }: {
+    value: string;
+    onChange: (value: string) => void;
+    ariaLabel: string;
+  }) => (
+    <textarea
+      aria-label={ariaLabel}
+      data-testid="markdown-live-editor"
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+    />
+  ),
+}));
 
 const markdownEntry: SkillFileEntry = {
   name: 'SKILL.md',
@@ -35,17 +54,18 @@ const htmlFile: SkillTextFile = {
 describe('SkillFileEditor', () => {
   afterEach(cleanup);
 
-  it('edits and saves Markdown content', () => {
+  it('edits and saves Markdown content', async () => {
     const onSave = vi.fn();
     render(<SkillFileEditor entry={markdownEntry} file={textFile} onSave={onSave} onDownload={() => undefined} />);
 
-    fireEvent.change(screen.getByRole('textbox'), { target: { value: '# Updated' } });
+    const editor = await screen.findByTestId('markdown-live-editor');
+    fireEvent.change(editor, { target: { value: '# Updated' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     expect(onSave).toHaveBeenCalledWith('# Updated', 1);
   });
 
-  it('switches Markdown files between edit and preview in a segmented control', () => {
+  it('switches Markdown files between edit and preview in a segmented control', async () => {
     render(
       <SkillFileEditor
         entry={markdownEntry}
@@ -71,7 +91,9 @@ describe('SkillFileEditor', () => {
     fireEvent.click(editButton);
 
     expect(editButton.getAttribute('aria-pressed')).toBe('true');
-    expect(screen.getByRole('textbox', { name: 'SKILL.md' })).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.getByTestId('markdown-live-editor')).toBeTruthy();
+    });
   });
 
   it('switches HTML files between edit and a sandboxed iframe preview', () => {

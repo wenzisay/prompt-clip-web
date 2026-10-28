@@ -10,6 +10,8 @@ export { DeleteConfirm } from './DeleteConfirm';
 export { HistoryModal } from './HistoryModal';
 export { AnnotationPanel } from './AnnotationPanel';
 export { MarkdownModeToggle } from './MarkdownModeToggle';
+export { MarkdownDetailModeToggle } from './MarkdownDetailModeToggle';
+export type { MarkdownDetailViewMode } from './MarkdownDetailModeToggle';
 export { MarkdownPreviewEditor } from './MarkdownPreviewEditor';
 export { MarkdownTextView } from './MarkdownTextView';
 export { PromptMarkdownEditorField } from './PromptMarkdownEditorField';

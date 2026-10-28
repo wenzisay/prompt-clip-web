@@ -5,33 +5,32 @@ import { MarkdownModeToggle } from './MarkdownModeToggle';
 describe('MarkdownModeToggle', () => {
   it('renders icon-only controls with accessible mode names', () => {
     const markup = renderToStaticMarkup(
-      <MarkdownModeToggle mode="text" onModeChange={vi.fn()} />
+      <MarkdownModeToggle mode="source" onModeChange={vi.fn()} />
     );
 
     expect(markup).toContain('aria-label="切换 Markdown 显示模式"');
     expect(markup).toContain('aria-label="源码模式"');
-    expect(markup).toContain('aria-label="渲染模式"');
+    expect(markup).toContain('aria-label="Live Preview"');
     expect(markup).toContain('text_fields');
-    expect(markup).toContain('menu_book');
-    expect(markup).not.toContain('>文本<');
-    expect(markup).not.toContain('>预览<');
+    expect(markup).toContain('visibility');
   });
 
-  it('marks text mode as selected', () => {
+  it('marks source mode as selected', () => {
     const markup = renderToStaticMarkup(
-      <MarkdownModeToggle mode="text" onModeChange={vi.fn()} />
+      <MarkdownModeToggle mode="source" onModeChange={vi.fn()} />
     );
 
+    expect(markup).toContain('data-mode="source"');
     expect(markup).toContain('aria-pressed="true"');
     expect(markup).toContain('bg-accent text-white shadow-card');
   });
 
-  it('marks preview mode as selected', () => {
+  it('marks live mode as selected', () => {
     const markup = renderToStaticMarkup(
-      <MarkdownModeToggle mode="preview" onModeChange={vi.fn()} />
+      <MarkdownModeToggle mode="live" onModeChange={vi.fn()} />
     );
 
-    expect(markup).toContain('data-mode="preview"');
+    expect(markup).toContain('data-mode="live"');
     expect(markup).toContain('aria-pressed="true"');
   });
 });

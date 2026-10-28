@@ -43,7 +43,7 @@ export function CreateModal({ editingPromptId }: CreateModalProps) {
   const [tags, setTags] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [editorMode, setEditorMode] = useState<MarkdownViewMode>('text');
+  const [editorMode, setEditorMode] = useState<MarkdownViewMode>('live');
   const initializedPromptIdRef = useRef<string | null>(null);
   const hasUserEditedRef = useRef(false);
 
@@ -93,7 +93,7 @@ export function CreateModal({ editingPromptId }: CreateModalProps) {
       setContent('');
       setTags(activeTag ? [activeTag] : []);
     }
-    setEditorMode('text');
+    setEditorMode('live');
     setError(null);
     return undefined;
   }, [editingPromptId, modalType, isOpen, editingPrompt, activeTag, workspace, updatePrompt]);
