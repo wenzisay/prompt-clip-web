@@ -5,6 +5,7 @@ import {
   useImperativeHandle,
   useMemo,
   useRef,
+  useState,
 } from 'react';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import { markdown } from '@codemirror/lang-markdown';
@@ -24,7 +25,8 @@ import { promptClipEditorTheme } from './editorTheme';
 import { livePreviewPlugin } from './livePreview/livePreviewPlugin';
 import { MarkdownFormatToolbar } from './MarkdownFormatToolbar';
 import { applyMarkdownInsert, type MarkdownInsertCommandId } from './markdownInsert';
-import { markdownSlashExtension } from './markdownSlashExtension';
+import { markdownSlashKeymap, removeSlashTrigger, slashSegmentBeforeCursor } from './markdownSlashExtension';
+import { MarkdownSlashMenu, type SlashMenuState } from './MarkdownSlashMenu';
 
 export type MarkdownEditorMode = 'live' | 'source';
 
@@ -48,6 +50,7 @@ export interface MarkdownLiveEditorHandle {
 
 const modeCompartment = new Compartment();
 const editableCompartment = new Compartment();
+
 function frontmatterLinePlugin(protectFrontmatter: boolean) {
   if (!protectFrontmatter) {
     return [];
@@ -89,10 +92,12 @@ export const MarkdownLiveEditor = forwardRef<MarkdownLiveEditorHandle, MarkdownL
     ref
   ) {
     const hostRef = useRef<HTMLDivElement>(null);
+    const shellRef = useRef<HTMLDivElement>(null);
     const viewRef = useRef<EditorView | null>(null);
     const lastEmittedRef = useRef(value);
-    const localeRef = useRef(locale);
-    localeRef.current = locale;
+    const [slashMenu, setSlashMenu] = useState<SlashMenuState | null>(null);
+    const slashMenuRef = useRef(setSlashMenu);
+    slashMenuRef.current = setSlashMenu;
 
     const livePreviewOptions = useMemo(
       () => ({ protectFrontmatter }),
@@ -108,6 +113,30 @@ export const MarkdownLiveEditor = forwardRef<MarkdownLiveEditorHandle, MarkdownL
       [livePreviewOptions, protectFrontmatter]
     );
 
+    const syncSlashMenu = useCallback((view: EditorView) => {
+      const pos = view.state.selection.main.head;
+      const line = view.state.doc.lineAt(pos);
+      const before = line.text.slice(0, pos - line.from);
+      const match = slashSegmentBeforeCursor(before);
+      if (!match) {
+        slashMenuRef.current(null);
+        return;
+      }
+      const coords = view.coordsAtPos(pos);
+      const shellRect = shellRef.current?.getBoundingClientRect();
+      if (!coords || !shellRect) {
+        slashMenuRef.current(null);
+        return;
+      }
+      slashMenuRef.current({
+        from: line.from + match.fromOffset,
+        to: pos,
+        query: match.query,
+        top: coords.bottom - shellRect.top + 4,
+        left: coords.left - shellRect.left,
+      });
+    }, []);
+
     useEffect(() => {
       if (!hostRef.current) {
         return undefined;
@@ -120,13 +149,16 @@ export const MarkdownLiveEditor = forwardRef<MarkdownLiveEditorHandle, MarkdownL
         ...promptClipEditorTheme,
         modeCompartment.of(buildLiveExtensions()),
         editableCompartment.of(EditorView.editable.of(!disabled)),
-        ...markdownSlashExtension(localeRef.current),
+        markdownSlashKeymap(() => slashMenuRef.current(null)),
         keymap.of([...defaultKeymap, ...historyKeymap]),
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {
             const next = update.state.doc.toString();
             lastEmittedRef.current = next;
             onChange(next);
+          }
+          if (update.docChanged || update.selectionSet) {
+            syncSlashMenu(update.view);
           }
         }),
         ...(placeholder ? [cmPlaceholder(placeholder)] : []),
@@ -139,10 +171,12 @@ export const MarkdownLiveEditor = forwardRef<MarkdownLiveEditorHandle, MarkdownL
 
       const view = new EditorView({ state, parent: hostRef.current });
       viewRef.current = view;
+      syncSlashMenu(view);
 
       return () => {
         view.destroy();
         viewRef.current = null;
+        slashMenuRef.current(null);
       };
       // eslint-disable-next-line react-hooks/exhaustive-deps -- mount once; sync via effects
     }, []);
@@ -184,7 +218,8 @@ export const MarkdownLiveEditor = forwardRef<MarkdownLiveEditorHandle, MarkdownL
         selection,
       });
       lastEmittedRef.current = value;
-    }, [value]);
+      syncSlashMenu(view);
+    }, [value, syncSlashMenu]);
 
     const runInsert = useCallback((command: MarkdownInsertCommandId) => {
       const view = viewRef.current;
@@ -201,6 +236,27 @@ export const MarkdownLiveEditor = forwardRef<MarkdownLiveEditorHandle, MarkdownL
       });
       view.focus();
     }, [disabled]);
+
+    const applySlashCommand = useCallback((command: MarkdownInsertCommandId) => {
+      const view = viewRef.current;
+      if (!view || !slashMenu || disabled) {
+        return;
+      }
+      const doc = view.state.doc.toString();
+      const withoutSlash = doc.slice(0, slashMenu.from) + doc.slice(slashMenu.to);
+      const { value: next, selection } = applyMarkdownInsert(
+        withoutSlash,
+        { from: slashMenu.from, to: slashMenu.from },
+        command
+      );
+      view.dispatch({
+        changes: { from: 0, to: doc.length, insert: next },
+        selection: EditorSelection.range(selection.from, selection.to),
+        scrollIntoView: true,
+      });
+      setSlashMenu(null);
+      view.focus();
+    }, [disabled, slashMenu]);
 
     useImperativeHandle(ref, () => ({
       focus: () => viewRef.current?.focus(),
@@ -224,11 +280,25 @@ export const MarkdownLiveEditor = forwardRef<MarkdownLiveEditorHandle, MarkdownL
             onCommand={runInsert}
           />
         )}
-        <div
-          ref={hostRef}
-          className="min-h-0 flex-1 overflow-hidden prompt-detail-content"
-          data-testid="markdown-live-editor"
-        />
+        <div ref={shellRef} className="relative min-h-0 flex-1">
+          <div
+            ref={hostRef}
+            className="h-full min-h-0 overflow-auto prompt-detail-content"
+            data-testid="markdown-live-editor"
+          />
+          <MarkdownSlashMenu
+            locale={locale}
+            state={slashMenu}
+            onSelect={applySlashCommand}
+            onClose={() => {
+              setSlashMenu(null);
+              const view = viewRef.current;
+              if (view) {
+                removeSlashTrigger(view);
+              }
+            }}
+          />
+        </div>
       </div>
     );
   }

@@ -551,6 +551,8 @@ export const messages = {
       emptyFailed: '部分操作失败，请重试',
     },
     markdownEditor: {
+      slashMenuLabel: '斜杠插入命令',
+      slashMenuClose: '关闭斜杠菜单',
       toolbarLabel: 'Markdown 格式工具栏',
       toolbar: {
         h1: '一级标题',
@@ -1123,6 +1125,8 @@ export const messages = {
       emptyFailed: '部分操作失敗，請重試',
     },
     markdownEditor: {
+      slashMenuLabel: '斜線插入命令',
+      slashMenuClose: '關閉斜線選單',
       toolbarLabel: 'Markdown 格式工具列',
       toolbar: {
         h1: '一級標題',
@@ -1715,6 +1719,8 @@ export const messages = {
       emptyFailed: 'Some operations failed, please retry',
     },
     markdownEditor: {
+      slashMenuLabel: 'Slash insert commands',
+      slashMenuClose: 'Close slash menu',
       toolbarLabel: 'Markdown formatting toolbar',
       toolbar: {
         h1: 'Heading 1',
@@ -2303,6 +2309,8 @@ export const messages = {
       emptyFailed: '一部の操作が失敗しました。再試行してください',
     },
     markdownEditor: {
+      slashMenuLabel: 'スラッシュ挿入コマンド',
+      slashMenuClose: 'スラッシュメニューを閉じる',
       toolbarLabel: 'Markdown 書式ツールバー',
       toolbar: {
         h1: '見出し 1',
