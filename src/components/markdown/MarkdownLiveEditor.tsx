@@ -9,6 +9,7 @@ import {
 } from 'react';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import { markdown } from '@codemirror/lang-markdown';
+import { Table } from '@lezer/markdown';
 import { EditorState, Compartment, EditorSelection } from '@codemirror/state';
 import {
   EditorView,
@@ -144,7 +145,7 @@ export const MarkdownLiveEditor = forwardRef<MarkdownLiveEditorHandle, MarkdownL
 
       const startExtensions = [
         history(),
-        markdown(),
+        markdown({ extensions: Table }),
         EditorView.lineWrapping,
         ...promptClipEditorTheme,
         modeCompartment.of(buildLiveExtensions()),
