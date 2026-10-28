@@ -1,29 +1,52 @@
-import { autocompletion, type Completion, type CompletionContext } from '@codemirror/autocomplete';
+import {
+  autocompletion,
+  closeCompletion,
+  completionKeymap,
+  completionStatus,
+  startCompletion,
+  type Completion,
+  type CompletionContext,
+} from '@codemirror/autocomplete';
 import { EditorSelection } from '@codemirror/state';
-import type { EditorView } from '@codemirror/view';
+import { keymap, type EditorView } from '@codemirror/view';
+import type { Extension } from '@codemirror/state';
 import type { Locale } from '@/i18n';
 import { messages } from '@/i18n';
 import { applyMarkdownInsert } from './markdownInsert';
 import { MARKDOWN_SLASH_COMMANDS } from './markdownSlashCommands';
 
-const SLASH_PATTERN = /\/[\w-]*$/;
+const SLASH_SEGMENT = /^\/[\w-]*$/;
+
+function slashSegmentBeforeCursor(before: string): { fromOffset: number; query: string } | null {
+  const slashIndex = before.lastIndexOf('/');
+  if (slashIndex === -1) {
+    return null;
+  }
+  const segment = before.slice(slashIndex);
+  if (!SLASH_SEGMENT.test(segment)) {
+    return null;
+  }
+  if (slashIndex > 0 && !/\s/.test(before[slashIndex - 1]!)) {
+    return null;
+  }
+  return { fromOffset: slashIndex, query: segment.slice(1).toLowerCase() };
+}
 
 function slashMatch(context: CompletionContext, locale: Locale) {
   const line = context.state.doc.lineAt(context.pos);
   const before = line.text.slice(0, context.pos - line.from);
-  const match = before.match(SLASH_PATTERN);
+  const match = slashSegmentBeforeCursor(before);
   if (!match) {
     return null;
   }
 
-  const query = match[0].slice(1).toLowerCase();
-  const from = context.pos - match[0].length;
+  const from = line.from + match.fromOffset;
   const t = messages[locale].markdownEditor.slash;
 
   const options: Completion[] = MARKDOWN_SLASH_COMMANDS
     .filter((command) => {
       const label = t[command.labelKey].toLowerCase();
-      return !query || label.includes(query) || command.id.includes(query);
+      return !match.query || label.includes(match.query) || command.id.includes(match.query);
     })
     .map((command) => ({
       label: t[command.labelKey],
@@ -58,16 +81,40 @@ function slashMatch(context: CompletionContext, locale: Locale) {
     };
   }
 
-  return { from, to: context.pos, options, validFor: SLASH_PATTERN };
+  return { from, to: context.pos, options, validFor: SLASH_SEGMENT };
 }
 
-export function markdownSlashExtension(locale: Locale) {
-  return autocompletion({
-    activateOnTyping: true,
-    override: [(context) => slashMatch(context, locale)],
-    defaultKeymap: true,
-    closeOnBlur: true,
-  });
+export function markdownSlashExtension(locale: Locale): Extension[] {
+  return [
+    autocompletion({
+      activateOnTyping: true,
+      activateOnTypingDelay: 0,
+      override: [(context) => slashMatch(context, locale)],
+      defaultKeymap: true,
+      closeOnBlur: true,
+      maxRenderedOptions: 20,
+    }),
+    keymap.of([
+      {
+        key: '/',
+        run(view) {
+          queueMicrotask(() => startCompletion(view));
+          return false;
+        },
+      },
+      {
+        key: 'Escape',
+        run(view) {
+          if (completionStatus(view.state) !== null) {
+            closeCompletion(view);
+            return true;
+          }
+          return removeSlashTrigger(view);
+        },
+      },
+      ...completionKeymap,
+    ]),
+  ];
 }
 
 export function removeSlashTrigger(view: EditorView): boolean {
@@ -75,11 +122,11 @@ export function removeSlashTrigger(view: EditorView): boolean {
   const pos = state.selection.main.head;
   const line = state.doc.lineAt(pos);
   const before = line.text.slice(0, pos - line.from);
-  const match = before.match(SLASH_PATTERN);
+  const match = slashSegmentBeforeCursor(before);
   if (!match) {
     return false;
   }
-  const from = pos - match[0].length;
+  const from = line.from + match.fromOffset;
   view.dispatch({
     changes: { from, to: pos, insert: '' },
     selection: { anchor: from },

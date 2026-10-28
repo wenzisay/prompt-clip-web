@@ -24,7 +24,7 @@ import { promptClipEditorTheme } from './editorTheme';
 import { livePreviewPlugin } from './livePreview/livePreviewPlugin';
 import { MarkdownFormatToolbar } from './MarkdownFormatToolbar';
 import { applyMarkdownInsert, type MarkdownInsertCommandId } from './markdownInsert';
-import { markdownSlashExtension, removeSlashTrigger } from './markdownSlashExtension';
+import { markdownSlashExtension } from './markdownSlashExtension';
 
 export type MarkdownEditorMode = 'live' | 'source';
 
@@ -120,15 +120,8 @@ export const MarkdownLiveEditor = forwardRef<MarkdownLiveEditorHandle, MarkdownL
         ...promptClipEditorTheme,
         modeCompartment.of(buildLiveExtensions()),
         editableCompartment.of(EditorView.editable.of(!disabled)),
-        markdownSlashExtension(localeRef.current),
-        keymap.of([
-          {
-            key: 'Escape',
-            run: (view) => removeSlashTrigger(view),
-          },
-          ...defaultKeymap,
-          ...historyKeymap,
-        ]),
+        ...markdownSlashExtension(localeRef.current),
+        keymap.of([...defaultKeymap, ...historyKeymap]),
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {
             const next = update.state.doc.toString();

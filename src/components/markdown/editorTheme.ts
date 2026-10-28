@@ -34,5 +34,8 @@ export const promptClipEditorTheme = [
       opacity: '0.6',
       pointerEvents: 'none',
     },
+    '.prompt-markdown-live-editor .cm-tooltip.cm-tooltip-autocomplete': {
+      zIndex: '80',
+    },
   }),
 ];
