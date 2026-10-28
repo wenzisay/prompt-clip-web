@@ -13,6 +13,12 @@ import { isTauriRuntime } from '@/services/fileRepository/tauriFileRepository';
 import { useFileStore } from '@/stores/fileStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useUIStore, type AppSection } from '@/stores/uiStore';
+import { MarkdownEditorPlayground } from '@/dev/MarkdownEditorPlayground';
+
+export function isDevMarkdownPlaygroundPath(pathname: string): boolean {
+  const normalizedPathname = pathname.replace(/\/+$/, '') || '/';
+  return normalizedPathname === '/test-editor';
+}
 
 export function isAboutPath(pathname: string): boolean {
   const normalizedPathname = pathname.replace(/\/+$/, '') || '/';
@@ -88,6 +94,9 @@ interface AppRouterProps {
 }
 
 export function AppRouter({ pathname = getCurrentPathname() }: AppRouterProps) {
+  if (import.meta.env.DEV && isDevMarkdownPlaygroundPath(pathname)) {
+    return <MarkdownEditorPlayground />;
+  }
   if (isAboutPath(pathname)) return <AboutPage />;
   if (isPrivacyPath(pathname)) return <PrivacyPage />;
   if (isSupportPath(pathname)) return <SupportPage />;

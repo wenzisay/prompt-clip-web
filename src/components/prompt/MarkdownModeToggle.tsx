@@ -1,6 +1,7 @@
 import { messages, type Locale } from '@/i18n';
+import type { MarkdownEditorMode } from '@/components/markdown';
 
-export type MarkdownViewMode = 'text' | 'preview';
+export type MarkdownViewMode = MarkdownEditorMode;
 
 interface MarkdownModeToggleProps {
   locale?: Locale;
@@ -11,11 +12,11 @@ interface MarkdownModeToggleProps {
 
 const OPTIONS: Array<{
   mode: MarkdownViewMode;
-  labelKey: 'sourceMode' | 'previewMode';
+  labelKey: 'liveMode' | 'sourceMode';
   icon: string;
 }> = [
-  { mode: 'text', labelKey: 'sourceMode', icon: 'text_fields' },
-  { mode: 'preview', labelKey: 'previewMode', icon: 'menu_book' },
+  { mode: 'live', labelKey: 'liveMode', icon: 'visibility' },
+  { mode: 'source', labelKey: 'sourceMode', icon: 'text_fields' },
 ];
 
 export function MarkdownModeToggle({

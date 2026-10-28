@@ -9,10 +9,10 @@ import { SideDrawer } from '@/components/common';
 import {
   HistoryModal,
   AnnotationPanel,
-  MarkdownModeToggle,
+  MarkdownDetailModeToggle,
   MarkdownTextView,
   PromptContent,
-  type MarkdownViewMode,
+  type MarkdownDetailViewMode,
 } from '@/components/prompt';
 import { countChars } from '@/utils/markdown';
 import { PromptService } from '@/services/promptService';
@@ -34,7 +34,7 @@ export function DetailPanel() {
   const annotationCount = useAnnotationStore((state) => state.annotations.length);
   const [copied, setCopied] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
-  const [contentMode, setContentMode] = useState<MarkdownViewMode>('preview');
+  const [contentMode, setContentMode] = useState<MarkdownDetailViewMode>('preview');
   const annotationSectionRef = useRef<HTMLDivElement | null>(null);
 
   const selectedPromptAnnotationCount =
@@ -318,8 +318,8 @@ export function HistoryAction({
 interface PromptContentViewProps {
   content: string;
   locale?: Locale;
-  mode: MarkdownViewMode;
-  onModeChange: (mode: MarkdownViewMode) => void;
+  mode: MarkdownDetailViewMode;
+  onModeChange: (mode: MarkdownDetailViewMode) => void;
 }
 
 export function PromptContentView({
@@ -334,7 +334,7 @@ export function PromptContentView({
     <>
       <div className="mb-4 flex items-center justify-between gap-3">
         <h2 className="text-sm font-medium text-fg">{t.app.content}</h2>
-        <MarkdownModeToggle locale={locale} mode={mode} onModeChange={onModeChange} />
+        <MarkdownDetailModeToggle locale={locale} mode={mode} onModeChange={onModeChange} />
       </div>
 
       {mode === 'text' ? (

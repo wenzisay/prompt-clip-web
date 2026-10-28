@@ -2,13 +2,25 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { PromptMarkdownEditorField } from './PromptMarkdownEditorField';
 
+vi.mock('@/components/markdown/MarkdownLiveEditor', () => ({
+  MarkdownLiveEditor: ({
+    ariaLabel,
+    className,
+  }: {
+    ariaLabel: string;
+    className?: string;
+  }) => (
+    <div data-testid="markdown-live-editor" aria-label={ariaLabel} className={className} />
+  ),
+}));
+
 describe('PromptMarkdownEditorField', () => {
   it('renders the fullscreen action above the editor', () => {
     const markup = renderToStaticMarkup(
       <PromptMarkdownEditorField
         value="# 标题"
         onChange={vi.fn()}
-        mode="preview"
+        mode="live"
         onModeChange={vi.fn()}
       />
     );
@@ -23,7 +35,7 @@ describe('PromptMarkdownEditorField', () => {
       <PromptMarkdownEditorField
         value="# 标题"
         onChange={vi.fn()}
-        mode="text"
+        mode="source"
         onModeChange={vi.fn()}
         initialIsFullscreen
       />
@@ -31,23 +43,22 @@ describe('PromptMarkdownEditorField', () => {
 
     expect(markup).toContain('fixed inset-0');
     expect(markup).toContain('prompt-markdown-editor-field--fullscreen');
-    expect(markup).toContain('h-full min-h-0 flex-1 overflow-auto');
+    expect(markup).toContain('h-full min-h-0 flex-1');
     expect(markup).toContain('aria-label="退出全屏"');
     expect(markup).toContain('close_fullscreen');
   });
 
-  it('marks the rendered preview as fullscreen when preview mode is fullscreen', () => {
+  it('renders the live markdown editor region with prompt content label', () => {
     const markup = renderToStaticMarkup(
       <PromptMarkdownEditorField
         value="# 标题"
         onChange={vi.fn()}
-        mode="preview"
+        mode="live"
         onModeChange={vi.fn()}
-        initialIsFullscreen
       />
     );
 
-    expect(markup).toContain('prompt-markdown-preview-editor--fullscreen');
-    expect(markup).toContain('<h1>标题</h1>');
+    expect(markup).toContain('data-testid="markdown-live-editor"');
+    expect(markup).toContain('aria-label="Prompt 内容"');
   });
 });

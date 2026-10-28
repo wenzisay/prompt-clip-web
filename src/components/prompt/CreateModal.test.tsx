@@ -9,6 +9,24 @@ import { PromptService } from '@/services/promptService';
 import type { Prompt } from '@/types/prompt';
 import { CreateModal } from './CreateModal';
 
+vi.mock('@/components/markdown/MarkdownLiveEditor', () => ({
+  MarkdownLiveEditor: ({
+    value,
+    onChange,
+    ariaLabel,
+  }: {
+    value: string;
+    onChange: (value: string) => void;
+    ariaLabel: string;
+  }) => (
+    <textarea
+      aria-label={ariaLabel}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+    />
+  ),
+}));
+
 function createPrompt(id: string, content: string): Prompt {
   return {
     id,
@@ -53,17 +71,16 @@ describe('CreateModal editor mode', () => {
     vi.restoreAllMocks();
   });
 
-  it('opens prompt content in source edit mode by default', () => {
+  it('opens prompt content in live edit mode by default', () => {
     useUIStore.setState({ modalType: 'create' });
 
     const markup = renderToStaticMarkup(<CreateModal />);
 
-    expect(markup).toContain('data-mode="text"');
+    expect(markup).toContain('data-mode="live"');
     expect(markup).toContain('aria-pressed="true"');
-    expect(markup).toContain('<textarea');
   });
 
-  it('keeps current edit content when another prompt is patched in the store', () => {
+  it('keeps current edit content when another prompt is patched in the store', async () => {
     const editingPrompt = createPrompt('editing', '原始正文');
     const otherPrompt = createPrompt('other', '其它正文');
     useUIStore.setState({ modalType: 'edit' });
@@ -74,7 +91,7 @@ describe('CreateModal editor mode', () => {
 
     render(<CreateModal editingPromptId="editing" />);
 
-    const editor = screen.getByRole('textbox', {
+    const editor = await screen.findByRole('textbox', {
       name: /content/i,
     }) as HTMLTextAreaElement;
     fireEvent.change(editor, { target: { value: '正在输入的正文' } });
@@ -86,7 +103,7 @@ describe('CreateModal editor mode', () => {
     expect(editor.value).toBe('正在输入的正文');
   });
 
-  it('keeps current edit content when the edited prompt is patched in the store', () => {
+  it('keeps current edit content when the edited prompt is patched in the store', async () => {
     const editingPrompt = createPrompt('editing', '原始正文');
     useUIStore.setState({ modalType: 'edit' });
     usePromptStore.setState({
@@ -96,7 +113,7 @@ describe('CreateModal editor mode', () => {
 
     render(<CreateModal editingPromptId="editing" />);
 
-    const editor = screen.getByRole('textbox', {
+    const editor = await screen.findByRole('textbox', {
       name: /content/i,
     }) as HTMLTextAreaElement;
     fireEvent.change(editor, { target: { value: '正在输入的正文' } });
@@ -137,7 +154,7 @@ describe('CreateModal editor mode', () => {
 
     render(<CreateModal editingPromptId="editing" />);
 
-    const editor = screen.getByRole('textbox', {
+    const editor = await screen.findByRole('textbox', {
       name: /content/i,
     }) as HTMLTextAreaElement;
     fireEvent.change(editor, { target: { value: '用户抢先输入的正文' } });
