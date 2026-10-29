@@ -3,7 +3,21 @@ import { MarkdownLiveEditor } from '@/components/markdown';
 
 /** Dev-only page for manual markdown editor QA (`/test-editor`). */
 export function MarkdownEditorPlayground() {
-  const [value, setValue] = useState('---\nname: demo\n---\n\nHello world');
+  const [value, setValue] = useState(
+    [
+      '---',
+      'name: demo',
+      '---',
+      '',
+      'Hello world',
+      '',
+      '| Name | Role |',
+      '| --- | --- |',
+      '| Ada | Eng |',
+      '',
+      'After the table',
+    ].join('\n')
+  );
   const [mode, setMode] = useState<'live' | 'source'>('live');
 
   return (

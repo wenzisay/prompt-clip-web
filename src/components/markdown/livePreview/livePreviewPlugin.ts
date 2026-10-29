@@ -13,6 +13,7 @@ import { decorateFencedCode, decorateInlineCode } from "./nodes/code";
 import { decorateHeading } from "./nodes/heading";
 import { decorateImage, decorateLink } from "./nodes/link";
 import { decorateListItem } from "./nodes/list";
+import { tablePreviewExtension } from "./nodes/table";
 import { getFrontmatterProtectedLineNumbers } from "../frontmatter";
 
 /**
@@ -114,6 +115,11 @@ export function buildDecorations(
           case "ListItem":
             decorateListItem(node, ctx);
             return;
+          case "Table":
+            // The whole table is either a rendered block or raw source.
+            // Skip nested inline nodes so they do not decorate the source
+            // or overlap the block widget.
+            return false;
         }
       },
     });
@@ -135,18 +141,21 @@ export function buildDecorations(
  * selection change. Lezer is incremental so this is cheap even on large docs.
  */
 export function livePreviewPlugin(options: LivePreviewOptions = {}) {
-  return ViewPlugin.fromClass(
-    class {
-      decorations: DecorationSet;
-      constructor(view: EditorView) {
-        this.decorations = buildDecorations(view, options);
-      }
-      update(u: ViewUpdate) {
-        if (u.docChanged || u.viewportChanged || u.selectionSet) {
-          this.decorations = buildDecorations(u.view, options);
+  return [
+    tablePreviewExtension(options),
+    ViewPlugin.fromClass(
+      class {
+        decorations: DecorationSet;
+        constructor(view: EditorView) {
+          this.decorations = buildDecorations(view, options);
         }
-      }
-    },
-    { decorations: (v) => v.decorations },
-  );
+        update(u: ViewUpdate) {
+          if (u.docChanged || u.viewportChanged || u.selectionSet) {
+            this.decorations = buildDecorations(u.view, options);
+          }
+        }
+      },
+      { decorations: (v) => v.decorations },
+    ),
+  ];
 }
