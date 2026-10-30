@@ -9,19 +9,16 @@ import {
 } from 'react';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import { markdown } from '@codemirror/lang-markdown';
-import { Table } from '@lezer/markdown';
+import { Table, TaskList } from '@lezer/markdown';
 import { EditorState, Compartment, EditorSelection } from '@codemirror/state';
 import {
   EditorView,
   keymap,
   placeholder as cmPlaceholder,
-  Decoration,
-  ViewPlugin,
 } from '@codemirror/view';
 import { cursorEscapeFilter } from '@fedoup/markdown-editor';
 import '@fedoup/markdown-editor/styles.css';
 import type { Locale } from '@/i18n';
-import { getFrontmatterProtectedLineNumbers } from './frontmatter';
 import { promptClipEditorTheme } from './editorTheme';
 import { livePreviewPlugin } from './livePreview/livePreviewPlugin';
 import { MarkdownFormatToolbar } from './MarkdownFormatToolbar';
@@ -51,30 +48,6 @@ export interface MarkdownLiveEditorHandle {
 
 const modeCompartment = new Compartment();
 const editableCompartment = new Compartment();
-
-function frontmatterLinePlugin(protectFrontmatter: boolean) {
-  if (!protectFrontmatter) {
-    return [];
-  }
-  return ViewPlugin.fromClass(
-    class {
-      decorations = Decoration.none;
-      update(update: { docChanged: boolean; view: EditorView }) {
-        if (!update.docChanged && this.decorations !== Decoration.none) {
-          return;
-        }
-        const lines = getFrontmatterProtectedLineNumbers(update.view.state.doc.toString());
-        const ranges = [];
-        for (const lineNumber of lines) {
-          const line = update.view.state.doc.line(lineNumber);
-          ranges.push(Decoration.line({ class: 'cm-frontmatter-line' }).range(line.from));
-        }
-        this.decorations = Decoration.set(ranges, true);
-      }
-    },
-    { decorations: (plugin) => plugin.decorations }
-  );
-}
 
 export const MarkdownLiveEditor = forwardRef<MarkdownLiveEditorHandle, MarkdownLiveEditorProps>(
   function MarkdownLiveEditor(
@@ -106,12 +79,8 @@ export const MarkdownLiveEditor = forwardRef<MarkdownLiveEditorHandle, MarkdownL
     );
 
     const buildLiveExtensions = useCallback(
-      () => [
-        livePreviewPlugin(livePreviewOptions),
-        cursorEscapeFilter(),
-        frontmatterLinePlugin(protectFrontmatter),
-      ],
-      [livePreviewOptions, protectFrontmatter]
+      () => [livePreviewPlugin(livePreviewOptions), cursorEscapeFilter()],
+      [livePreviewOptions]
     );
 
     const syncSlashMenu = useCallback((view: EditorView) => {
@@ -145,7 +114,7 @@ export const MarkdownLiveEditor = forwardRef<MarkdownLiveEditorHandle, MarkdownL
 
       const startExtensions = [
         history(),
-        markdown({ extensions: Table }),
+        markdown({ extensions: [Table, TaskList] }),
         EditorView.lineWrapping,
         ...promptClipEditorTheme,
         modeCompartment.of(buildLiveExtensions()),

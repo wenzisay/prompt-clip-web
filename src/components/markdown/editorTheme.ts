@@ -16,8 +16,21 @@ export const promptClipEditorTheme = [
       padding: '12px 16px',
     },
     '.cm-line.cm-frontmatter-line': {
-      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+      fontFamily: 'var(--font-mono)',
       fontSize: '13px',
+      backgroundColor: 'var(--surface-dim)',
+      padding: '0.35em 1em',
+    },
+    '.prompt-markdown-live-editor .cm-line.cm-md-frontmatter-first': {
+      borderTopLeftRadius: '0.5em',
+      borderTopRightRadius: '0.5em',
+      paddingTop: '1em',
+    },
+    '.prompt-markdown-live-editor .cm-line.cm-md-frontmatter-last': {
+      borderBottomLeftRadius: '0.5em',
+      borderBottomRightRadius: '0.5em',
+      paddingBottom: '1em',
+      marginBottom: '1em',
     },
   }),
   EditorView.baseTheme({
@@ -36,6 +49,74 @@ export const promptClipEditorTheme = [
     },
     '.prompt-markdown-live-editor .cm-tooltip.cm-tooltip-autocomplete': {
       zIndex: '80',
+    },
+    '.prompt-markdown-live-editor': {
+      '--me-fg': 'var(--fg)',
+      '--me-fg-muted': 'var(--muted)',
+      '--me-link': 'var(--accent)',
+      '--me-font-mono': 'var(--font-mono)',
+    },
+    '.prompt-markdown-live-editor .cm-md-h1': {
+      fontSize: '1.5em',
+    },
+    '.prompt-markdown-live-editor .cm-md-h2': {
+      fontSize: '1.25em',
+    },
+    '.prompt-markdown-live-editor .cm-md-h3': {
+      fontSize: '1.125em',
+    },
+    '.prompt-markdown-live-editor .cm-md-inline-code': {
+      backgroundColor: 'var(--surface-dim)',
+      color: 'var(--accent)',
+      padding: '0.125em 0.25em',
+      borderRadius: '0.25em',
+      fontSize: '0.875em',
+    },
+    '.prompt-markdown-live-editor .cm-md-code-block': {
+      backgroundColor: 'transparent',
+      fontSize: '0.875em',
+    },
+    '.prompt-markdown-live-editor .cm-line.cm-md-fence-body-line': {
+      backgroundColor: 'var(--surface-dim)',
+      paddingLeft: '1em',
+      paddingRight: '1em',
+      fontFamily: 'var(--font-mono)',
+      fontSize: '0.875em',
+      color: 'var(--fg)',
+      whiteSpace: 'pre-wrap',
+      overflowWrap: 'anywhere',
+    },
+    '.prompt-markdown-live-editor .cm-line.cm-md-fence-edge-first': {
+      paddingTop: '1em',
+      borderTopLeftRadius: '0.5em',
+      borderTopRightRadius: '0.5em',
+    },
+    '.prompt-markdown-live-editor .cm-line.cm-md-fence-edge-last': {
+      paddingBottom: '1em',
+      borderBottomLeftRadius: '0.5em',
+      borderBottomRightRadius: '0.5em',
+      marginBottom: '1em',
+    },
+    '.prompt-markdown-live-editor .cm-line.cm-md-blockquote-line': {
+      borderLeft: '3px solid var(--border-strong)',
+      paddingLeft: '1em',
+      color: 'var(--muted)',
+    },
+    '.prompt-markdown-live-editor .cm-line.cm-md-list-item-line': {
+      paddingLeft: '1.5em',
+      position: 'relative',
+    },
+    '.prompt-markdown-live-editor .cm-line.cm-md-list-item-line .cm-md-list-marker': {
+      position: 'relative',
+      marginLeft: '-1.5em',
+      display: 'inline-block',
+      width: '1.5em',
+      textAlign: 'center',
+    },
+    '.prompt-markdown-live-editor .cm-md-task-checkbox': {
+      marginRight: '0.35em',
+      verticalAlign: 'middle',
+      accentColor: 'var(--accent)',
     },
     '.cm-md-table': {
       display: 'block',

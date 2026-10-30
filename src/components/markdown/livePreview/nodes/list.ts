@@ -4,6 +4,7 @@ import { Decoration } from "@codemirror/view";
 import type { DecorationContext } from "../livePreviewPlugin";
 
 const listMarkerMark = Decoration.mark({ class: "cm-md-list-marker" });
+const listItemLine = Decoration.line({ class: "cm-md-list-item-line" });
 
 /**
  * `- item` / `1. item` / `* item`. v1 keeps it minimal: the list marker
@@ -22,7 +23,16 @@ const listMarkerMark = Decoration.mark({ class: "cm-md-list-marker" });
  * case — the same decoration applies whether or not the cursor is on the line.
  */
 export function decorateListItem(node: SyntaxNodeRef, ctx: DecorationContext): void {
+  const { state, ranges } = ctx;
   const first = node.node.firstChild;
   if (!first || first.name !== "ListMark") return;
-  ctx.ranges.push(listMarkerMark.range(first.from, first.to));
+
+  const line = state.doc.lineAt(node.from);
+  ranges.push(listItemLine.range(line.from));
+
+  // Task list lines get checkbox widgets instead of muted markers.
+  const second = first.nextSibling;
+  if (second?.name === "Task") return;
+
+  ranges.push(listMarkerMark.range(first.from, first.to));
 }

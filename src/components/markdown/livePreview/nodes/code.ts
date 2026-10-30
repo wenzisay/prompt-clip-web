@@ -7,6 +7,9 @@ const inlineCodeMark = Decoration.mark({ class: "cm-md-inline-code" });
 const codeBlockMark = Decoration.mark({ class: "cm-md-code-block" });
 const fenceHiddenLine = Decoration.line({ class: "cm-md-fence-hidden" });
 const fenceCopyAnchorLine = Decoration.line({ class: "cm-md-fence-copy-anchor" });
+const fenceBodyLine = Decoration.line({ class: "cm-md-fence-body-line" });
+const fenceEdgeFirstLine = Decoration.line({ class: "cm-md-fence-edge-first" });
+const fenceEdgeLastLine = Decoration.line({ class: "cm-md-fence-edge-last" });
 const replaceDeco = Decoration.replace({});
 
 /**
@@ -114,6 +117,17 @@ export function decorateFencedCode(node: SyntaxNodeRef, ctx: DecorationContext):
 
   const fromLineNo = state.doc.lineAt(node.from).number;
   const toLineNo = state.doc.lineAt(node.to).number;
+  for (let lineNo = fromLineNo; lineNo <= toLineNo; lineNo += 1) {
+    const line = state.doc.line(lineNo);
+    ranges.push(fenceBodyLine.range(line.from));
+    if (lineNo === fromLineNo) {
+      ranges.push(fenceEdgeFirstLine.range(line.from));
+    }
+    if (lineNo === toLineNo) {
+      ranges.push(fenceEdgeLastLine.range(line.from));
+    }
+  }
+
   let anyActive = false;
   for (let n = fromLineNo; n <= toLineNo; n++) {
     if (activeLines.has(n)) {

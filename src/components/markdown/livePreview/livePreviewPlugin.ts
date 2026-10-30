@@ -9,10 +9,12 @@ import {
 } from "@codemirror/view";
 
 import { decorateEmphasis, decorateStrong } from "./nodes/emphasis";
+import { decorateBlockquote } from "./nodes/blockquote";
 import { decorateFencedCode, decorateInlineCode } from "./nodes/code";
 import { decorateHeading } from "./nodes/heading";
 import { decorateImage, decorateLink } from "./nodes/link";
 import { decorateListItem } from "./nodes/list";
+import { decorateTask } from "./nodes/task";
 import { tablePreviewExtension } from "./nodes/table";
 import { getFrontmatterProtectedLineNumbers } from "../frontmatter";
 
@@ -115,6 +117,12 @@ export function buildDecorations(
           case "ListItem":
             decorateListItem(node, ctx);
             return;
+          case "Task":
+            decorateTask(node, ctx);
+            return;
+          case "Blockquote":
+            decorateBlockquote(node, ctx);
+            return;
           case "Table":
             // The whole table is either a rendered block or raw source.
             // Skip nested inline nodes so they do not decorate the source
@@ -125,10 +133,28 @@ export function buildDecorations(
     });
   }
 
+  appendFrontmatterLineDecorations(ctx, view.state.doc.toString());
+
   // Sort by from-then-to. CM6's RangeSet builder will re-sort defensively, but
   // pre-sorting keeps the cost predictable and surfaces ordering bugs early.
   ctx.ranges.sort((a, b) => a.from - b.from || a.to - b.to);
   return Decoration.set(ctx.ranges, true);
+}
+
+function appendFrontmatterLineDecorations(ctx: DecorationContext, doc: string): void {
+  if (!ctx.options.protectFrontmatter) return;
+  const lines = getFrontmatterProtectedLineNumbers(doc);
+  if (lines.size === 0) return;
+  const sorted = [...lines].sort((a, b) => a - b);
+  const firstLine = sorted[0];
+  const lastLine = sorted[sorted.length - 1];
+  for (const lineNumber of sorted) {
+    const line = ctx.state.doc.line(lineNumber);
+    const classes = ["cm-frontmatter-line"];
+    if (lineNumber === firstLine) classes.push("cm-md-frontmatter-first");
+    if (lineNumber === lastLine) classes.push("cm-md-frontmatter-last");
+    ctx.ranges.push(Decoration.line({ class: classes.join(" ") }).range(line.from));
+  }
 }
 
 /**
