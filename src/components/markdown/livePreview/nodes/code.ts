@@ -110,7 +110,7 @@ class CopyFenceWidget extends WidgetType {
  * block, the activeLines check fails and the fences reveal — exactly like
  * Obsidian.
  */
-export function decorateFencedCode(node: SyntaxNodeRef, ctx: DecorationsContext): void {
+export function decorateFencedCode(node: SyntaxNodeRef, ctx: DecorationContext): void {
   const { state, activeLines, ranges } = ctx;
 
   ranges.push(codeBlockMark.range(node.from, node.to));

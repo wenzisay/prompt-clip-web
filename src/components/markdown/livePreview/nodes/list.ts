@@ -1,7 +1,7 @@
 import type { SyntaxNodeRef } from "@lezer/common";
 import { Decoration } from "@codemirror/view";
 
-import type { DecorationsContext } from "../livePreviewPlugin";
+import type { DecorationContext } from "../livePreviewPlugin";
 
 const listMarkerMark = Decoration.mark({ class: "cm-md-list-marker" });
 const listItemLine = Decoration.line({ class: "cm-md-list-item-line" });
@@ -12,7 +12,7 @@ const listItemLine = Decoration.line({ class: "cm-md-list-item-line" });
  * reads closer to rendered prose. Task lines skip the marker mark — the task
  * decorator hides the dash and injects a checkbox instead.
  */
-export function decorateListItem(node: SyntaxNodeRef, ctx: DecorationsContext): void {
+export function decorateListItem(node: SyntaxNodeRef, ctx: DecorationContext): void {
   const { state, ranges } = ctx;
   const first = node.node.firstChild;
   if (!first || first.name !== "ListMark") return;
