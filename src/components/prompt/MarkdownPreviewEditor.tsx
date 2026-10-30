@@ -16,7 +16,7 @@ export function MarkdownPreviewEditor({
   const { t } = useTranslation();
   const html = useMemo(() => (value ? renderMarkdownSync(value) : ''), [value]);
   const previewClassName = `prompt-markdown-preview-editor${
-    html ? ' prompt-detail-content' : ''
+    html ? ' prose prose-sm max-w-none prompt-detail-content' : ''
   } ${className}`;
 
   if (html) {
