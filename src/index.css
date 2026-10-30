@@ -329,3 +329,182 @@
   min-height: 0;
   overflow-y: auto;
 }
+
+
+/* Live Preview prose alignment (PromptClip)
+ * Must be global CSS: CM6 EditorView.theme is scoped under .cm-editor and
+ * cannot match the outer .prompt-markdown-live-editor wrapper. */
+.prompt-markdown-live-editor {
+  --me-fg: var(--fg);
+  --me-fg-muted: var(--muted);
+  --me-link: var(--accent);
+  --me-font-mono: var(--font-mono);
+  --me-border: var(--border);
+  --me-font-size: 0.9375rem;
+}
+
+.prompt-markdown-live-editor--disabled .cm-editor {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.prompt-markdown-live-editor .cm-md-h1 {
+  font-size: 1.5em;
+  font-weight: 600;
+}
+.prompt-markdown-live-editor .cm-md-h2 {
+  font-size: 1.25em;
+  font-weight: 600;
+}
+.prompt-markdown-live-editor .cm-md-h3 {
+  font-size: 1.125em;
+  font-weight: 600;
+}
+.prompt-markdown-live-editor .cm-md-h4 {
+  font-size: 1em;
+  font-weight: 600;
+}
+
+.prompt-markdown-live-editor .cm-md-inline-code {
+  background: var(--surface-dim);
+  color: var(--accent);
+  padding: 0.125em 0.25em;
+  border-radius: 0.25em;
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+}
+
+.prompt-markdown-live-editor .cm-md-code-block {
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+  color: var(--fg);
+}
+
+.prompt-markdown-live-editor .cm-line.cm-md-fence-body-line {
+  background: var(--surface-dim);
+  padding-left: 1em;
+  padding-right: 1em;
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+  line-height: 1.5;
+  color: var(--fg);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.prompt-markdown-live-editor .cm-line.cm-md-fence-edge-first {
+  padding-top: 1em;
+  border-top-left-radius: 0.5em;
+  border-top-right-radius: 0.5em;
+}
+
+.prompt-markdown-live-editor .cm-line.cm-md-fence-edge-last {
+  padding-bottom: 1em;
+  border-bottom-left-radius: 0.5em;
+  border-bottom-right-radius: 0.5em;
+  margin-bottom: 1em;
+}
+
+.prompt-markdown-live-editor .cm-md-copy-fence-btn {
+  background-color: color-mix(in oklch, var(--fg) 8%, transparent);
+  border: 1px solid color-mix(in oklch, var(--fg) 12%, transparent);
+  color: var(--muted);
+  border-radius: 0.25rem;
+}
+
+.prompt-markdown-live-editor .cm-line.cm-md-blockquote-line {
+  border-left: 3px solid var(--border-strong);
+  padding-left: 1em;
+  margin-left: 0;
+  color: var(--muted);
+}
+
+.prompt-markdown-live-editor .cm-line.cm-md-list-item-line {
+  padding-left: 0.25em;
+}
+
+.prompt-markdown-live-editor .cm-md-list-marker {
+  color: var(--muted);
+  margin-right: 0.35em;
+}
+
+.prompt-markdown-live-editor .cm-md-task-checkbox {
+  margin: 0 0.45em 0 0.1em;
+  vertical-align: -0.15em;
+  width: 0.95em;
+  height: 0.95em;
+  accent-color: var(--accent);
+}
+
+.prompt-markdown-live-editor .cm-md-link {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.prompt-markdown-live-editor .cm-line.cm-frontmatter-line {
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+  line-height: 1.5;
+  background: var(--surface-dim);
+  padding-left: 1em;
+  padding-right: 1em;
+  color: var(--fg);
+}
+
+.prompt-markdown-live-editor .cm-line.cm-md-frontmatter-first {
+  border-top-left-radius: 0.5em;
+  border-top-right-radius: 0.5em;
+  padding-top: 1em;
+}
+
+.prompt-markdown-live-editor .cm-line.cm-md-frontmatter-last {
+  border-bottom-left-radius: 0.5em;
+  border-bottom-right-radius: 0.5em;
+  padding-bottom: 1em;
+  margin-bottom: 1em;
+}
+
+.prompt-markdown-live-editor .cm-md-table {
+  display: block;
+  width: 100%;
+  padding: 0.25em 0 1em;
+  cursor: text;
+  overflow-x: auto;
+}
+
+.prompt-markdown-live-editor .cm-md-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+.prompt-markdown-live-editor .cm-md-table th,
+.prompt-markdown-live-editor .cm-md-table td {
+  border: 1px solid var(--border);
+  padding: 0.5em;
+  text-align: left;
+  vertical-align: top;
+}
+
+.prompt-markdown-live-editor .cm-md-table th {
+  background: var(--surface-dim);
+  font-weight: 600;
+}
+
+.prompt-markdown-live-editor .cm-md-table a {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.prompt-markdown-live-editor .cm-md-table code {
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+  background: var(--surface-dim);
+  padding: 0.125em 0.25em;
+  border-radius: 0.25em;
+  color: var(--accent);
+}
+

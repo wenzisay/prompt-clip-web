@@ -1,23 +1,41 @@
 import { useState } from 'react';
 import { MarkdownLiveEditor } from '@/components/markdown';
+import { MarkdownPreviewEditor } from '@/components/prompt/MarkdownPreviewEditor';
+
+const SAMPLE = [
+  '---',
+  'title: Demo',
+  'tags: [live, preview]',
+  '---',
+  '',
+  '# Heading',
+  '',
+  'Paragraph with `inline code` and **bold** text.',
+  '',
+  '> A quiet blockquote line',
+  '',
+  '- unordered item',
+  '- second item',
+  '',
+  '1. ordered item',
+  '2. another',
+  '',
+  '- [ ] open task',
+  '- [x] done task',
+  '',
+  '```ts',
+  'const x = 1;',
+  'console.log(x);',
+  '```',
+  '',
+  '| Name | Role |',
+  '| --- | --- |',
+  '| Ada | Eng |',
+].join('\n');
 
 /** Dev-only page for manual markdown editor QA (`/test-editor`). */
 export function MarkdownEditorPlayground() {
-  const [value, setValue] = useState(
-    [
-      '---',
-      'name: demo',
-      '---',
-      '',
-      'Hello world',
-      '',
-      '| Name | Role |',
-      '| --- | --- |',
-      '| Ada | Eng |',
-      '',
-      'After the table',
-    ].join('\n')
-  );
+  const [value, setValue] = useState(SAMPLE);
   const [mode, setMode] = useState<'live' | 'source'>('live');
 
   return (
@@ -30,16 +48,23 @@ export function MarkdownEditorPlayground() {
         >
           Mode: {mode}
         </button>
+        <span className="text-sm text-muted">Left: Live Preview · Right: read-only Preview</span>
       </div>
-      <MarkdownLiveEditor
-        value={value}
-        onChange={setValue}
-        mode={mode}
-        protectFrontmatter
-        ariaLabel="Playground"
-        className="min-h-0 flex-1"
-      />
-      <pre className="max-h-32 overflow-auto rounded border border-border p-2 text-xs">{value}</pre>
+      <div className="grid min-h-0 flex-1 grid-cols-2 gap-3">
+        <MarkdownLiveEditor
+          value={value}
+          onChange={setValue}
+          mode={mode}
+          protectFrontmatter
+          ariaLabel="Playground live"
+          className="min-h-0"
+        />
+        <MarkdownPreviewEditor
+          value={value}
+          ariaLabel="Playground preview"
+          className="min-h-0 h-full"
+        />
+      </div>
     </div>
   );
 }

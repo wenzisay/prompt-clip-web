@@ -67,6 +67,18 @@ describe('live preview prose alignment', () => {
     expect(view.contentDOM.querySelectorAll('.cm-line.cm-md-fence-body-line').length).toBeGreaterThan(0);
   });
 
+  it('puts fence edge radius on visible body lines when fences are hidden', () => {
+    const doc = '```\nline one\nline two\n```\n\nafter';
+    const view = editor(doc, doc.length);
+    const first = view.contentDOM.querySelector('.cm-line.cm-md-fence-edge-first');
+    const last = view.contentDOM.querySelector('.cm-line.cm-md-fence-edge-last');
+    expect(first?.classList.contains('cm-md-fence-hidden')).toBe(false);
+    expect(last?.classList.contains('cm-md-fence-hidden')).toBe(false);
+    expect(first?.classList.contains('cm-md-fence-body-line')).toBe(true);
+    expect(last?.classList.contains('cm-md-fence-body-line')).toBe(true);
+    expect(view.contentDOM.querySelectorAll('.cm-line.cm-md-fence-hidden').length).toBe(2);
+  });
+
   it('marks frontmatter lines as protected monospace blocks', () => {
     const doc = '---\ntitle: Demo\n---\n\n# Body';
     const view = editor(doc, doc.length, true);

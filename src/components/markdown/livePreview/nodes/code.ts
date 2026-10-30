@@ -110,23 +110,13 @@ class CopyFenceWidget extends WidgetType {
  * block, the activeLines check fails and the fences reveal — exactly like
  * Obsidian.
  */
-export function decorateFencedCode(node: SyntaxNodeRef, ctx: DecorationContext): void {
+export function decorateFencedCode(node: SyntaxNodeRef, ctx: DecorationsContext): void {
   const { state, activeLines, ranges } = ctx;
 
   ranges.push(codeBlockMark.range(node.from, node.to));
 
   const fromLineNo = state.doc.lineAt(node.from).number;
   const toLineNo = state.doc.lineAt(node.to).number;
-  for (let lineNo = fromLineNo; lineNo <= toLineNo; lineNo += 1) {
-    const line = state.doc.line(lineNo);
-    ranges.push(fenceBodyLine.range(line.from));
-    if (lineNo === fromLineNo) {
-      ranges.push(fenceEdgeFirstLine.range(line.from));
-    }
-    if (lineNo === toLineNo) {
-      ranges.push(fenceEdgeLastLine.range(line.from));
-    }
-  }
 
   let anyActive = false;
   for (let n = fromLineNo; n <= toLineNo; n++) {
@@ -142,48 +132,54 @@ export function decorateFencedCode(node: SyntaxNodeRef, ctx: DecorationContext):
   const hasClosingFence =
     lastChild?.name === "CodeMark" && firstChild && lastChild.from !== firstChild.from;
 
-  // Compute the body line range. The body is everything between the opening
-  // fence line and the closing fence line; for an unfinished block (no
-  // closing fence), the body extends to the block's last line.
-  if (hasOpeningFence && firstChild) {
-    const openLineNo = state.doc.lineAt(firstChild.from).number;
-    const closeLineNo = hasClosingFence
-      ? state.doc.lineAt(lastChild!.from).number
-      : toLineNo + 1; // synthetic: include the last block line as body
-    const firstBodyLineNo = openLineNo + 1;
-    const lastBodyLineNo = closeLineNo - 1;
+  const openLineNo =
+    hasOpeningFence && firstChild ? state.doc.lineAt(firstChild.from).number : fromLineNo;
+  const closeLineNo =
+    hasClosingFence && lastChild ? state.doc.lineAt(lastChild.from).number : toLineNo + 1;
+  const firstBodyLineNo = openLineNo + 1;
+  const lastBodyLineNo = closeLineNo - 1;
+  const hasBody = firstBodyLineNo <= lastBodyLineNo && firstBodyLineNo <= state.doc.lines;
 
-    if (firstBodyLineNo <= lastBodyLineNo && firstBodyLineNo <= state.doc.lines) {
-      const firstBodyLine = state.doc.line(firstBodyLineNo);
-      const lastBodyLine = state.doc.line(
-        Math.min(lastBodyLineNo, state.doc.lines),
-      );
-      const codeText = state.doc.sliceString(firstBodyLine.from, lastBodyLine.to);
-
-      ranges.push(fenceCopyAnchorLine.range(firstBodyLine.from));
-      // side: -1 places the widget BEFORE the line's text content, so it
-      // sits as the first inline child of the .cm-line element. CSS makes
-      // it position: absolute so its visual location is the block's top-right
-      // regardless of which inline child it is in the line.
-      ranges.push(
-        Decoration.widget({
-          widget: new CopyFenceWidget(codeText),
-          side: -1,
-        }).range(firstBodyLine.from),
-      );
+  // Preview-like solid block: when fences are hidden, radius sits on visible
+  // body edges. When editing inside the block, style the whole span so the
+  // block stays continuous (including ``` lines).
+  if (anyActive) {
+    for (let lineNo = fromLineNo; lineNo <= toLineNo; lineNo += 1) {
+      const line = state.doc.line(lineNo);
+      ranges.push(fenceBodyLine.range(line.from));
+      if (lineNo === fromLineNo) ranges.push(fenceEdgeFirstLine.range(line.from));
+      if (lineNo === toLineNo) ranges.push(fenceEdgeLastLine.range(line.from));
     }
+  } else if (hasBody) {
+    const lastVisible = Math.min(lastBodyLineNo, state.doc.lines);
+    for (let lineNo = firstBodyLineNo; lineNo <= lastVisible; lineNo += 1) {
+      const line = state.doc.line(lineNo);
+      ranges.push(fenceBodyLine.range(line.from));
+      if (lineNo === firstBodyLineNo) ranges.push(fenceEdgeFirstLine.range(line.from));
+      if (lineNo === lastVisible) ranges.push(fenceEdgeLastLine.range(line.from));
+    }
+  }
+
+  if (hasBody) {
+    const firstBodyLine = state.doc.line(firstBodyLineNo);
+    const lastBodyLine = state.doc.line(Math.min(lastBodyLineNo, state.doc.lines));
+    const codeText = state.doc.sliceString(firstBodyLine.from, lastBodyLine.to);
+
+    ranges.push(fenceCopyAnchorLine.range(firstBodyLine.from));
+    ranges.push(
+      Decoration.widget({
+        widget: new CopyFenceWidget(codeText),
+        side: -1,
+      }).range(firstBodyLine.from),
+    );
   }
 
   if (anyActive) return;
 
-  // Fence hiding — keep last so it appears after the copy-button decorations
-  // in the range list. Sorting in buildDecorations will normalize.
   if (hasOpeningFence && firstChild) {
-    const firstLine = state.doc.lineAt(firstChild.from);
-    ranges.push(fenceHiddenLine.range(firstLine.from));
+    ranges.push(fenceHiddenLine.range(state.doc.lineAt(firstChild.from).from));
   }
   if (hasClosingFence && lastChild) {
-    const lastLine = state.doc.lineAt(lastChild.from);
-    ranges.push(fenceHiddenLine.range(lastLine.from));
+    ranges.push(fenceHiddenLine.range(state.doc.lineAt(lastChild.from).from));
   }
 }
