@@ -191,3 +191,11 @@ function Component() {
 4. 同时构建 FlexSearch 内存索引（标题 + 内容 + 标签三个加权索引）
 5. 从所有 Prompt 的 tags 字段动态提取标签树
 6. **无文件监听**——手动在文件夹中增删文件需刷新页面才能生效
+
+## Cursor Cloud specific instructions
+
+- 开发服务器：`npm run dev -- --host 0.0.0.0 --port 5173`。本机验证用 `http://127.0.0.1:5173`。
+- `npm run test` 会进入 Vitest watch。一次性跑完用 `npm run test -- --run`。
+- Web 端依赖 Chrome / Edge 的 File System Access API。首次进入点 “Choose data folder”（或对应语言的「选择数据目录」），选一个包含 `.md` 的本地目录；之后的读写都落在该目录，目录句柄存在 IndexedDB。
+- 不设置 `VITE_GA_MEASUREMENT_ID` 时使用统计关闭，不影响功能。
+- 桌面端 Tauri 要求 Rust `1.85.0+`（`src-tauri/Cargo.toml` 的 `rust-version`）以及发行版的 WebKit 依赖。Cloud Agent 环境只启动 Web 开发服务器，不要把 `npm run tauri:dev` 放进启动脚本。
