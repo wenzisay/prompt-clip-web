@@ -381,29 +381,23 @@
   color: var(--fg);
 }
 
+/* Never put vertical padding/margin on .cm-line — CM6 maps clicks from
+ * measured line boxes; extra Y spacing makes the caret land one line off. */
 .prompt-markdown-live-editor .cm-line.cm-md-fence-body-line {
   background: var(--surface-dim);
-  padding-left: 1em;
-  padding-right: 1em;
   font-family: var(--font-mono);
   font-size: 0.875em;
-  line-height: 1.5;
   color: var(--fg);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
 }
 
 .prompt-markdown-live-editor .cm-line.cm-md-fence-edge-first {
-  padding-top: 1em;
   border-top-left-radius: 0.5em;
   border-top-right-radius: 0.5em;
 }
 
 .prompt-markdown-live-editor .cm-line.cm-md-fence-edge-last {
-  padding-bottom: 1em;
   border-bottom-left-radius: 0.5em;
   border-bottom-right-radius: 0.5em;
-  margin-bottom: 1em;
 }
 
 .prompt-markdown-live-editor .cm-md-copy-fence-btn {
@@ -446,24 +440,18 @@
 .prompt-markdown-live-editor .cm-line.cm-frontmatter-line {
   font-family: var(--font-mono);
   font-size: 0.875em;
-  line-height: 1.5;
   background: var(--surface-dim);
-  padding-left: 1em;
-  padding-right: 1em;
   color: var(--fg);
 }
 
 .prompt-markdown-live-editor .cm-line.cm-md-frontmatter-first {
   border-top-left-radius: 0.5em;
   border-top-right-radius: 0.5em;
-  padding-top: 1em;
 }
 
 .prompt-markdown-live-editor .cm-line.cm-md-frontmatter-last {
   border-bottom-left-radius: 0.5em;
   border-bottom-right-radius: 0.5em;
-  padding-bottom: 1em;
-  margin-bottom: 1em;
 }
 
 .prompt-markdown-live-editor .cm-md-table {
