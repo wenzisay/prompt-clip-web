@@ -30,6 +30,11 @@ export const promptClipEditorTheme = [
       padding: '1rem',
       caretColor: 'var(--fg)',
     },
+    /* Match content inset; do not add extra horizontal padding on lines
+     * (tables/code backgrounds would otherwise sit left of body text). */
+    '.cm-line': {
+      padding: '0',
+    },
     '.cm-tooltip.cm-tooltip-autocomplete': {
       zIndex: '80',
     },

@@ -348,6 +348,18 @@
   pointer-events: none;
 }
 
+/* Horizontal inset on .cm-content — must be global CSS so it beats fedoup
+ * theme (EditorView.theme padding loses the cascade to defaultTheme).
+ * Zero .cm-line X padding so tables/code backgrounds share the same edge
+ * as body text (fedoup's 16px line pad would shift text right of widgets). */
+.prompt-markdown-live-editor .cm-content {
+  padding: 1rem;
+}
+.prompt-markdown-live-editor .cm-line {
+  padding-left: 0;
+  padding-right: 0;
+}
+
 .prompt-markdown-live-editor .cm-md-h1 {
   font-size: 1.5em;
   font-weight: 600;
@@ -409,15 +421,13 @@
 
 .prompt-markdown-live-editor .cm-line.cm-md-blockquote-line {
   border-left: 3px solid var(--border-strong);
-  padding-left: 1em;
-  margin-left: 0;
+  padding-left: 0.75em;
   color: var(--muted);
 }
 
-.prompt-markdown-live-editor .cm-line.cm-md-list-item-line {
-  padding-left: 0.25em;
-}
-
+/* Do not override .cm-line horizontal padding here — fedoup uses
+ * padding: 0 16px on every line; a smaller padding-left pulls list
+ * markers left of headings/paragraphs. */
 .prompt-markdown-live-editor .cm-md-list-marker {
   color: var(--muted);
   margin-right: 0.35em;
