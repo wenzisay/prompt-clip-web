@@ -181,7 +181,7 @@ export function CreateModal({ editingPromptId }: CreateModalProps) {
       isOpen={isOpen}
       onClose={handleClose}
       title={editingPromptId ? t.app.editPrompt : t.app.createPromptTitle}
-      closeOnOverlayClick={!isSaving}
+      closeOnOverlayClick={!isSaving && modalType !== 'edit'}
       closeLabel={t.app.close}
       resizeLabel={t.app.resizeDrawer}
       resizeTitle={t.app.dragResize}

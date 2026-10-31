@@ -165,4 +165,31 @@ describe('CreateModal editor mode', () => {
 
     expect(editor.value).toBe('用户抢先输入的正文');
   });
+
+  it('does not close the edit drawer when clicking the overlay', () => {
+    const editingPrompt = createPrompt('editing', '原始正文');
+    useUIStore.setState({ modalType: 'edit' });
+    usePromptStore.setState({
+      prompts: [editingPrompt],
+      filteredPrompts: [editingPrompt],
+    });
+
+    const { container } = render(<CreateModal editingPromptId="editing" />);
+    const overlay = container.querySelector('.backdrop-blur-sm');
+    expect(overlay).not.toBeNull();
+    fireEvent.click(overlay as Element);
+
+    expect(useUIStore.getState().modalType).toBe('edit');
+  });
+
+  it('still closes the create drawer when clicking the overlay', () => {
+    useUIStore.setState({ modalType: 'create' });
+
+    const { container } = render(<CreateModal />);
+    const overlay = container.querySelector('.backdrop-blur-sm');
+    expect(overlay).not.toBeNull();
+    fireEvent.click(overlay as Element);
+
+    expect(useUIStore.getState().modalType).toBeNull();
+  });
 });
