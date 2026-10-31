@@ -1,6 +1,11 @@
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AnnotationSummaryIndicator, HistoryAction, PromptContentView } from './DetailPanel';
+
+afterEach(() => {
+  cleanup();
+});
 
 describe('DetailPanel history action', () => {
   it('hides the history button when history versions are disabled', () => {
@@ -68,5 +73,54 @@ describe('PromptContentView', () => {
 
     expect(markup).toContain('# 标题');
     expect(markup).toContain('正文');
+  });
+
+  it('shows a double-click-to-edit hint only when the callback is provided', () => {
+    const withHint = renderToStaticMarkup(
+      <PromptContentView
+        content="# 标题"
+        mode="preview"
+        onModeChange={vi.fn()}
+        onContentDoubleClick={vi.fn()}
+      />
+    );
+    const withoutHint = renderToStaticMarkup(
+      <PromptContentView content="# 标题" mode="preview" onModeChange={vi.fn()} />
+    );
+
+    expect(withHint).toContain('title="双击进入编辑"');
+    expect(withoutHint).not.toContain('双击进入编辑');
+  });
+
+  it('triggers the edit callback when double-clicking the content body', () => {
+    const onContentDoubleClick = vi.fn();
+    const { getByTestId } = render(
+      <PromptContentView
+        content="# 标题"
+        mode="preview"
+        onModeChange={vi.fn()}
+        onContentDoubleClick={onContentDoubleClick}
+      />
+    );
+
+    fireEvent.dblClick(getByTestId('prompt-content-view-body'));
+
+    expect(onContentDoubleClick).toHaveBeenCalledTimes(1);
+  });
+
+  it('triggers the edit callback in text mode as well', () => {
+    const onContentDoubleClick = vi.fn();
+    const { getByTestId } = render(
+      <PromptContentView
+        content="# 标题"
+        mode="text"
+        onModeChange={vi.fn()}
+        onContentDoubleClick={onContentDoubleClick}
+      />
+    );
+
+    fireEvent.dblClick(getByTestId('prompt-content-view-body'));
+
+    expect(onContentDoubleClick).toHaveBeenCalledTimes(1);
   });
 });

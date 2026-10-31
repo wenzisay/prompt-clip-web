@@ -239,6 +239,7 @@ export function DetailPanel() {
             locale={locale}
             mode={contentMode}
             onModeChange={setContentMode}
+            onContentDoubleClick={handleEdit}
           />
 
           <div ref={annotationSectionRef}>
@@ -320,6 +321,8 @@ interface PromptContentViewProps {
   locale?: Locale;
   mode: MarkdownDetailViewMode;
   onModeChange: (mode: MarkdownDetailViewMode) => void;
+  /** 双击正文回调（详情抽屉查看态传入，双击即进入编辑） */
+  onContentDoubleClick?: () => void;
 }
 
 export function PromptContentView({
@@ -327,6 +330,7 @@ export function PromptContentView({
   locale = 'zh-CN',
   mode,
   onModeChange,
+  onContentDoubleClick,
 }: PromptContentViewProps) {
   const t = messages[locale];
 
@@ -337,11 +341,17 @@ export function PromptContentView({
         <MarkdownDetailModeToggle locale={locale} mode={mode} onModeChange={onModeChange} />
       </div>
 
-      {mode === 'text' ? (
-        <MarkdownTextView content={content} />
-      ) : (
-        <PromptContent content={content} className="prompt-detail-content" />
-      )}
+      <div
+        data-testid="prompt-content-view-body"
+        onDoubleClick={onContentDoubleClick}
+        title={onContentDoubleClick ? t.app.doubleClickToEdit : undefined}
+      >
+        {mode === 'text' ? (
+          <MarkdownTextView content={content} />
+        ) : (
+          <PromptContent content={content} className="prompt-detail-content" />
+        )}
+      </div>
     </>
   );
 }
