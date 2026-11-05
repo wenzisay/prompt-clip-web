@@ -49,6 +49,21 @@ export interface MarkdownLiveEditorHandle {
 const modeCompartment = new Compartment();
 const editableCompartment = new Compartment();
 
+/** Keep unchanged document positions and measured block heights intact. */
+function documentChange(previous: string, next: string) {
+  let from = 0;
+  while (from < previous.length && from < next.length && previous[from] === next[from]) {
+    from += 1;
+  }
+  let to = previous.length;
+  let nextTo = next.length;
+  while (to > from && nextTo > from && previous[to - 1] === next[nextTo - 1]) {
+    to -= 1;
+    nextTo -= 1;
+  }
+  return { from, to, insert: next.slice(from, nextTo) };
+}
+
 export const MarkdownLiveEditor = forwardRef<MarkdownLiveEditorHandle, MarkdownLiveEditorProps>(
   function MarkdownLiveEditor(
     {
@@ -182,10 +197,8 @@ export const MarkdownLiveEditor = forwardRef<MarkdownLiveEditorHandle, MarkdownL
       if (value === current || value === lastEmittedRef.current) {
         return;
       }
-      const selection = view.state.selection;
       view.dispatch({
-        changes: { from: 0, to: current.length, insert: value },
-        selection,
+        changes: documentChange(current, value),
       });
       lastEmittedRef.current = value;
       syncSlashMenu(view);
@@ -197,11 +210,13 @@ export const MarkdownLiveEditor = forwardRef<MarkdownLiveEditorHandle, MarkdownL
         return;
       }
       const doc = view.state.doc.toString();
-      const { from, to } = view.state.selection.main;
+      const { from, to, anchor, head } = view.state.selection.main;
       const { value: next, selection } = applyMarkdownInsert(doc, { from, to }, command);
       view.dispatch({
-        changes: { from: 0, to: doc.length, insert: next },
-        selection: EditorSelection.range(selection.from, selection.to),
+        changes: documentChange(doc, next),
+        selection: anchor > head
+          ? EditorSelection.range(selection.to, selection.from)
+          : EditorSelection.range(selection.from, selection.to),
         scrollIntoView: true,
       });
       view.focus();
@@ -220,7 +235,7 @@ export const MarkdownLiveEditor = forwardRef<MarkdownLiveEditorHandle, MarkdownL
         command
       );
       view.dispatch({
-        changes: { from: 0, to: doc.length, insert: next },
+        changes: documentChange(doc, next),
         selection: EditorSelection.range(selection.from, selection.to),
         scrollIntoView: true,
       });

@@ -51,4 +51,45 @@ describe('applyMarkdownInsert', () => {
     const result = applyMarkdownInsert('const x = 1\n', { from: 6, to: 6 }, 'codeBlock');
     expect(result.value).toBe('```\nconst x = 1\n```\n');
   });
+
+  it('wraps every selected paragraph in one fenced code block', () => {
+    const selected = 'first line\nsecond line\n\nthird paragraph';
+    const value = `Before\n\n${selected}\n\nAfter`;
+    const from = value.indexOf(selected);
+    const result = applyMarkdownInsert(value, { from, to: from + selected.length }, 'codeBlock');
+
+    expect(result.value).toBe(`Before\n\n\`\`\`\n${selected}\n\`\`\`\n\nAfter`);
+    expect(result.value.slice(result.selection.from, result.selection.to)).toBe(selected);
+  });
+
+  it('puts fences on separate lines around a partial-line selection', () => {
+    const result = applyMarkdownInsert('before first\nsecond after', { from: 7, to: 19 }, 'codeBlock');
+
+    expect(result.value).toBe('before \n```\nfirst\nsecond\n```\n after');
+  });
+
+  it('preserves a selection ending at the beginning of the next line', () => {
+    const result = applyMarkdownInsert('one\ntwo\nafter', { from: 0, to: 8 }, 'codeBlock');
+
+    expect(result.value).toBe('```\none\ntwo\n```\nafter');
+  });
+
+  it('preserves Markdown markers as literal code', () => {
+    const result = applyMarkdownInsert('# heading\n- item', { from: 0, to: 16 }, 'codeBlock');
+
+    expect(result.value).toBe('```\n# heading\n- item\n```');
+  });
+
+  it('uses a longer fence when the selection contains fenced code', () => {
+    const value = '```js\nconst x = 1;\n```';
+    const result = applyMarkdownInsert(value, { from: 0, to: value.length }, 'codeBlock');
+
+    expect(result.value).toBe(`\`\`\`\`\n${value}\n\`\`\`\``);
+  });
+
+  it('places the caret inside an empty code block', () => {
+    const result = applyMarkdownInsert('', { from: 0, to: 0 }, 'codeBlock');
+
+    expect(result).toEqual({ value: '```\n\n```', selection: { from: 4, to: 4 } });
+  });
 });

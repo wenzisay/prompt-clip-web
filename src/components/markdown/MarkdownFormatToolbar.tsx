@@ -51,6 +51,7 @@ export function MarkdownFormatToolbar({
             disabled={disabled}
             aria-label={label}
             title={label}
+            onMouseDown={(event) => event.preventDefault()}
             onClick={() => onCommand(item.id)}
             className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface-dim hover:text-fg disabled:cursor-not-allowed disabled:opacity-40"
           >
