@@ -5,7 +5,6 @@ import type { DecorationContext } from "../livePreviewPlugin";
 
 const inlineCodeMark = Decoration.mark({ class: "cm-md-inline-code" });
 const codeBlockMark = Decoration.mark({ class: "cm-md-code-block" });
-const fenceHiddenLine = Decoration.line({ class: "cm-md-fence-hidden" });
 const fenceCopyAnchorLine = Decoration.line({ class: "cm-md-fence-copy-anchor" });
 const fenceBodyLine = Decoration.line({ class: "cm-md-fence-body-line" });
 const fenceEdgeFirstLine = Decoration.line({ class: "cm-md-fence-edge-first" });
@@ -103,12 +102,9 @@ class CopyFenceWidget extends WidgetType {
  * a `CopyFenceWidget` so users can one-click copy the body (everything
  * between the fences).
  *
- * When no line in the block is active: the opening fence line and the closing
- * fence line are line-decorated with `cm-md-fence-hidden`, which CSS
- * collapses via `display: none`. The doc positions stay intact; only the
- * visual line is gone. The moment the cursor moves onto any line of the
- * block, the activeLines check fails and the fences reveal — exactly like
- * Obsidian.
+ * Inactive fence lines are folded by the state field in livePreviewPlugin.
+ * That field provides layout-changing decorations directly to CodeMirror;
+ * viewport decorations here only style the visible body and copy button.
  */
 export function decorateFencedCode(node: SyntaxNodeRef, ctx: DecorationContext): void {
   const { state, activeLines, ranges } = ctx;
@@ -172,14 +168,5 @@ export function decorateFencedCode(node: SyntaxNodeRef, ctx: DecorationContext):
         side: -1,
       }).range(firstBodyLine.from),
     );
-  }
-
-  if (anyActive) return;
-
-  if (hasOpeningFence && firstChild) {
-    ranges.push(fenceHiddenLine.range(state.doc.lineAt(firstChild.from).from));
-  }
-  if (hasClosingFence && lastChild) {
-    ranges.push(fenceHiddenLine.range(state.doc.lineAt(lastChild.from).from));
   }
 }

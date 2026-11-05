@@ -1,9 +1,9 @@
 import { syntaxTree } from "@codemirror/language";
-import type { EditorState, Range } from "@codemirror/state";
+import { type EditorState, type Range, StateField } from "@codemirror/state";
 import {
   Decoration,
   type DecorationSet,
-  type EditorView,
+  EditorView,
   ViewPlugin,
   type ViewUpdate,
 } from "@codemirror/view";
@@ -50,8 +50,13 @@ export interface DecorationContext {
   options: LivePreviewOptions;
 }
 
-function activeLineSet(state: EditorState, protectedLines?: Set<number>): Set<number> {
-  const lines = new Set<number>(protectedLines ?? []);
+function activeLineSet(state: EditorState, options: LivePreviewOptions): Set<number> {
+  const lines = new Set<number>(options.protectedLines ?? []);
+  if (options.protectFrontmatter) {
+    for (const line of getFrontmatterProtectedLineNumbers(state.doc.toString())) {
+      lines.add(line);
+    }
+  }
   for (const range of state.selection.ranges) {
     const fromLine = state.doc.lineAt(range.from).number;
     const toLine = state.doc.lineAt(range.to).number;
@@ -68,16 +73,9 @@ export function buildDecorations(
   view: EditorView,
   options: LivePreviewOptions = {},
 ): DecorationSet {
-  const protectedLines = new Set(options.protectedLines ?? []);
-  if (options.protectFrontmatter) {
-    for (const line of getFrontmatterProtectedLineNumbers(view.state.doc.toString())) {
-      protectedLines.add(line);
-    }
-  }
-
   const ctx: DecorationContext = {
     state: view.state,
-    activeLines: activeLineSet(view.state, protectedLines),
+    activeLines: activeLineSet(view.state, options),
     ranges: [],
     options,
   };
@@ -141,6 +139,35 @@ export function buildDecorations(
   return Decoration.set(ctx.ranges, true);
 }
 
+/** Fold complete fence lines so CodeMirror tracks their height even off screen. */
+function buildFenceDecorations(state: EditorState, options: LivePreviewOptions): DecorationSet {
+  const active = activeLineSet(state, options);
+  const ranges: Range<Decoration>[] = [];
+  syntaxTree(state).iterate({
+    enter(node) {
+      if (node.name !== "FencedCode") return;
+      const first = node.node.firstChild;
+      const last = node.node.lastChild;
+      if (!first || !last || first.name !== "CodeMark") return false;
+      const start = state.doc.lineAt(first.from);
+      const end = state.doc.lineAt(node.to);
+      for (let line = start.number; line <= end.number; line += 1) {
+        if (active.has(line)) return false;
+      }
+      // Keep empty blocks visible and editable, including an unfinished opening fence.
+      const closed = last.name === "CodeMark" && last.from !== first.from;
+      if (start.number + 1 > end.number - (closed ? 1 : 0)) return false;
+      const hidden = Decoration.replace({ block: true, inclusive: false });
+      ranges.push(hidden.range(start.from, start.to + 1));
+      if (closed) {
+        ranges.push(hidden.range(end.from, Math.min(end.to + 1, state.doc.length)));
+      }
+      return false;
+    },
+  });
+  return Decoration.set(ranges, true);
+}
+
 function appendFrontmatterLineDecorations(ctx: DecorationContext, doc: string): void {
   if (!ctx.options.protectFrontmatter) return;
   const lines = getFrontmatterProtectedLineNumbers(doc);
@@ -169,6 +196,11 @@ function appendFrontmatterLineDecorations(ctx: DecorationContext, doc: string): 
 export function livePreviewPlugin(options: LivePreviewOptions = {}) {
   return [
     tablePreviewExtension(options),
+    StateField.define<DecorationSet>({
+      create: (state) => buildFenceDecorations(state, options),
+      update: (_decorations, transaction) => buildFenceDecorations(transaction.state, options),
+      provide: (field) => EditorView.decorations.from(field),
+    }),
     ViewPlugin.fromClass(
       class {
         decorations: DecorationSet;

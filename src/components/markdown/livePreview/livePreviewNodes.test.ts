@@ -76,7 +76,34 @@ describe('live preview prose alignment', () => {
     expect(last?.classList.contains('cm-md-fence-hidden')).toBe(false);
     expect(first?.classList.contains('cm-md-fence-body-line')).toBe(true);
     expect(last?.classList.contains('cm-md-fence-body-line')).toBe(true);
-    expect(view.contentDOM.querySelectorAll('.cm-line.cm-md-fence-hidden').length).toBe(2);
+    expect(view.contentDOM.querySelectorAll('.cm-line.cm-md-fence-hidden').length).toBe(0);
+    expect(view.contentDOM.textContent).not.toContain('```');
+  });
+
+  it('tracks hidden fence lines in the editor layout outside the viewport', () => {
+    const doc = ['Intro', '', ...Array(100).fill('paragraph'), '', '```ts', 'code', '```', '', 'End'].join('\n');
+    const view = editor(doc, 0);
+    const hidden: Array<{ from: number; to: number }> = [];
+    for (const decorations of view.state.facet(EditorView.decorations)) {
+      if (typeof decorations === 'function') continue;
+      decorations.between(0, doc.length, (from, to, decoration) => {
+        if (decoration.spec.block && !decoration.spec.widget) hidden.push({ from, to });
+      });
+    }
+
+    expect(hidden).toEqual([
+      { from: doc.indexOf('```ts'), to: doc.indexOf('code') },
+      { from: doc.lastIndexOf('```'), to: doc.lastIndexOf('```') + 4 },
+    ]);
+  });
+
+  it('reveals fences while editing a code block and hides them on leaving', () => {
+    const doc = 'Intro\n\n```ts\ncode\n```\n\nEnd';
+    const view = editor(doc, 0);
+    view.dispatch({ selection: { anchor: doc.indexOf('code') } });
+    expect(view.contentDOM.textContent).toContain('```ts');
+    view.dispatch({ selection: { anchor: doc.length } });
+    expect(view.contentDOM.textContent).not.toContain('```');
   });
 
   it('marks frontmatter lines as protected monospace blocks', () => {

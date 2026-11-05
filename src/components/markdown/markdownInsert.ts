@@ -58,34 +58,48 @@ export function stripLeadingBlockMarker(text: string): string {
 function applyLineBlockPrefix(
   value: string,
   selection: MarkdownSelection,
-  prefix: string,
-  options: { body?: string; wrapCodeFence?: boolean } = {}
+  prefix: string
 ): MarkdownInsertResult {
   const anchor = selection.from;
   const { lineStart, lineEndIndex } = getLineBounds(value, anchor);
   const line = value.slice(lineStart, lineEndIndex);
   const trimmed = line.trimStart();
   const indent = line.slice(0, line.length - trimmed.length);
-  const body = options.body ?? '';
 
   if (!trimmed) {
-    const newLine = `${indent}${prefix}${body}`;
+    const newLine = `${indent}${prefix}`;
     const next = value.slice(0, lineStart) + newLine + value.slice(lineEndIndex);
     const cursor = lineStart + newLine.length;
     return { value: next, selection: { from: cursor, to: cursor } };
   }
 
   const content = stripLeadingBlockMarker(trimmed);
-  let newLine: string;
-  if (options.wrapCodeFence) {
-    newLine = `${indent}\`\`\`\n${content}\n\`\`\``;
-  } else {
-    newLine = `${indent}${prefix}${content}`;
-  }
+  const newLine = `${indent}${prefix}${content}`;
 
   const next = value.slice(0, lineStart) + newLine + value.slice(lineEndIndex);
   const cursor = lineStart + newLine.length;
   return { value: next, selection: { from: cursor, to: cursor } };
+}
+
+function wrapCodeBlock(value: string, selection: MarkdownSelection): MarkdownInsertResult {
+  let { from, to } = selection;
+  if (from === to) {
+    const bounds = getLineBounds(value, from);
+    from = bounds.lineStart;
+    to = bounds.lineEndIndex;
+  }
+
+  const selected = value.slice(from, to);
+  // A surrounding fence must be longer than any fence in the selected code.
+  const backticks = selected.match(/`{3,}/g) ?? [];
+  const fenceLength = backticks.reduce((length, run) => Math.max(length, run.length + 1), 3);
+  const fence = '`'.repeat(fenceLength);
+  const leadingBreak = from > 0 && value[from - 1] !== '\n' ? '\n' : '';
+  const trailingBreak = to < value.length && value[to] !== '\n' ? '\n' : '';
+  const before = `${leadingBreak}${fence}\n`;
+  const after = `${selected.endsWith('\n') ? '' : '\n'}${fence}${trailingBreak}`;
+
+  return wrapSelection(value, { from, to }, before, after);
 }
 
 export function applyMarkdownInsert(
@@ -95,11 +109,11 @@ export function applyMarkdownInsert(
 ): MarkdownInsertResult {
   switch (command) {
     case 'h1':
-      return applyLineBlockPrefix(value, selection, '# ', {});
+      return applyLineBlockPrefix(value, selection, '# ');
     case 'h2':
-      return applyLineBlockPrefix(value, selection, '## ', {});
+      return applyLineBlockPrefix(value, selection, '## ');
     case 'h3':
-      return applyLineBlockPrefix(value, selection, '### ', {});
+      return applyLineBlockPrefix(value, selection, '### ');
     case 'bold':
       return wrapSelection(value, selection, '**', '**', 'text');
     case 'italic':
@@ -109,18 +123,15 @@ export function applyMarkdownInsert(
     case 'link':
       return wrapSelection(value, selection, '[', '](url)', 'label');
     case 'ul':
-      return applyLineBlockPrefix(value, selection, '- ', {});
+      return applyLineBlockPrefix(value, selection, '- ');
     case 'ol':
-      return applyLineBlockPrefix(value, selection, '1. ', {});
+      return applyLineBlockPrefix(value, selection, '1. ');
     case 'quote':
-      return applyLineBlockPrefix(value, selection, '> ', {});
+      return applyLineBlockPrefix(value, selection, '> ');
     case 'codeBlock':
-      return applyLineBlockPrefix(value, selection, '```\n', {
-        body: '\n```',
-        wrapCodeFence: true,
-      });
+      return wrapCodeBlock(value, selection);
     case 'task':
-      return applyLineBlockPrefix(value, selection, '- [ ] ', {});
+      return applyLineBlockPrefix(value, selection, '- [ ] ');
     default:
       return { value, selection };
   }
