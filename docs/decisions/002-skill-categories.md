@@ -85,6 +85,6 @@ Skills 当前只能通过「收藏」与「按 Agent 工具」两个维度筛选
 
 ## Follow-up
 
-- 按 `specs/skill-categories.md` 进入实现；变更核心存储边界或默认类别语义时新建替代 ADR，
+- 按 `docs/specs/skill-categories.md` 进入实现；变更核心存储边界或默认类别语义时新建替代 ADR，
   不直接改写本决策历史。
 - 若未来引入分类层级、颜色自定义或详情页分类编辑，先更新规格再实现。
