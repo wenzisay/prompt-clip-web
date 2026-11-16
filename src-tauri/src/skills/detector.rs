@@ -240,6 +240,26 @@ mod tests {
         assert_eq!(opencode.skills_path, home.path().join(".opencode/skills"));
     }
 
+    #[test]
+    fn should_resolve_gemini_skills_path_under_config_directory() {
+        let home = tempdir().expect("home should be created");
+        fs::create_dir_all(home.path().join(".gemini/config/skills"))
+            .expect("Gemini config directory should be created");
+
+        let tools = detect_tools(home.path(), &[], &SkillManagerSettings::default());
+        let gemini = tools
+            .iter()
+            .find(|tool| tool.id == "gemini")
+            .expect("Gemini should exist");
+
+        assert_eq!(gemini.config_path, home.path().join(".gemini/config"));
+        assert_eq!(
+            gemini.skills_path,
+            home.path().join(".gemini/config/skills")
+        );
+        assert!(gemini.installed);
+    }
+
     #[cfg(unix)]
     #[test]
     fn should_detect_tools_from_executable_path() {

@@ -54,7 +54,9 @@ const INITIAL_TOOL_DEFINITIONS: &[ToolDefinition] = &[
     ToolDefinition {
         id: "gemini",
         name: "Gemini CLI",
-        config_dir: ".gemini",
+        // Gemini CLI 的 skill 目录位于 ~/.gemini/config/skills/，
+        // 不是 ~/.gemini/skills/。
+        config_dir: ".gemini/config",
         alternative_config_dirs: &[],
         cli_command: Some("gemini"),
         copy_only: false,
@@ -344,6 +346,10 @@ mod tests {
             .iter()
             .find(|definition| definition.id == "pi")
             .expect("Pi definition should exist");
+        let gemini = definitions
+            .iter()
+            .find(|definition| definition.id == "gemini")
+            .expect("Gemini definition should exist");
 
         assert_eq!(opencode.config_dir, ".config/opencode");
         assert_eq!(opencode.alternative_config_dirs, &[".opencode"]);
@@ -353,6 +359,8 @@ mod tests {
         assert_eq!(droid.config_dir, ".factory");
         assert_eq!(droid.alternative_config_dirs, &[".droid"]);
         assert_eq!(pi.config_dir, ".pi/agent");
+        // Gemini CLI 的 skill 目录是 ~/.gemini/config/skills/
+        assert_eq!(gemini.config_dir, ".gemini/config");
     }
 
     #[test]
