@@ -83,6 +83,6 @@ System Access API 和 Tauri；它不适合授予 Web 端或通用前端接口访
 
 ## Follow-up
 
-- 按 `specs/skill-management.md` 和 `IMPLEMENTATION_PLAN.md` 进入 RED/GREEN TDD 实现。
+- 按 `docs/specs/skill-management.md` 和 `IMPLEMENTATION_PLAN.md` 进入 RED/GREEN TDD 实现。
 - 若未来引入更多 Agent、项目级 Skill、多 Hub 或云同步，应先更新规格；改变本 ADR 核心边界时
   新建替代 ADR，不直接改写本决策历史。

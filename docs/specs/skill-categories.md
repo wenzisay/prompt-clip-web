@@ -5,7 +5,7 @@
 - 状态：Accepted
 - 日期：2026-08-06
 - 关联决策：`docs/decisions/002-skill-categories.md`
-- 关联主规格：`specs/skill-management.md`
+- 关联主规格：`docs/specs/skill-management.md`
 - 平台：桌面端（Tauri）专属，随现有 Skills 功能启用；Web 端不暴露入口
 
 ## 1. 已确认产品决策
