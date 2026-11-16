@@ -3,7 +3,7 @@
 **目标：** 用 CodeMirror 6 + Live Preview 装饰层，把 Prompt/Skill Markdown 编辑升到 B 档（Live Preview + 工具栏 + `/` 斜杠），文档仍是纯 Markdown 字符串。  
 **架构：** 抽出共享 `MarkdownLiveEditor`（CM6 + `@silkdown/*` Live Preview）；工具栏与斜杠只插入/包裹 Markdown；Prompt 与 Skill 接入；编辑器 chunk 动态 import，不进首屏。  
 **技术 / 命令：** `npm run test -- --run` · `npm run type-check` · `npm run lint` · `npm run build`  
-**规格：** `specs/markdown-live-preview-editor.md`（已批准）
+**规格：** `docs/specs/markdown-live-preview-editor.md`（已批准）
 
 ## 范围
 
@@ -261,5 +261,5 @@ export const MARKDOWN_SLASH_COMMANDS: Array<{
 ## 执行注意（给人 / Agent）
 
 - **批准本 Plan 前不写业务代码。**
-- 落地走 Cloud Agent / PR；先提交 `specs/markdown-live-preview-editor.md` 与本 Plan，再按任务开实现 PR（可同一 PR 分 commit）。
+- 落地走 Cloud Agent / PR；先提交 `docs/specs/markdown-live-preview-editor.md` 与本 Plan，再按任务开实现 PR（可同一 PR 分 commit）。
 - 每任务保持可构建；高风险任务 1 失败先停，换回退方案并更新本 Plan 假设。
