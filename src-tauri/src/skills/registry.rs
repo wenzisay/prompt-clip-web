@@ -53,20 +53,12 @@ const INITIAL_TOOL_DEFINITIONS: &[ToolDefinition] = &[
     },
     ToolDefinition {
         id: "gemini",
-        name: "Gemini CLI",
-        // Gemini CLI 的 skill 目录位于 ~/.gemini/config/skills/，
-        // 不是 ~/.gemini/skills/。
+        name: "Gemini（Antigravity）",
+        // Antigravity 与 Gemini CLI 是同一应用，只保留这一项。
+        // skill 目录仍是 ~/.gemini/config/skills/，不是 ~/.gemini/skills/。
         config_dir: ".gemini/config",
         alternative_config_dirs: &[],
         cli_command: Some("gemini"),
-        copy_only: false,
-    },
-    ToolDefinition {
-        id: "antigravity",
-        name: "Antigravity",
-        config_dir: ".antigravity",
-        alternative_config_dirs: &[],
-        cli_command: Some("antigravity"),
         copy_only: false,
     },
     ToolDefinition {
@@ -286,11 +278,10 @@ mod tests {
             assert!(ids.contains(core), "core tool {core} should be defined");
         }
         // 扩展工具必须存在（迁移自 Skills-Manager，剔除废弃的 iflow / qoderwork-cn，
-        // 以及与 agents-skills 路径冲突的 vercel-skills）
+        // 与 agents-skills 路径冲突的 vercel-skills，以及并入 Gemini 的 antigravity）
         for expanded in [
             "codebuddy",
             "gemini",
-            "antigravity",
             "windsurf",
             "trae",
             "droid",
@@ -318,8 +309,8 @@ mod tests {
                 "expanded tool {expanded} should be defined"
             );
         }
-        // 已废弃/冲突工具不应出现
-        for excluded in ["iflow", "qoderwork-cn", "vercel-skills"] {
+        // 已废弃/冲突，或已并入其他工具的 id 不应再单独出现
+        for excluded in ["iflow", "qoderwork-cn", "vercel-skills", "antigravity"] {
             assert!(
                 !ids.contains(excluded),
                 "excluded tool {excluded} should not be defined"
@@ -359,8 +350,10 @@ mod tests {
         assert_eq!(droid.config_dir, ".factory");
         assert_eq!(droid.alternative_config_dirs, &[".droid"]);
         assert_eq!(pi.config_dir, ".pi/agent");
-        // Gemini CLI 的 skill 目录是 ~/.gemini/config/skills/
+        // Gemini（Antigravity）沿用 Gemini CLI 的 skill 目录 ~/.gemini/config/skills/
+        assert_eq!(gemini.name, "Gemini（Antigravity）");
         assert_eq!(gemini.config_dir, ".gemini/config");
+        assert_eq!(gemini.cli_command, Some("gemini"));
     }
 
     #[test]
