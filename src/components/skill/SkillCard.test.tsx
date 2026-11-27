@@ -111,7 +111,7 @@ describe('SkillCard', () => {
     expect(screen.queryByText('Disabled')).toBeNull();
   });
 
-  it('shows a status badge only when the Agent tool is in conflict', () => {
+  it('shows status badges for conflict, stale, and broken states only', () => {
     const { rerender } = render(<SkillCard skill={skill} tools={tools} />);
     const disabledTool = screen.getByRole('button', {
       name: /Enable for Codex · Disabled/,
@@ -146,6 +146,72 @@ describe('SkillCard', () => {
     const warningBadge = within(conflictedTool).getByText('warning');
     expect(warningBadge).toBeTruthy();
     expect(warningBadge.parentElement?.className).toContain('inline-flex');
+
+    const stale = {
+      ...skill,
+      toolStates: {
+        codex: { ...skill.toolStates.codex, status: 'stale' as const },
+      },
+    };
+    rerender(<SkillCard skill={stale} tools={tools} />);
+
+    const staleTool = screen.getByRole('button', {
+      name: /Resync for Codex · Needs sync/,
+    });
+    expect(within(staleTool).getByText('refresh')).toBeTruthy();
+
+    const broken = {
+      ...skill,
+      toolStates: {
+        codex: { ...skill.toolStates.codex, status: 'broken' as const },
+      },
+    };
+    rerender(<SkillCard skill={broken} tools={tools} />);
+
+    const brokenTool = screen.getByRole('button', {
+      name: /Repair broken link for Codex · Broken link/,
+    });
+    expect(within(brokenTool).getByText('error')).toBeTruthy();
+  });
+
+  it('resyncs a stale copy instead of disabling it when clicked', () => {
+    const stale = {
+      ...skill,
+      toolStates: {
+        codex: { ...skill.toolStates.codex, status: 'stale' as const },
+      },
+    };
+    render(<SkillCard skill={stale} tools={tools} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Resync for Codex · Needs sync/ }));
+
+    expect(setToolEnabled).toHaveBeenCalledWith('review-code', 'codex-group', true);
+  });
+
+  it('repairs a broken link only after confirmation', async () => {
+    const broken = {
+      ...skill,
+      toolStates: {
+        codex: { ...skill.toolStates.codex, status: 'broken' as const },
+      },
+    };
+    dialogMocks.confirm.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    render(<SkillCard skill={broken} tools={tools} />);
+
+    const brokenButton = screen.getByRole('button', {
+      name: /Repair broken link for Codex · Broken link/,
+    });
+    expect((brokenButton as HTMLButtonElement).disabled).toBe(false);
+
+    fireEvent.click(brokenButton);
+    await waitFor(() => expect(dialogMocks.confirm).toHaveBeenCalledTimes(1));
+    expect(setToolEnabled).not.toHaveBeenCalled();
+
+    fireEvent.click(brokenButton);
+    await waitFor(() => {
+      expect(dialogMocks.confirm).toHaveBeenCalledTimes(2);
+      expect(setToolEnabled).toHaveBeenCalledWith('review-code', 'codex-group', true, true);
+    });
   });
 
   it('moves favorite, export, and delete actions into the more menu', () => {
@@ -376,10 +442,11 @@ describe('SkillCard', () => {
       });
     });
 
-    it('renders category pills and filters on click', () => {
+    it('renders category pills and filters on click without opening the card', () => {
       const setCategoryFilter = vi.fn();
+      const onOpen = vi.fn();
       useSkillStore.setState({ setCategoryFilter });
-      render(<SkillCard skill={categorizedSkill} tools={tools} />);
+      render(<SkillCard skill={categorizedSkill} tools={tools} onOpen={onOpen} />);
 
       const workCategory = screen.getByText('#Work');
       const categoryList = workCategory.parentElement;
@@ -390,6 +457,7 @@ describe('SkillCard', () => {
 
       fireEvent.click(workCategory);
       expect(setCategoryFilter).toHaveBeenCalledWith('c1');
+      expect(onOpen).not.toHaveBeenCalled();
     });
 
     it('truncates pills when more than four categories', () => {
@@ -423,6 +491,140 @@ describe('SkillCard', () => {
       expect(screen.getByText('Work')).toBeTruthy();
       fireEvent.click(screen.getByText('Work'));
       await waitFor(() => expect(setSkillCategories).toHaveBeenCalledWith('review-code', ['c1']));
+    });
+  });
+
+  describe('shared agents-skills visibility and duplicate confirmation', () => {
+    const compatCodex: AgentTool = {
+      ...tools[0],
+      id: 'codex',
+      name: 'Codex',
+      targetGroupId: 'codex-group',
+      readsSharedAgentsSkills: true,
+    };
+    const claudeTool: AgentTool = {
+      ...tools[0],
+      id: 'claude-code',
+      name: 'Claude Code',
+      iconId: 'claude-code',
+      targetGroupId: 'claude-group',
+      readsSharedAgentsSkills: false,
+    };
+    const agentsTool: AgentTool = {
+      ...tools[0],
+      id: 'agents-skills',
+      name: 'Agents Skills',
+      iconId: 'agents-skills',
+      targetGroupId: 'agents-group',
+      readsSharedAgentsSkills: false,
+    };
+    const sharedTools = [claudeTool, compatCodex, agentsTool];
+
+    const sharedEnabledSkill: SkillSummary = {
+      ...skill,
+      toolStates: {
+        codex: {
+          toolId: 'codex',
+          targetGroupId: 'codex-group',
+          status: 'disabled',
+          actualMode: null,
+          message: null,
+        },
+        'claude-code': {
+          toolId: 'claude-code',
+          targetGroupId: 'claude-group',
+          status: 'disabled',
+          actualMode: null,
+          message: null,
+        },
+        'agents-skills': {
+          toolId: 'agents-skills',
+          targetGroupId: 'agents-group',
+          status: 'enabled',
+          actualMode: 'symlink',
+          message: null,
+        },
+      },
+    };
+
+    beforeEach(() => {
+      useSkillStore.setState({
+        filter: { searchQuery: '', favoritesOnly: false, agentToolId: null, category: null },
+      });
+    });
+
+    it('shows the "From Agents Skills" badge when viewing a compatible agent filter', () => {
+      useSkillStore.setState({
+        filter: { searchQuery: '', favoritesOnly: false, agentToolId: 'codex', category: null },
+      });
+      render(<SkillCard skill={sharedEnabledSkill} tools={sharedTools} />);
+
+      const badge = screen.getByTestId('skill-shared-source-badge');
+      expect(badge.textContent).toContain('From Agents Skills');
+    });
+
+    it('shows the "Also in Agents Skills" badge when enabled in both dedicated and shared directories', () => {
+      useSkillStore.setState({
+        filter: { searchQuery: '', favoritesOnly: false, agentToolId: 'codex', category: null },
+      });
+      const bothSkill: SkillSummary = {
+        ...sharedEnabledSkill,
+        toolStates: {
+          ...sharedEnabledSkill.toolStates,
+          codex: { ...sharedEnabledSkill.toolStates.codex, status: 'enabled' },
+        },
+      };
+      render(<SkillCard skill={bothSkill} tools={sharedTools} />);
+
+      expect(screen.getByTestId('skill-shared-source-badge').textContent).toContain(
+        'Also in Agents Skills'
+      );
+    });
+
+    it('hides the source badge outside compatible agent filters', () => {
+      const { rerender } = render(<SkillCard skill={sharedEnabledSkill} tools={sharedTools} />);
+      expect(screen.queryByTestId('skill-shared-source-badge')).toBeNull();
+
+      useSkillStore.setState({
+        filter: {
+          searchQuery: '',
+          favoritesOnly: false,
+          agentToolId: 'agents-skills',
+          category: null,
+        },
+      });
+      rerender(<SkillCard skill={sharedEnabledSkill} tools={sharedTools} />);
+      expect(screen.queryByTestId('skill-shared-source-badge')).toBeNull();
+    });
+
+    it('asks for lightweight confirmation before enabling a compatible tool when already active in Agents Skills', async () => {
+      dialogMocks.confirm.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+      render(<SkillCard skill={sharedEnabledSkill} tools={sharedTools} />);
+
+      const codexButton = screen.getByRole('button', { name: /Enable for Codex · Disabled/ });
+
+      fireEvent.click(codexButton);
+      await waitFor(() => expect(dialogMocks.confirm).toHaveBeenCalledTimes(1));
+      expect(dialogMocks.confirm).toHaveBeenCalledWith(
+        expect.stringContaining('Agents Skills'),
+        expect.objectContaining({ kind: 'warning' })
+      );
+      expect(setToolEnabled).not.toHaveBeenCalled();
+
+      fireEvent.click(codexButton);
+      await waitFor(() => {
+        expect(dialogMocks.confirm).toHaveBeenCalledTimes(2);
+        expect(setToolEnabled).toHaveBeenCalledWith('review-code', 'codex-group', true);
+      });
+    });
+
+    it('enables incompatible tools directly without duplicate confirmation', () => {
+      render(<SkillCard skill={sharedEnabledSkill} tools={sharedTools} />);
+
+      fireEvent.click(screen.getByRole('button', { name: /Enable for Claude Code · Disabled/ }));
+
+      expect(dialogMocks.confirm).not.toHaveBeenCalled();
+      expect(setToolEnabled).toHaveBeenCalledWith('review-code', 'claude-group', true);
     });
   });
 });

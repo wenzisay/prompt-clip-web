@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { ToastHost } from '@/components/common';
 import { WelcomeScreen } from '@/components/WelcomeScreen';
 import { AboutPage } from '@/components/about';
 import { PrivacyPage } from '@/components/privacy';
@@ -84,9 +85,18 @@ function AppContent() {
     isAuthorized,
     workspace !== null
   );
-  if (view === 'skills') return <SkillManagerPage />;
-  if (view === 'prompts') return <PromptManagerPage />;
-  return <WelcomeScreen />;
+  return (
+    <>
+      {view === 'skills' ? (
+        <SkillManagerPage />
+      ) : view === 'prompts' ? (
+        <PromptManagerPage />
+      ) : (
+        <WelcomeScreen />
+      )}
+      <ToastHost />
+    </>
+  );
 }
 
 interface AppRouterProps {

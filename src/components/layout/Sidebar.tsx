@@ -12,7 +12,8 @@ import { usePromptStore } from '@/stores/promptStore';
 import { useSkillStore } from '@/stores/skillStore';
 import { useTagStore } from '@/stores/tagStore';
 import { useUIStore, type AppSection } from '@/stores/uiStore';
-import { useState } from 'react';
+import { getSkillAvailabilityForTool } from '@/utils/skillSharedAccess';
+import { useMemo, useState } from 'react';
 
 export interface SidebarProps {
   onSkillSettings?: () => void;
@@ -29,12 +30,36 @@ export function Sidebar({ onSkillSettings, onSelectSection }: SidebarProps) {
   const { clearPrompts } = usePromptStore();
   const { clearTags } = useTagStore();
   const { appSection, openModal, setAppSection } = useUIStore();
-  const { tools: agentTools, filter: skillFilter, setAgentToolFilter } = useSkillStore();
+  const {
+    skills,
+    tools: agentTools,
+    filter: skillFilter,
+    setAgentToolFilter,
+  } = useSkillStore();
   const isDesktop = isTauriRuntime();
   const isPromptSection = appSection === 'prompts';
-  const installedAgentTools = agentTools.filter(
-    (tool) => tool.installed && tool.enabled
+  const installedAgentTools = useMemo(
+    () => agentTools.filter((tool) => tool.installed && tool.enabled),
+    [agentTools]
   );
+  const agentSkillCounts = useMemo(() => {
+    const counts: Record<string, { total: number; sharedOnly: number }> = {};
+    for (const tool of installedAgentTools) {
+      let total = 0;
+      let sharedOnly = 0;
+      for (const skill of skills) {
+        const availability = getSkillAvailabilityForTool(skill, tool, agentTools);
+        if (availability !== 'none') {
+          total += 1;
+          if (availability === 'shared') {
+            sharedOnly += 1;
+          }
+        }
+      }
+      counts[tool.id] = { total, sharedOnly };
+    }
+    return counts;
+  }, [skills, installedAgentTools, agentTools]);
   // 切换 section：外部传入处理器时用之（用于未保存修改确认），否则直接切换
   const selectSection = onSelectSection ?? setAppSection;
 
@@ -120,13 +145,22 @@ export function Sidebar({ onSkillSettings, onSelectSection }: SidebarProps) {
               <ul className="flex flex-col gap-0.5">
                 {installedAgentTools.map((tool) => {
                   const isActive = skillFilter.agentToolId === tool.id;
+                  const countInfo = agentSkillCounts[tool.id] ?? { total: 0, sharedOnly: 0 };
+                  const tooltipTitle =
+                    countInfo.sharedOnly > 0
+                      ? t.skills.agentCountTooltipWithShared(
+                          tool.name,
+                          countInfo.total,
+                          countInfo.sharedOnly
+                        )
+                      : tool.name;
                   return (
                     <li key={tool.id}>
                       <button
                         type="button"
                         aria-pressed={isActive}
                         onClick={() => setAgentToolFilter(tool.id)}
-                        title={tool.name}
+                        title={tooltipTitle}
                         className={`w-full flex items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors ${
                           isActive
                             ? 'bg-accent-soft text-accent'
@@ -138,6 +172,13 @@ export function Sidebar({ onSkillSettings, onSelectSection }: SidebarProps) {
                         </span>
                         <span className="min-w-0 flex-1 truncate text-sm font-medium">
                           {tool.name}
+                        </span>
+                        <span
+                          aria-hidden="true"
+                          data-testid={`agent-count-${tool.id}`}
+                          className={`shrink-0 text-xs ${isActive ? 'text-accent' : 'text-muted'}`}
+                        >
+                          {countInfo.total}
                         </span>
                       </button>
                     </li>

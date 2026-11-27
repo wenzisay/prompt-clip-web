@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { SkillSummary } from '@/types/skill';
 import { useTranslation } from '@/i18n';
+import { matchesSkillQuery, useSkillStore } from '@/stores/skillStore';
 
 export interface SkillQuickSwitcherProps {
   isOpen: boolean;
@@ -16,15 +17,18 @@ export function SkillQuickSwitcher({
   onSelect,
 }: SkillQuickSwitcherProps) {
   const { t } = useTranslation();
+  const categories = useSkillStore((state) => state.categories);
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const results = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase();
-    return skills.filter(
-      (skill) => !normalized || skill.name.toLocaleLowerCase().includes(normalized)
+    const categoryList = Array.isArray(categories) ? categories : [];
+    const categoryNameById = new Map(
+      categoryList.map((category) => [category.id, category.name])
     );
-  }, [query, skills]);
+    return skills.filter((skill) => matchesSkillQuery(skill, normalized, categoryNameById));
+  }, [categories, query, skills]);
 
   useEffect(() => {
     if (!isOpen) return;

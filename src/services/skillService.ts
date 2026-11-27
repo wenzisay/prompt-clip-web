@@ -71,6 +71,11 @@ export async function revealHubSkill(): Promise<void> {
   await invoke('skill_reveal_hub');
 }
 
+export async function revealSkill(skillId: string): Promise<void> {
+  requireDesktop();
+  await invoke('skill_reveal_skill', { skillId });
+}
+
 export async function setSkillEnabled(
   options: SetSkillEnabledOptions
 ): Promise<SyncOperationResult> {
@@ -299,6 +304,7 @@ export const SkillService = {
   scanExternal: scanExternalSkills,
   revealExternal: revealExternalSkill,
   revealHub: revealHubSkill,
+  revealSkill,
   setEnabled: setSkillEnabled,
   forceEnable: forceEnableSkill,
   importExternal: importExternalSkill,

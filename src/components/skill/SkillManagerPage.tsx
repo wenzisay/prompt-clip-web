@@ -1,14 +1,16 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { open, save } from '@tauri-apps/plugin-dialog';
 import { Sidebar } from '@/components/layout';
 import { useTranslation } from '@/i18n';
 import { SkillService } from '@/services/skillService';
 import { useSkillStore } from '@/stores/skillStore';
 import { useUIStore, type AppSection } from '@/stores/uiStore';
+import { toSkillManagerError } from '@/utils/skillError';
 import type {
   ArchivePreview,
   ExternalImportSelection,
   ImportDecision,
+  SkillManagerError,
   SkillManagerSettings,
   SkillDeleteMode,
   SyncMode,
@@ -54,13 +56,37 @@ export function SkillManagerPage() {
   /** 列表滚动容器：进入/返回详情页时保存与恢复滚动位置 */
   const listScrollRef = useRef<HTMLDivElement>(null);
   const savedScrollTopRef = useRef<number>(0);
-  const { setAppSection } = useUIStore();
+  /** 详情页期间是否保存过文件：返回列表或切走时按需刷新卡片摘要 */
+  const hasSavedInDetailRef = useRef(false);
+  const { setAppSection, addToast } = useUIStore();
   const [selectedDeleteSkillId, setSelectedDeleteSkillId] = useState<string | null>(null);
   const [archivePath, setArchivePath] = useState<string | null>(null);
   const [archivePreview, setArchivePreview] = useState<ArchivePreview | null>(null);
   const [settings, setSettings] = useState<SkillManagerSettings | null>(null);
   const [isSettingsOpen, setSettingsOpen] = useState(false);
-  const [operationError, setOperationError] = useState(false);
+  const lastNotifiedErrorRef = useRef<SkillManagerError | null>(null);
+
+  const notifyError = useCallback(
+    (err: unknown) => {
+      const normalized = toSkillManagerError(err);
+      addToast({
+        type: 'error',
+        message: t.skills.skillOperationError(normalized.code, normalized.params),
+        duration: 4500,
+      });
+    },
+    [addToast, t.skills]
+  );
+
+  useEffect(() => {
+    if (!error || error === lastNotifiedErrorRef.current) return;
+    lastNotifiedErrorRef.current = error;
+    addToast({
+      type: 'error',
+      message: t.skills.skillOperationError(error.code, error.params),
+      duration: 4500,
+    });
+  }, [error, addToast, t.skills]);
 
   useEffect(() => {
     void load();
@@ -78,7 +104,30 @@ export function SkillManagerPage() {
     if (listScrollRef.current) {
       savedScrollTopRef.current = listScrollRef.current.scrollTop;
     }
+    hasSavedInDetailRef.current = false;
     setSelectedSkillId(skillId);
+  };
+
+  const handleBackFromDetail = () => {
+    const shouldRefresh = hasSavedInDetailRef.current;
+    hasSavedInDetailRef.current = false;
+    setSelectedSkillId(null);
+    if (shouldRefresh) {
+      void load();
+    }
+  };
+
+  const handleQuickSwitchSelect = (skillId: string) => {
+    if (selectedSkillId && selectedSkillId !== skillId && detailRef.current) {
+      detailRef.current.requestNavigateAway(() => {
+        const shouldRefresh = hasSavedInDetailRef.current;
+        hasSavedInDetailRef.current = false;
+        if (shouldRefresh) void load();
+        openSkill(skillId);
+      });
+      return;
+    }
+    openSkill(skillId);
   };
 
   useEffect(() => {
@@ -94,9 +143,17 @@ export function SkillManagerPage() {
 
   const rescan = async () => {
     await Promise.all([load(), rescanExternal()]);
-    const scan = useSkillStore.getState().externalScan;
+    const state = useSkillStore.getState();
+    if (state.error) return;
+    const scan = state.externalScan;
     if (scan && (scan.groups.length > 0 || scan.invalidEntries.length > 0)) {
       setImportOpen(true);
+    } else if (scan) {
+      addToast({
+        type: 'info',
+        message: t.skills.scanNoExternalFound,
+        duration: 3000,
+      });
     }
   };
 
@@ -113,40 +170,36 @@ export function SkillManagerPage() {
   };
 
   const revealExternal = async (targetGroupId: string, directoryName: string) => {
-    setOperationError(false);
     try {
       await SkillService.revealExternal(targetGroupId, directoryName);
-    } catch {
-      setOperationError(true);
+    } catch (err) {
+      notifyError(err);
     }
   };
 
   const revealStorage = async () => {
-    setOperationError(false);
     try {
       await SkillService.revealHub();
-    } catch {
-      setOperationError(true);
+    } catch (err) {
+      notifyError(err);
     }
   };
 
   const createSkill = async (skillId: string, description: string) => {
     setSubmitting(true);
-    setOperationError(false);
     try {
       await SkillService.create(skillId, description);
       await load();
       setCreateOpen(false);
       openSkill(skillId);
-    } catch {
-      setOperationError(true);
+    } catch (err) {
+      notifyError(err);
     } finally {
       setSubmitting(false);
     }
   };
 
   const selectArchive = async () => {
-    setOperationError(false);
     try {
       const path = await open({
         multiple: false,
@@ -157,8 +210,8 @@ export function SkillManagerPage() {
       const preview = await SkillService.previewArchive(path);
       setArchivePath(path);
       setArchivePreview(preview);
-    } catch {
-      setOperationError(true);
+    } catch (err) {
+      notifyError(err);
     }
   };
 
@@ -172,8 +225,8 @@ export function SkillManagerPage() {
       if (decision !== 'keepHub' && decision !== 'skip') {
         openSkill(archivePreview.skillId);
       }
-    } catch {
-      setOperationError(true);
+    } catch (err) {
+      notifyError(err);
     }
   };
 
@@ -183,9 +236,15 @@ export function SkillManagerPage() {
         defaultPath: `${skillId}.zip`,
         filters: [{ name: 'ZIP', extensions: ['zip'] }],
       });
-      if (destination) await SkillService.export(skillId, destination);
-    } catch {
-      setOperationError(true);
+      if (!destination) return;
+      await SkillService.export(skillId, destination);
+      addToast({
+        type: 'success',
+        message: t.skills.exportSuccess,
+        duration: 2500,
+      });
+    } catch (err) {
+      notifyError(err);
     }
   };
 
@@ -198,13 +257,12 @@ export function SkillManagerPage() {
   };
 
   const openSettings = async () => {
-    setOperationError(false);
     try {
       const initialization = await SkillService.initialize();
       setSettings(initialization.settings);
       setSettingsOpen(true);
-    } catch {
-      setOperationError(true);
+    } catch (err) {
+      notifyError(err);
     }
   };
 
@@ -217,10 +275,16 @@ export function SkillManagerPage() {
       const result = await SkillService.updateSettings(defaultMode, overrides);
       setSettings(result.settings);
       setSettingsOpen(false);
-      if (result.migrationErrors.length > 0) window.alert(t.skills.syncPartialFailure);
+      if (result.migrationErrors.length > 0) {
+        addToast({
+          type: 'error',
+          message: t.skills.syncPartialFailure,
+          duration: 4500,
+        });
+      }
       await load();
-    } catch {
-      setOperationError(true);
+    } catch (err) {
+      notifyError(err);
     } finally {
       setSubmitting(false);
     }
@@ -229,10 +293,7 @@ export function SkillManagerPage() {
   // 切换某 Agent 工具的启用状态。settings 弹窗内逐项开关，无需关闭弹窗。
   const toggleToolEnabled = async (toolId: string, enabled: boolean) => {
     const ok = await setToolEnabledState(toolId, enabled);
-    if (!ok) {
-      setOperationError(true);
-      return;
-    }
+    if (!ok) return;
     // 同步刷新弹窗内的 settings 快照（disabledToolIds 已变）
     try {
       const initialization = await SkillService.initialize();
@@ -244,10 +305,7 @@ export function SkillManagerPage() {
 
   const handleAddCustomTool = async (name: string, skillsPath: string) => {
     const ok = await addCustomTool(name, skillsPath);
-    if (!ok) {
-      setOperationError(true);
-      return ok;
-    }
+    if (!ok) return ok;
     try {
       const initialization = await SkillService.initialize();
       setSettings(initialization.settings);
@@ -259,10 +317,7 @@ export function SkillManagerPage() {
 
   const handleRemoveCustomTool = async (toolId: string) => {
     const ok = await removeCustomTool(toolId);
-    if (!ok) {
-      setOperationError(true);
-      return;
-    }
+    if (!ok) return;
     try {
       const initialization = await SkillService.initialize();
       setSettings(initialization.settings);
@@ -273,10 +328,7 @@ export function SkillManagerPage() {
 
   const handleReorderTools = async (toolOrder: string[]) => {
     const ok = await reorderTools(toolOrder);
-    if (!ok) {
-      setOperationError(true);
-      return;
-    }
+    if (!ok) return;
     try {
       const initialization = await SkillService.initialize();
       setSettings(initialization.settings);
@@ -302,8 +354,11 @@ export function SkillManagerPage() {
           <SkillDetailPage
             ref={detailRef}
             skillId={selectedSkillId}
-            onBack={() => setSelectedSkillId(null)}
+            onBack={handleBackFromDetail}
             onExport={(skillId) => void exportOne(skillId)}
+            onSaved={() => {
+              hasSavedInDetailRef.current = true;
+            }}
           />
         ) : (
           <>
@@ -313,19 +368,17 @@ export function SkillManagerPage() {
               onQuickSwitch={() => setQuickSwitcherOpen(true)}
               onRescan={() => void rescan()}
             />
-            {(error || operationError) && (
-              <div className="mx-6 mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                {t.skills.operationFailed}
-              </div>
-            )}
             <main ref={listScrollRef} className="min-h-0 flex-1 overflow-y-auto p-6">
               <SkillGrid
                 skills={filteredSkills}
                 tools={tools}
                 isLoading={isLoading}
+                hasAnyHubSkills={skills.length > 0}
                 onOpenSkill={openSkill}
                 onExportSkill={(skillId) => void exportOne(skillId)}
                 onDeleteSkill={setSelectedDeleteSkillId}
+                onRescan={() => void rescan()}
+                onCreateSkill={() => setCreateOpen(true)}
               />
             </main>
           </>
@@ -335,7 +388,7 @@ export function SkillManagerPage() {
         isOpen={isQuickSwitcherOpen}
         skills={skills}
         onClose={() => setQuickSwitcherOpen(false)}
-        onSelect={openSkill}
+        onSelect={handleQuickSwitchSelect}
       />
       <SkillImportModal
         isOpen={isImportOpen}

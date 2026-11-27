@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { SkillService } from '@/services/skillService';
 import { buildCategoryCounts } from '@/services/categoryService';
 import { DEFAULT_CATEGORY_ID } from '@/constants/defaults';
+import { isSkillAvailableForTool, isSkillStatusActive } from '@/utils/skillSharedAccess';
 import type {
   AgentTool,
   ExternalScanResult,
@@ -102,14 +103,16 @@ export const useSkillStore = create<SkillState>()((set, get) => ({
   load: async () => {
     set({ isLoading: true, error: null });
     try {
-      // scan 不返回 settings，故并行取一次 initialize 以同步分类元数据；
-      // initialize 失败（如测试环境未 mock 返回值）不应阻断扫描。
       const response = await SkillService.scan();
-      let initialization: { settings: SkillManagerSettings } | null = null;
-      try {
-        initialization = await SkillService.initialize();
-      } catch {
-        initialization = null;
+      let settings: SkillManagerSettings | null = response.settings ?? null;
+      // 兼容旧测试 mock（未返回 settings 时回退读取 initialize）。
+      if (!settings) {
+        try {
+          const initialization = await SkillService.initialize();
+          settings = initialization?.settings ?? null;
+        } catch {
+          settings = null;
+        }
       }
       set({
         skillsPath: response.skillsPath,
@@ -119,8 +122,8 @@ export const useSkillStore = create<SkillState>()((set, get) => ({
         scanErrors: response.errors,
         isLoading: false,
       });
-      if (initialization) {
-        applySettings(set, initialization.settings, response.skills);
+      if (settings) {
+        applySettings(set, settings, response.skills);
       }
       get().applyFilter();
     } catch (error) {
@@ -427,17 +430,23 @@ export const useSkillStore = create<SkillState>()((set, get) => ({
   reset: () => set({ ...INITIAL_STATE, filter: { ...INITIAL_FILTER } }),
 
   applyFilter: () => {
-    const { skills, filter } = get();
+    const { skills, tools, categories, filter } = get();
     const query = filter.searchQuery.trim().toLocaleLowerCase();
     const agentToolId = filter.agentToolId;
+    const activeAgentTool = agentToolId
+      ? tools.find((tool) => tool.id === agentToolId)
+      : undefined;
     const categoryId = filter.category;
+    const categoryNameById = new Map(categories.map((category) => [category.id, category.name]));
     const filteredSkills = skills
       .filter((skill) => !filter.favoritesOnly || skill.favoritedAt !== null)
       .filter((skill) => {
         if (!agentToolId) return true;
-        const status = skill.toolStates[agentToolId]?.status;
+        if (activeAgentTool) {
+          return isSkillAvailableForTool(skill, activeAgentTool, tools);
+        }
         // 仅保留对该 Agent 已启用 / 同步中的 Skill（排除 disabled/broken/无记录）
-        return !!status && status !== 'disabled' && status !== 'broken';
+        return isSkillStatusActive(skill.toolStates[agentToolId]?.status);
       })
       .filter((skill) => {
         if (!categoryId) return true;
@@ -445,11 +454,25 @@ export const useSkillStore = create<SkillState>()((set, get) => ({
         if (categoryId === DEFAULT_CATEGORY_ID) return skill.categoryIds.length === 0;
         return skill.categoryIds.includes(categoryId);
       })
-      .filter((skill) => !query || skill.name.toLocaleLowerCase().includes(query))
+      .filter((skill) => matchesSkillQuery(skill, query, categoryNameById))
       .sort((left, right) => left.name.localeCompare(right.name));
     set({ filteredSkills });
   },
 }));
+
+/** 按名称、描述或所属分类名（不区分大小写）匹配 Skill。 */
+export function matchesSkillQuery(
+  skill: SkillSummary,
+  normalizedQuery: string,
+  categoryNameById: Map<string, string>
+): boolean {
+  if (!normalizedQuery) return true;
+  if (skill.name.toLocaleLowerCase().includes(normalizedQuery)) return true;
+  if (skill.description.toLocaleLowerCase().includes(normalizedQuery)) return true;
+  return skill.categoryIds.some((categoryId) =>
+    categoryNameById.get(categoryId)?.toLocaleLowerCase().includes(normalizedQuery)
+  );
+}
 
 /** 将一次 skill_scan 返回的快照写回 store。供 add/remove/set-enabled 等 IPC 复用。 */
 function applyScanResponse(
@@ -467,6 +490,9 @@ function applyScanResponse(
     invalidEntries: response.invalidEntries,
     scanErrors: response.errors,
   });
+  if (response.settings) {
+    applySettings(set, response.settings, response.skills);
+  }
 }
 
 /**

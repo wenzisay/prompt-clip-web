@@ -24,216 +24,287 @@ use super::paths::SkillPaths;
 use super::registry::builtin_tool_definitions;
 use super::scanner::{scan_external_skills, scan_hub};
 use super::sync::{
-    force_set_skill_enabled, inspect_target, preserve_managed_target, set_skill_enabled,
+    force_set_skill_enabled, inspect_target, inspect_target_with_source_hash,
+    preserve_managed_target, set_skill_enabled,
 };
 
-#[tauri::command]
-pub fn skill_initialize() -> Result<SkillManagerInitialization, SkillManagerError> {
-    let home_dir = dirs::home_dir().ok_or_else(|| SkillManagerError::new("home_not_found"))?;
-    initialize_at(&home_dir, &executable_directories())
+/// 将阻塞型文件扫描/哈希/复制任务放到 Tauri 后台工作线程池，避免冻结 UI 主线程。
+async fn run_blocking<T, F>(task: F) -> Result<T, SkillManagerError>
+where
+    T: Send + 'static,
+    F: FnOnce() -> Result<T, SkillManagerError> + Send + 'static,
+{
+    tauri::async_runtime::spawn_blocking(task)
+        .await
+        .map_err(|error| {
+            SkillManagerError::new("skill_io_error")
+                .with_param("operation", "spawn_blocking")
+                .with_param("message", error.to_string())
+        })?
 }
 
 #[tauri::command]
-pub fn skill_detect_tools() -> Result<Vec<AgentTool>, SkillManagerError> {
-    Ok(skill_initialize()?.tools)
+pub async fn skill_initialize() -> Result<SkillManagerInitialization, SkillManagerError> {
+    run_blocking(|| {
+        let home_dir = dirs::home_dir().ok_or_else(|| SkillManagerError::new("home_not_found"))?;
+        initialize_at(&home_dir, &executable_directories())
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn skill_scan() -> Result<SkillScanResponse, SkillManagerError> {
-    let home_dir = home_directory()?;
-    scan_at(&home_dir, &executable_directories())
+pub async fn skill_detect_tools() -> Result<Vec<AgentTool>, SkillManagerError> {
+    Ok(skill_initialize().await?.tools)
 }
 
 #[tauri::command]
-pub fn skill_scan_external() -> Result<ExternalScanResult, SkillManagerError> {
-    let initialization = skill_initialize()?;
-    scan_external_skills(&initialization.tools)
+pub async fn skill_scan() -> Result<SkillScanResponse, SkillManagerError> {
+    run_blocking(|| {
+        let home_dir = home_directory()?;
+        scan_at(&home_dir, &executable_directories())
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn skill_reveal_external(
+pub async fn skill_scan_external() -> Result<ExternalScanResult, SkillManagerError> {
+    run_blocking(|| {
+        let home_dir = home_directory()?;
+        let initialization = initialize_at(&home_dir, &executable_directories())?;
+        scan_external_skills(&initialization.tools)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn skill_reveal_external(
     target_group_id: String,
     directory_name: String,
 ) -> Result<(), SkillManagerError> {
-    let home_dir = home_directory()?;
-    let initialization = initialize_at(&home_dir, &executable_directories())?;
-    let path =
-        resolve_external_entry_path(&initialization.tools, &target_group_id, &directory_name)?;
-    reveal_in_file_manager(&path)
+    run_blocking(move || {
+        let home_dir = home_directory()?;
+        let initialization = initialize_at(&home_dir, &executable_directories())?;
+        let path =
+            resolve_external_entry_path(&initialization.tools, &target_group_id, &directory_name)?;
+        reveal_in_file_manager(&path)
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn skill_reveal_hub() -> Result<(), SkillManagerError> {
-    let paths = initialized_paths()?;
-    reveal_in_file_manager(&paths.skills_dir())
+pub async fn skill_reveal_hub() -> Result<(), SkillManagerError> {
+    run_blocking(|| {
+        let paths = initialized_paths()?;
+        reveal_in_file_manager(&paths.skills_dir())
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn skill_set_tool_enabled(
+pub async fn skill_reveal_skill(skill_id: String) -> Result<(), SkillManagerError> {
+    run_blocking(move || {
+        let home_dir = home_directory()?;
+        let path = resolve_skill_reveal_path(&home_dir, &skill_id)?;
+        reveal_in_file_manager(&path)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn skill_set_tool_enabled(
     skill_id: String,
     target_group_id: String,
     enabled: bool,
 ) -> Result<SyncOperationResult, SkillManagerError> {
-    let home_dir = home_directory()?;
-    let initialization = initialize_at(&home_dir, &executable_directories())?;
-    let mut tools = initialization
-        .tools
-        .iter()
-        .filter(|tool| {
-            tool.installed && tool.enabled && tool.target_group_id == target_group_id
+    run_blocking(move || {
+        let home_dir = home_directory()?;
+        let initialization = initialize_at(&home_dir, &executable_directories())?;
+        let mut tools = initialization
+            .tools
+            .iter()
+            .filter(|tool| {
+                tool.installed && tool.enabled && tool.target_group_id == target_group_id
+            })
+            .collect::<Vec<_>>();
+        if tools.is_empty() {
+            return Err(SkillManagerError::new("skill_target_group_not_found"));
+        }
+        tools.sort_by(|left, right| left.id.cmp(&right.id));
+        let mode = tools[0].effective_sync_mode;
+        if tools.iter().any(|tool| tool.effective_sync_mode != mode) {
+            return Err(SkillManagerError::new("skill_target_group_mode_conflict"));
+        }
+        let paths = SkillPaths::new(&home_dir);
+        let source = paths.skill_root(&skill_id)?;
+        let state = set_skill_enabled(&source, &tools[0].skills_path, &skill_id, mode, enabled)?;
+        Ok(SyncOperationResult {
+            target_group_id,
+            tool_ids: tools.iter().map(|tool| tool.id.clone()).collect(),
+            state,
         })
-        .collect::<Vec<_>>();
-    if tools.is_empty() {
-        return Err(SkillManagerError::new("skill_target_group_not_found"));
-    }
-    tools.sort_by(|left, right| left.id.cmp(&right.id));
-    let mode = tools[0].effective_sync_mode;
-    if tools.iter().any(|tool| tool.effective_sync_mode != mode) {
-        return Err(SkillManagerError::new("skill_target_group_mode_conflict"));
-    }
-    let paths = SkillPaths::new(&home_dir);
-    let source = paths.skill_root(&skill_id)?;
-    let state = set_skill_enabled(&source, &tools[0].skills_path, &skill_id, mode, enabled)?;
-    Ok(SyncOperationResult {
-        target_group_id,
-        tool_ids: tools.iter().map(|tool| tool.id.clone()).collect(),
-        state,
     })
+    .await
 }
 
 #[tauri::command]
-pub fn skill_force_enable(
+pub async fn skill_force_enable(
     skill_id: String,
     target_group_id: String,
 ) -> Result<SyncOperationResult, SkillManagerError> {
-    let home_dir = home_directory()?;
-    let initialization = initialize_at(&home_dir, &executable_directories())?;
-    let mut tools = initialization
-        .tools
-        .iter()
-        .filter(|tool| {
-            tool.installed && tool.enabled && tool.target_group_id == target_group_id
+    run_blocking(move || {
+        let home_dir = home_directory()?;
+        let initialization = initialize_at(&home_dir, &executable_directories())?;
+        let mut tools = initialization
+            .tools
+            .iter()
+            .filter(|tool| {
+                tool.installed && tool.enabled && tool.target_group_id == target_group_id
+            })
+            .collect::<Vec<_>>();
+        if tools.is_empty() {
+            return Err(SkillManagerError::new("skill_target_group_not_found"));
+        }
+        tools.sort_by(|left, right| left.id.cmp(&right.id));
+        let mode = tools[0].effective_sync_mode;
+        if tools.iter().any(|tool| tool.effective_sync_mode != mode) {
+            return Err(SkillManagerError::new("skill_target_group_mode_conflict"));
+        }
+        let source = SkillPaths::new(&home_dir).skill_root(&skill_id)?;
+        let state = force_set_skill_enabled(&source, &tools[0].skills_path, &skill_id, mode)?;
+        Ok(SyncOperationResult {
+            target_group_id,
+            tool_ids: tools.iter().map(|tool| tool.id.clone()).collect(),
+            state,
         })
-        .collect::<Vec<_>>();
-    if tools.is_empty() {
-        return Err(SkillManagerError::new("skill_target_group_not_found"));
-    }
-    tools.sort_by(|left, right| left.id.cmp(&right.id));
-    let mode = tools[0].effective_sync_mode;
-    if tools.iter().any(|tool| tool.effective_sync_mode != mode) {
-        return Err(SkillManagerError::new("skill_target_group_mode_conflict"));
-    }
-    let source = SkillPaths::new(&home_dir).skill_root(&skill_id)?;
-    let state = force_set_skill_enabled(&source, &tools[0].skills_path, &skill_id, mode)?;
-    Ok(SyncOperationResult {
-        target_group_id,
-        tool_ids: tools.iter().map(|tool| tool.id.clone()).collect(),
-        state,
     })
+    .await
 }
 
 #[tauri::command]
-pub fn skill_import_external(
+pub async fn skill_import_external(
     skill_id: String,
     content_hash: String,
     target_group_id: String,
     decision: ImportDecision,
 ) -> Result<SkillScanResponse, SkillManagerError> {
-    let home_dir = home_directory()?;
-    let initialization = initialize_at(&home_dir, &executable_directories())?;
-    let scan = scan_external_skills(&initialization.tools)?;
-    let source = scan
-        .groups
-        .iter()
-        .find(|group| group.name == skill_id)
-        .and_then(|group| {
-            group
-                .versions
-                .iter()
-                .find(|version| version.content_hash == content_hash)
-        })
-        .and_then(|version| {
-            version
-                .sources
-                .iter()
-                .find(|source| source.target_group_id == target_group_id)
-        })
-        .ok_or_else(|| SkillManagerError::new("skill_external_version_not_found"))?;
-    import_external_skill(
-        &source.path,
-        &initialization.skills_path,
-        &skill_id,
-        &content_hash,
-        decision,
-    )?;
-    // 在同一命令内重新扫描 hub，保证写入后前端立即拿到一致状态
-    // （跨 IPC 重新读取在 Windows 上对刚创建的目录可能读到陈旧枚举）。
-    scan_at(&home_dir, &executable_directories())
+    run_blocking(move || {
+        let home_dir = home_directory()?;
+        let initialization = initialize_at(&home_dir, &executable_directories())?;
+        let scan = scan_external_skills(&initialization.tools)?;
+        let source = scan
+            .groups
+            .iter()
+            .find(|group| group.name == skill_id)
+            .and_then(|group| {
+                group
+                    .versions
+                    .iter()
+                    .find(|version| version.content_hash == content_hash)
+            })
+            .and_then(|version| {
+                version
+                    .sources
+                    .iter()
+                    .find(|source| source.target_group_id == target_group_id)
+            })
+            .ok_or_else(|| SkillManagerError::new("skill_external_version_not_found"))?;
+        import_external_skill(
+            &source.path,
+            &initialization.skills_path,
+            &skill_id,
+            &content_hash,
+            decision,
+        )?;
+        // 在同一命令内重新扫描 hub，保证写入后前端立即拿到一致状态
+        // （跨 IPC 重新读取在 Windows 上对刚创建的目录可能读到陈旧枚举）。
+        scan_at(&home_dir, &executable_directories())
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn skill_preview_archive(archive_path: PathBuf) -> Result<ArchivePreview, SkillManagerError> {
-    require_absolute_path(&archive_path)?;
-    let home_dir = home_directory()?;
-    let paths = SkillPaths::new(&home_dir);
-    paths.initialize()?;
-    preview_skill_archive(&archive_path, &paths.temp_dir().join("imports"))
+pub async fn skill_preview_archive(
+    archive_path: PathBuf,
+) -> Result<ArchivePreview, SkillManagerError> {
+    run_blocking(move || {
+        require_absolute_path(&archive_path)?;
+        let home_dir = home_directory()?;
+        let paths = SkillPaths::new(&home_dir);
+        paths.initialize()?;
+        preview_skill_archive(&archive_path, &paths.temp_dir().join("imports"))
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn skill_import_archive(
+pub async fn skill_import_archive(
     archive_path: PathBuf,
     decision: ImportDecision,
 ) -> Result<ImportOutcome, SkillManagerError> {
-    require_absolute_path(&archive_path)?;
-    let home_dir = home_directory()?;
-    let paths = SkillPaths::new(&home_dir);
-    paths.initialize()?;
-    import_archive(
-        &archive_path,
-        &paths.skills_dir(),
-        &paths.temp_dir().join("imports"),
-        decision,
-    )
+    run_blocking(move || {
+        require_absolute_path(&archive_path)?;
+        let home_dir = home_directory()?;
+        let paths = SkillPaths::new(&home_dir);
+        paths.initialize()?;
+        import_archive(
+            &archive_path,
+            &paths.skills_dir(),
+            &paths.temp_dir().join("imports"),
+            decision,
+        )
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn skill_export(skill_id: String, destination_path: PathBuf) -> Result<(), SkillManagerError> {
-    require_absolute_path(&destination_path)?;
-    if !destination_path
-        .extension()
-        .and_then(|extension| extension.to_str())
-        .is_some_and(|extension| extension.eq_ignore_ascii_case("zip"))
-    {
-        return Err(SkillManagerError::new("skill_export_extension_invalid"));
-    }
-    let home_dir = home_directory()?;
-    let paths = SkillPaths::new(&home_dir);
-    let source = paths.skill_root(&skill_id)?;
-    export_skill_archive(&source, &destination_path, &skill_id)
+pub async fn skill_export(
+    skill_id: String,
+    destination_path: PathBuf,
+) -> Result<(), SkillManagerError> {
+    run_blocking(move || {
+        require_absolute_path(&destination_path)?;
+        if !destination_path
+            .extension()
+            .and_then(|extension| extension.to_str())
+            .is_some_and(|extension| extension.eq_ignore_ascii_case("zip"))
+        {
+            return Err(SkillManagerError::new("skill_export_extension_invalid"));
+        }
+        let home_dir = home_directory()?;
+        let paths = SkillPaths::new(&home_dir);
+        let source = paths.skill_root(&skill_id)?;
+        export_skill_archive(&source, &destination_path, &skill_id)
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn skill_set_favorite(
+pub async fn skill_set_favorite(
     skill_id: String,
     favorited_at: Option<String>,
 ) -> Result<super::models::SkillManagerSettings, SkillManagerError> {
-    let home_dir = home_directory()?;
-    set_favorite_at(&home_dir, &skill_id, favorited_at)
+    run_blocking(move || {
+        let home_dir = home_directory()?;
+        set_favorite_at(&home_dir, &skill_id, favorited_at)
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn skill_update_settings(
+pub async fn skill_update_settings(
     default_sync_mode: SyncMode,
     tool_overrides: BTreeMap<String, ToolSyncMode>,
 ) -> Result<SkillSettingsUpdateResult, SkillManagerError> {
-    let home_dir = home_directory()?;
-    update_settings_at(
-        &home_dir,
-        &executable_directories(),
-        default_sync_mode,
-        tool_overrides,
-    )
+    run_blocking(move || {
+        let home_dir = home_directory()?;
+        update_settings_at(
+            &home_dir,
+            &executable_directories(),
+            default_sync_mode,
+            tool_overrides,
+        )
+    })
+    .await
 }
 
 /// 新增一个 Skill 分类。返回最新 settings 供前端刷新。
@@ -474,12 +545,15 @@ fn civil_from_days(z: i64) -> (i64, u32, u32) {
 
 /// 新增一个自定义 Agent 工具。返回最新 SkillScanResponse 供前端刷新。
 #[tauri::command]
-pub fn skill_add_custom_tool(
+pub async fn skill_add_custom_tool(
     name: String,
     skills_path: String,
 ) -> Result<SkillScanResponse, SkillManagerError> {
-    let home_dir = home_directory()?;
-    add_custom_tool_at(&home_dir, &executable_directories(), name, skills_path)
+    run_blocking(move || {
+        let home_dir = home_directory()?;
+        add_custom_tool_at(&home_dir, &executable_directories(), name, skills_path)
+    })
+    .await
 }
 
 fn add_custom_tool_at(
@@ -529,11 +603,14 @@ fn add_custom_tool_at(
 
 /// 删除一个自定义 Agent 工具（仅限 source=custom）。返回最新 SkillScanResponse。
 #[tauri::command]
-pub fn skill_remove_custom_tool(
+pub async fn skill_remove_custom_tool(
     tool_id: String,
 ) -> Result<SkillScanResponse, SkillManagerError> {
-    let home_dir = home_directory()?;
-    remove_custom_tool_at(&home_dir, &executable_directories(), tool_id)
+    run_blocking(move || {
+        let home_dir = home_directory()?;
+        remove_custom_tool_at(&home_dir, &executable_directories(), tool_id)
+    })
+    .await
 }
 
 fn remove_custom_tool_at(
@@ -567,12 +644,15 @@ fn remove_custom_tool_at(
 
 /// 设置某个 Agent 工具（builtin 或 custom）的启用状态。返回最新 SkillScanResponse。
 #[tauri::command]
-pub fn skill_set_tool_enabled_state(
+pub async fn skill_set_tool_enabled_state(
     tool_id: String,
     enabled: bool,
 ) -> Result<SkillScanResponse, SkillManagerError> {
-    let home_dir = home_directory()?;
-    set_tool_enabled_state_at(&home_dir, &executable_directories(), tool_id, enabled)
+    run_blocking(move || {
+        let home_dir = home_directory()?;
+        set_tool_enabled_state_at(&home_dir, &executable_directories(), tool_id, enabled)
+    })
+    .await
 }
 
 fn set_tool_enabled_state_at(
@@ -604,11 +684,14 @@ fn set_tool_enabled_state_at(
 
 /// 更新工具的自定义顺序。返回最新 SkillScanResponse 供前端刷新。
 #[tauri::command]
-pub fn skill_reorder_tools(
+pub async fn skill_reorder_tools(
     tool_order: Vec<String>,
 ) -> Result<SkillScanResponse, SkillManagerError> {
-    let home_dir = home_directory()?;
-    reorder_tools_at(&home_dir, &executable_directories(), tool_order)
+    run_blocking(move || {
+        let home_dir = home_directory()?;
+        reorder_tools_at(&home_dir, &executable_directories(), tool_order)
+    })
+    .await
 }
 
 fn reorder_tools_at(
@@ -681,140 +764,179 @@ fn generate_custom_tool_id(name: &str, skills_path: &Path) -> String {
 }
 
 #[tauri::command]
-pub fn skill_create(skill_id: String, description: String) -> Result<(), SkillManagerError> {
-    let home_dir = home_directory()?;
-    let paths = SkillPaths::new(&home_dir);
-    paths.initialize()?;
-    create_skill(&paths, &skill_id, &description)
+pub async fn skill_create(skill_id: String, description: String) -> Result<(), SkillManagerError> {
+    run_blocking(move || {
+        let home_dir = home_directory()?;
+        let paths = SkillPaths::new(&home_dir);
+        paths.initialize()?;
+        create_skill(&paths, &skill_id, &description)
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn skill_delete(skill_id: String, mode: SkillDeleteMode) -> Result<(), SkillManagerError> {
-    let home_dir = home_directory()?;
-    delete_skill_at(&home_dir, &executable_directories(), &skill_id, mode)
+pub async fn skill_delete(
+    skill_id: String,
+    mode: SkillDeleteMode,
+) -> Result<(), SkillManagerError> {
+    run_blocking(move || {
+        let home_dir = home_directory()?;
+        delete_skill_at(&home_dir, &executable_directories(), &skill_id, mode)
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn skill_list_files(skill_id: String) -> Result<Vec<SkillFileEntry>, SkillManagerError> {
-    let paths = initialized_paths()?;
-    list_skill_files(&paths, &skill_id)
+pub async fn skill_list_files(skill_id: String) -> Result<Vec<SkillFileEntry>, SkillManagerError> {
+    run_blocking(move || {
+        let paths = initialized_paths()?;
+        list_skill_files(&paths, &skill_id)
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn skill_read_text_file(
+pub async fn skill_read_text_file(
     skill_id: String,
     relative_path: PathBuf,
 ) -> Result<SkillTextFile, SkillManagerError> {
-    let paths = initialized_paths()?;
-    read_text_file(&paths, &skill_id, &relative_path)
+    run_blocking(move || {
+        let paths = initialized_paths()?;
+        read_text_file(&paths, &skill_id, &relative_path)
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn skill_write_text_file(
+pub async fn skill_write_text_file(
     skill_id: String,
     relative_path: PathBuf,
     content: String,
     expected_modified_at_ms: Option<u64>,
 ) -> Result<SkillTextWriteResult, SkillManagerError> {
-    let home_dir = home_directory()?;
-    let paths = SkillPaths::new(&home_dir);
-    paths.initialize()?;
-    let file = write_text_file(
-        &paths,
-        &skill_id,
-        &relative_path,
-        &content,
-        expected_modified_at_ms,
-    )?;
-    Ok(SkillTextWriteResult {
-        file,
-        sync_errors: refresh_copy_targets(&home_dir, &skill_id)?,
+    run_blocking(move || {
+        let home_dir = home_directory()?;
+        let paths = SkillPaths::new(&home_dir);
+        paths.initialize()?;
+        let file = write_text_file(
+            &paths,
+            &skill_id,
+            &relative_path,
+            &content,
+            expected_modified_at_ms,
+        )?;
+        Ok(SkillTextWriteResult {
+            file,
+            sync_errors: refresh_copy_targets(&home_dir, &skill_id)?,
+        })
     })
+    .await
 }
 
 #[tauri::command]
-pub fn skill_create_directory(
+pub async fn skill_create_directory(
     skill_id: String,
     relative_path: PathBuf,
 ) -> Result<Vec<SkillManagerError>, SkillManagerError> {
-    mutate_and_refresh(&skill_id, |paths| {
-        create_directory(paths, &skill_id, &relative_path)
+    run_blocking(move || {
+        mutate_and_refresh(&skill_id, |paths| {
+            create_directory(paths, &skill_id, &relative_path)
+        })
     })
+    .await
 }
 
 #[tauri::command]
-pub fn skill_create_text_file(
+pub async fn skill_create_text_file(
     skill_id: String,
     relative_path: PathBuf,
 ) -> Result<SkillTextWriteResult, SkillManagerError> {
-    let home_dir = home_directory()?;
-    let paths = SkillPaths::new(&home_dir);
-    paths.initialize()?;
-    let file = create_text_file(&paths, &skill_id, &relative_path)?;
-    Ok(SkillTextWriteResult {
-        file,
-        sync_errors: refresh_copy_targets(&home_dir, &skill_id)?,
+    run_blocking(move || {
+        let home_dir = home_directory()?;
+        let paths = SkillPaths::new(&home_dir);
+        paths.initialize()?;
+        let file = create_text_file(&paths, &skill_id, &relative_path)?;
+        Ok(SkillTextWriteResult {
+            file,
+            sync_errors: refresh_copy_targets(&home_dir, &skill_id)?,
+        })
     })
+    .await
 }
 
 #[tauri::command]
-pub fn skill_rename_entry(
+pub async fn skill_rename_entry(
     skill_id: String,
     source_relative_path: PathBuf,
     destination_relative_path: PathBuf,
 ) -> Result<Vec<SkillManagerError>, SkillManagerError> {
-    mutate_and_refresh(&skill_id, |paths| {
-        rename_entry(
-            paths,
-            &skill_id,
-            &source_relative_path,
-            &destination_relative_path,
-        )
+    run_blocking(move || {
+        mutate_and_refresh(&skill_id, |paths| {
+            rename_entry(
+                paths,
+                &skill_id,
+                &source_relative_path,
+                &destination_relative_path,
+            )
+        })
     })
+    .await
 }
 
 #[tauri::command]
-pub fn skill_upload_file(
+pub async fn skill_upload_file(
     skill_id: String,
     source_path: PathBuf,
     destination_relative_path: PathBuf,
 ) -> Result<Vec<SkillManagerError>, SkillManagerError> {
-    require_absolute_path(&source_path)?;
-    mutate_and_refresh(&skill_id, |paths| {
-        upload_file(paths, &skill_id, &source_path, &destination_relative_path)
+    run_blocking(move || {
+        require_absolute_path(&source_path)?;
+        mutate_and_refresh(&skill_id, |paths| {
+            upload_file(paths, &skill_id, &source_path, &destination_relative_path)
+        })
     })
+    .await
 }
 
 #[tauri::command]
-pub fn skill_upload_bytes(
+pub async fn skill_upload_bytes(
     skill_id: String,
     destination_relative_path: PathBuf,
     content: Vec<u8>,
 ) -> Result<Vec<SkillManagerError>, SkillManagerError> {
-    mutate_and_refresh(&skill_id, |paths| {
-        upload_bytes(paths, &skill_id, &destination_relative_path, &content)
+    run_blocking(move || {
+        mutate_and_refresh(&skill_id, |paths| {
+            upload_bytes(paths, &skill_id, &destination_relative_path, &content)
+        })
     })
+    .await
 }
 
 #[tauri::command]
-pub fn skill_delete_entry(
+pub async fn skill_delete_entry(
     skill_id: String,
     relative_path: PathBuf,
 ) -> Result<Vec<SkillManagerError>, SkillManagerError> {
-    mutate_and_refresh(&skill_id, |paths| {
-        delete_entry(paths, &skill_id, &relative_path)
+    run_blocking(move || {
+        mutate_and_refresh(&skill_id, |paths| {
+            delete_entry(paths, &skill_id, &relative_path)
+        })
     })
+    .await
 }
 
 #[tauri::command]
-pub fn skill_download_file(
+pub async fn skill_download_file(
     skill_id: String,
     relative_path: PathBuf,
     destination_path: PathBuf,
 ) -> Result<(), SkillManagerError> {
-    require_absolute_path(&destination_path)?;
-    let paths = initialized_paths()?;
-    download_file(&paths, &skill_id, &relative_path, &destination_path)
+    run_blocking(move || {
+        require_absolute_path(&destination_path)?;
+        let paths = initialized_paths()?;
+        download_file(&paths, &skill_id, &relative_path, &destination_path)
+    })
+    .await
 }
 
 fn initialize_at(
@@ -840,13 +962,25 @@ fn scan_at(
 ) -> Result<SkillScanResponse, SkillManagerError> {
     let initialization = initialize_at(home_dir, executable_directories)?;
     let mut hub = scan_hub(&initialization.skills_path)?;
-    let installed_tools = initialization
+
+    // 按物理目标目录分组，共享同一 skills_path 的工具只检查一次磁盘状态。
+    let mut grouped_targets: BTreeMap<String, (PathBuf, Vec<String>)> = BTreeMap::new();
+    for tool in initialization
         .tools
         .iter()
         .filter(|tool| tool.installed && tool.enabled)
-        .collect::<Vec<_>>();
-    let mut errors = Vec::new();
-    let paths = SkillPaths::new(home_dir);
+    {
+        grouped_targets
+            .entry(tool.target_group_id.clone())
+            .or_insert_with(|| (tool.skills_path.clone(), Vec::new()))
+            .1
+            .push(tool.id.clone());
+    }
+    let target_groups: Vec<(String, PathBuf, Vec<String>)> = grouped_targets
+        .into_iter()
+        .map(|(group_id, (skills_path, tool_ids))| (group_id, skills_path, tool_ids))
+        .collect();
+
     for skill in &mut hub.skills {
         skill.favorited_at = initialization.settings.favorites.get(&skill.id).cloned();
         skill.category_ids = initialization
@@ -855,32 +989,88 @@ fn scan_at(
             .get(&skill.id)
             .cloned()
             .unwrap_or_default();
-        let entry_path = paths.resolve_skill_path(&skill.id, Path::new("SKILL.md"))?;
-        let source = entry_path
-            .parent()
-            .ok_or_else(|| SkillManagerError::new("skill_source_invalid"))?;
-        let mut states = BTreeMap::new();
-        for tool in &installed_tools {
-            match inspect_target(source, &tool.skills_path.join(&skill.id), &skill.id) {
-                Ok(state) => {
-                    states.insert(
-                        tool.id.clone(),
-                        SkillToolState {
-                            tool_id: tool.id.clone(),
-                            target_group_id: tool.target_group_id.clone(),
-                            status: state.status,
-                            actual_mode: state.actual_mode,
-                            message: state.message,
-                        },
-                    );
-                }
-                Err(error) => errors.push(error.with_param("toolId", &tool.id)),
-            }
-        }
-        skill.tool_states = states;
     }
+
+    let paths = SkillPaths::new(home_dir);
+    let mut errors = Vec::new();
+    if !hub.skills.is_empty() && !target_groups.is_empty() {
+        let worker_count = std::thread::available_parallelism()
+            .map(usize::from)
+            .unwrap_or(1)
+            .min(hub.skills.len())
+            .max(1);
+        let chunk_size = hub.skills.len().div_ceil(worker_count);
+        let target_groups_ref = &target_groups;
+        let paths_ref = &paths;
+        let chunk_results: Vec<Result<Vec<SkillManagerError>, SkillManagerError>> =
+            std::thread::scope(|scope| {
+                let handles = hub
+                    .skills
+                    .chunks_mut(chunk_size)
+                    .map(|chunk| {
+                        scope.spawn(move || {
+                            let mut chunk_errors = Vec::new();
+                            for skill in chunk.iter_mut() {
+                                let entry_path = paths_ref
+                                    .resolve_skill_path(&skill.id, Path::new("SKILL.md"))?;
+                                let source = entry_path.parent().ok_or_else(|| {
+                                    SkillManagerError::new("skill_source_invalid")
+                                })?;
+                                let mut states = BTreeMap::new();
+                                for (target_group_id, skills_path, tool_ids) in target_groups_ref {
+                                    match inspect_target_with_source_hash(
+                                        source,
+                                        &skills_path.join(&skill.id),
+                                        &skill.id,
+                                        Some(skill.content_hash.as_str()),
+                                    ) {
+                                        Ok(state) => {
+                                            for tool_id in tool_ids {
+                                                states.insert(
+                                                    tool_id.clone(),
+                                                    SkillToolState {
+                                                        tool_id: tool_id.clone(),
+                                                        target_group_id: target_group_id.clone(),
+                                                        status: state.status,
+                                                        actual_mode: state.actual_mode,
+                                                        message: state.message.clone(),
+                                                    },
+                                                );
+                                            }
+                                        }
+                                        Err(error) => {
+                                            for tool_id in tool_ids {
+                                                chunk_errors.push(
+                                                    error.clone().with_param("toolId", tool_id),
+                                                );
+                                            }
+                                        }
+                                    }
+                                }
+                                skill.tool_states = states;
+                            }
+                            Ok(chunk_errors)
+                        })
+                    })
+                    .collect::<Vec<_>>();
+                handles
+                    .into_iter()
+                    .map(|handle| {
+                        handle.join().unwrap_or_else(|_| {
+                            Err(SkillManagerError::new("skill_io_error")
+                                .with_param("operation", "scan_targets_parallel"))
+                        })
+                    })
+                    .collect()
+            });
+        for chunk_result in chunk_results {
+            errors.extend(chunk_result?);
+        }
+    }
+
     Ok(SkillScanResponse {
         skills_path: initialization.skills_path,
+        settings: initialization.settings,
         skills: hub.skills,
         invalid_entries: hub.invalid_entries,
         tools: initialization.tools,
@@ -1123,6 +1313,21 @@ fn executable_directories() -> Vec<PathBuf> {
         .unwrap_or_default()
 }
 
+fn resolve_skill_reveal_path(
+    home_dir: &Path,
+    skill_id: &str,
+) -> Result<PathBuf, SkillManagerError> {
+    let paths = SkillPaths::new(home_dir);
+    paths.initialize()?;
+    let root = paths.skill_root(skill_id)?;
+    let metadata =
+        fs::symlink_metadata(&root).map_err(|_| SkillManagerError::new("skill_not_found"))?;
+    if metadata.file_type().is_symlink() || !metadata.is_dir() {
+        return Err(SkillManagerError::new("skill_source_invalid"));
+    }
+    Ok(root)
+}
+
 fn resolve_external_entry_path(
     tools: &[AgentTool],
     target_group_id: &str,
@@ -1170,8 +1375,8 @@ mod tests {
     use super::{
         add_category_at, add_custom_tool_at, delete_category_at, delete_skill_at, initialize_at,
         remove_custom_tool_at, rename_category_at, reorder_tools_at, resolve_external_entry_path,
-        scan_at, set_favorite_at, set_skill_categories_at, set_tool_enabled_state_at,
-        update_settings_at,
+        resolve_skill_reveal_path, scan_at, set_favorite_at, set_skill_categories_at,
+        set_tool_enabled_state_at, update_settings_at,
     };
     use crate::skills::models::{SkillDeleteMode, SyncMode, ToolSyncMode};
     use std::collections::BTreeMap;
@@ -1280,6 +1485,29 @@ mod tests {
         );
         assert!(result.settings.favorites.contains_key("test-skill"));
         assert!(result.migration_errors.is_empty());
+    }
+
+    #[test]
+    fn should_resolve_existing_skill_directory_for_reveal() {
+        let home = tempdir().expect("home should be created");
+        let skill_dir = home.path().join(".prompt-clip/skills/demo-skill");
+        fs::create_dir_all(&skill_dir).expect("skill directory should be created");
+
+        let resolved =
+            resolve_skill_reveal_path(home.path(), "demo-skill").expect("skill path should resolve");
+        assert_eq!(resolved, skill_dir);
+        assert_eq!(
+            resolve_skill_reveal_path(home.path(), "missing-skill")
+                .expect_err("missing skill should fail")
+                .code,
+            "skill_not_found"
+        );
+        assert_eq!(
+            resolve_skill_reveal_path(home.path(), "../escape")
+                .expect_err("invalid skill id should fail")
+                .code,
+            "invalid_skill_id"
+        );
     }
 
     #[test]

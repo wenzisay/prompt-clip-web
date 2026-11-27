@@ -45,6 +45,23 @@ export function SkillFileEditor({
     onDirtyChange?.(Boolean(file && content !== file.content));
   }, [content, file, onDirtyChange]);
 
+  const dirty = Boolean(file && content !== file.content);
+
+  // 捕获阶段监听 Cmd/Ctrl+S，确保即使焦点在 CodeMirror 编辑器内部也能触发保存。
+  useEffect(() => {
+    if (!entry?.isText || !file) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLocaleLowerCase() === 's') {
+        event.preventDefault();
+        if (dirty && !isSaving) {
+          onSave(content, file.modifiedAtMs);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
+  }, [content, dirty, entry?.isText, file, isSaving, onSave]);
+
   if (!entry) {
     return <div className="flex h-full items-center justify-center text-sm text-muted">{t.skills.selectFile}</div>;
   }
@@ -58,13 +75,21 @@ export function SkillFileEditor({
     );
   }
   if (!file) return null;
-  const dirty = content !== file.content;
   const isHtml = isHtmlFileName(entry.name);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex h-12 items-center gap-2 border-b border-border px-4">
-        <span className="min-w-0 flex-1 truncate text-sm font-medium">{entry.relativePath}</span>
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <span className="truncate text-sm font-medium">{entry.relativePath}</span>
+          {dirty && (
+            <span
+              data-testid="unsaved-indicator"
+              className="h-2 w-2 shrink-0 rounded-full bg-amber-500"
+              aria-hidden="true"
+            />
+          )}
+        </div>
         {(entry.isMarkdown || isHtml) && (
           <div
             role="group"

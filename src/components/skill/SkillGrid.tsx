@@ -8,18 +8,24 @@ export interface SkillGridProps {
   skills: SkillSummary[];
   tools: AgentTool[];
   isLoading: boolean;
+  hasAnyHubSkills?: boolean;
   onOpenSkill?: (skillId: string) => void;
   onExportSkill?: (skillId: string) => void;
   onDeleteSkill?: (skillId: string) => void;
+  onRescan?: () => void;
+  onCreateSkill?: () => void;
 }
 
 export function SkillGrid({
   skills,
   tools,
   isLoading,
+  hasAnyHubSkills = false,
   onOpenSkill,
   onExportSkill,
   onDeleteSkill,
+  onRescan,
+  onCreateSkill,
 }: SkillGridProps) {
   const { t } = useTranslation();
   if (isLoading) {
@@ -35,9 +41,43 @@ export function SkillGrid({
       <div className="space-y-4">
         <SkillFilterTabs />
         <div className="flex min-h-[280px] flex-col items-center justify-center text-center">
-          <span className="material-symbols-outlined mb-3 text-6xl text-muted-light">extension_off</span>
-          <h2 className="text-lg font-semibold text-fg">{t.skills.noSkills}</h2>
-          <p className="mt-2 max-w-md text-sm text-muted">{t.skills.noSkillsHint}</p>
+          <span className="material-symbols-outlined mb-3 text-6xl text-muted-light">
+            {hasAnyHubSkills ? 'search_off' : 'extension_off'}
+          </span>
+          <h2 className="text-lg font-semibold text-fg">
+            {hasAnyHubSkills ? t.skills.noMatchingSkills : t.skills.noSkills}
+          </h2>
+          <p className="mt-2 max-w-md text-sm text-muted">
+            {hasAnyHubSkills ? t.skills.noMatchingSkillsHint : t.skills.noSkillsHint}
+          </p>
+          {!hasAnyHubSkills && (onRescan || onCreateSkill) && (
+            <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+              {onRescan && (
+                <button
+                  type="button"
+                  onClick={onRescan}
+                  className="inline-flex h-10 items-center gap-2 rounded-lg bg-accent px-4 text-sm font-medium text-white transition hover:opacity-90"
+                >
+                  <span className="material-symbols-outlined text-[18px]" aria-hidden="true">
+                    refresh
+                  </span>
+                  {t.skills.refresh}
+                </button>
+              )}
+              {onCreateSkill && (
+                <button
+                  type="button"
+                  onClick={onCreateSkill}
+                  className="inline-flex h-10 items-center gap-2 rounded-lg border border-border bg-surface px-4 text-sm font-medium text-fg transition hover:bg-surface-dim"
+                >
+                  <span className="material-symbols-outlined text-[18px]" aria-hidden="true">
+                    add
+                  </span>
+                  {t.skills.create}
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
     );

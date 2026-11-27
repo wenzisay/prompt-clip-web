@@ -53,7 +53,14 @@ export function TagPill({
         ${clickable || onClick ? 'cursor-pointer hover:opacity-80' : ''}
         ${className}
       `}
-      onClick={onClick}
+      onClick={
+        onClick
+          ? (e) => {
+              e.stopPropagation();
+              onClick();
+            }
+          : undefined
+      }
     >
       {formatTagLabel(label)}
       {showRemove && (

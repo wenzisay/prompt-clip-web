@@ -47,3 +47,8 @@ objc2-application-services = "0.3"
 
 [dev-dependencies]
 tempfile = "3.10"
+
+# tauri:dev 使用 debug 构建，未优化的纯 Rust sha2 在扫描几十 MB Skills 时极慢；
+# 仅对 sha2 开启优化，既保持业务代码调试体验，又大幅加速内容指纹计算。
+[profile.dev.package.sha2]
+opt-level = 3

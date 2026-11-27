@@ -1,15 +1,21 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { forwardRef } from 'react';
+import { forwardRef, useImperativeHandle } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { SkillSummary } from '@/types/skill';
+import type { ExternalScanResult, SkillSummary } from '@/types/skill';
+import { useUIStore } from '@/stores/uiStore';
 import { SkillManagerPage } from './SkillManagerPage';
+import type { SkillDetailPageHandle } from './SkillDetailPage';
 
 const mocks = vi.hoisted(() => ({
   deleteSkill: vi.fn(),
   initialize: vi.fn(),
+  create: vi.fn(),
+  updateSettings: vi.fn(),
   load: vi.fn(),
   rescanExternal: vi.fn(),
   importExternalSelections: vi.fn(),
+  requestNavigateAway: vi.fn((proceed: () => void) => proceed()),
+  externalScan: null as ExternalScanResult | null,
 }));
 
 const skill: SkillSummary = {
@@ -23,21 +29,43 @@ const skill: SkillSummary = {
   toolStates: {},
 };
 
-vi.mock('@/stores/skillStore', () => ({
-  useSkillStore: () => ({
-    skills: [skill],
-    filteredSkills: [skill],
-    tools: [],
-    skillsPath: '/home/.prompt-clip/skills',
-    isLoading: false,
-    load: mocks.load,
-    error: null,
-    externalScan: null,
-    rescanExternal: mocks.rescanExternal,
-    importExternalSelections: mocks.importExternalSelections,
-    deleteSkill: mocks.deleteSkill,
-  }),
-}));
+const secondSkill: SkillSummary = {
+  ...skill,
+  id: 'write-docs',
+  name: 'write-docs',
+  description: 'Write clean docs',
+  relativePath: 'write-docs',
+};
+
+const buildStoreState = () => ({
+  skills: [skill, secondSkill],
+  filteredSkills: [skill, secondSkill],
+  tools: [],
+  categories: [],
+  skillsPath: '/home/.prompt-clip/skills',
+  isLoading: false,
+  load: mocks.load,
+  error: null,
+  externalScan: mocks.externalScan,
+  rescanExternal: mocks.rescanExternal,
+  importExternalSelections: mocks.importExternalSelections,
+  deleteSkill: mocks.deleteSkill,
+});
+
+vi.mock('@/stores/skillStore', async () => {
+  const actual = await vi.importActual<typeof import('@/stores/skillStore')>(
+    '@/stores/skillStore'
+  );
+  const useSkillStore = (selector?: (state: ReturnType<typeof buildStoreState>) => unknown) => {
+    const state = buildStoreState();
+    return selector ? selector(state) : state;
+  };
+  useSkillStore.getState = () => buildStoreState();
+  return {
+    matchesSkillQuery: actual.matchesSkillQuery,
+    useSkillStore,
+  };
+});
 
 vi.mock('./SkillGrid', () => ({
   SkillGrid: ({
@@ -59,14 +87,44 @@ vi.mock('./SkillGrid', () => ({
 }));
 
 vi.mock('./SkillTopBar', () => ({
-  SkillTopBar: () => <div>Skill top bar</div>,
+  SkillTopBar: ({
+    onCreate,
+    onRescan,
+  }: {
+    onCreate?: () => void;
+    onRescan?: () => void;
+  }) => (
+    <div>
+      <span>Skill top bar</span>
+      <button type="button" onClick={onCreate}>
+        Trigger create
+      </button>
+      <button type="button" onClick={onRescan}>
+        Trigger rescan
+      </button>
+    </div>
+  ),
 }));
 
 vi.mock('./SkillDetailPage', () => ({
-  SkillDetailPage: forwardRef<HTMLDivElement, { skillId: string }>(function MockSkillDetailPage({
-    skillId,
-  }, ref) {
-    return <div ref={ref}>Skill detail: {skillId}</div>;
+  SkillDetailPage: forwardRef<
+    SkillDetailPageHandle,
+    { skillId: string; onBack?: () => void; onSaved?: () => void }
+  >(function MockSkillDetailPage({ skillId, onBack, onSaved }, ref) {
+    useImperativeHandle(ref, () => ({
+      requestNavigateAway: mocks.requestNavigateAway,
+    }));
+    return (
+      <div>
+        <span>Skill detail: {skillId}</span>
+        <button type="button" onClick={onSaved}>
+          Trigger save in detail
+        </button>
+        <button type="button" onClick={onBack}>
+          Trigger back from detail
+        </button>
+      </div>
+    );
   }),
 }));
 
@@ -81,12 +139,16 @@ vi.mock('@/components/layout', () => ({
 vi.mock('@/services/skillService', () => ({
   SkillService: {
     initialize: mocks.initialize,
+    create: mocks.create,
+    updateSettings: mocks.updateSettings,
   },
 }));
 
-describe('SkillManagerPage deletion flow', () => {
+describe('SkillManagerPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.externalScan = null;
+    useUIStore.setState({ toasts: [] });
     mocks.deleteSkill.mockResolvedValue(true);
     mocks.initialize.mockResolvedValue({
       settings: { defaultSyncMode: 'copy', toolOverrides: {}, favorites: {} },
@@ -122,6 +184,100 @@ describe('SkillManagerPage deletion flow', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open skill detail' }));
 
     expect(screen.getByRole('button', { name: 'Shared Skill sidebar' })).toBeTruthy();
+    expect(screen.getByText('Skill detail: review-code')).toBeTruthy();
+  });
+
+  it('shows a specific error toast when creating a duplicate skill', async () => {
+    mocks.create.mockRejectedValue({ code: 'skill_already_exists', params: {} });
+    render(<SkillManagerPage />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Trigger create' }));
+    fireEvent.change(screen.getByLabelText('Skill name'), { target: { value: 'review-code' } });
+    fireEvent.change(screen.getByLabelText('Skill description'), {
+      target: { value: 'Duplicate skill' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Create and open' }));
+
+    await waitFor(() => {
+      expect(useUIStore.getState().toasts).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: 'error',
+            message: 'A Skill with this name already exists. Please choose another name.',
+          }),
+        ])
+      );
+    });
+  });
+
+  it('shows an info toast when rescan finds no external skills', async () => {
+    mocks.rescanExternal.mockImplementation(async () => {
+      mocks.externalScan = { groups: [], invalidEntries: [] };
+    });
+    render(<SkillManagerPage />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Trigger rescan' }));
+
+    await waitFor(() => {
+      expect(useUIStore.getState().toasts).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: 'info',
+            message: 'Scan complete. No external Skills found to import.',
+          }),
+        ])
+      );
+    });
+  });
+
+  it('reports settings migration partial failure via toast instead of window.alert', async () => {
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => undefined);
+    mocks.updateSettings.mockResolvedValue({
+      settings: { defaultSyncMode: 'symlink', toolOverrides: {}, favorites: {} },
+      migrationErrors: [{ code: 'skill_symlink_permission_denied', params: {} }],
+    });
+    render(<SkillManagerPage />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Shared Skill sidebar' }));
+    await waitFor(() => expect(screen.getByRole('dialog')).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'Save settings' }));
+
+    await waitFor(() => {
+      expect(useUIStore.getState().toasts).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: 'error',
+            message: 'Saved, but some copy targets could not be refreshed.',
+          }),
+        ])
+      );
+    });
+    expect(alertSpy).not.toHaveBeenCalled();
+    alertSpy.mockRestore();
+  });
+
+  it('reloads hub summaries when returning from detail after saving a file', () => {
+    render(<SkillManagerPage />);
+    mocks.load.mockClear();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open skill detail' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Trigger save in detail' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Trigger back from detail' }));
+
+    expect(mocks.load).toHaveBeenCalledOnce();
+  });
+
+  it('guards quick switching to another skill when in detail view', () => {
+    mocks.requestNavigateAway.mockImplementationOnce(() => {
+      // 模拟用户取消放弃未保存修改
+    });
+    render(<SkillManagerPage />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open skill detail' }));
+    fireEvent.keyDown(window, { key: 'k', metaKey: true });
+    fireEvent.click(screen.getByText('write-docs'));
+
+    expect(mocks.requestNavigateAway).toHaveBeenCalledOnce();
     expect(screen.getByText('Skill detail: review-code')).toBeTruthy();
   });
 });

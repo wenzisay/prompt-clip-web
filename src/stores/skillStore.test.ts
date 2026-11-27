@@ -98,6 +98,34 @@ describe('skillStore', () => {
     ]);
   });
 
+  it('uses settings bundled in scan response without making a redundant initialize IPC', async () => {
+    const category: SkillCategory = {
+      id: 'c-fast',
+      name: 'Fast',
+      createdAt: '2026-08-01T00:00:00Z',
+    };
+    mocks.scan.mockResolvedValue({
+      ...scanResponse([{ ...skill('alpha'), categoryIds: ['c-fast'] }]),
+      settings: {
+        schemaVersion: 1,
+        defaultSyncMode: 'copy',
+        toolOverrides: {},
+        favorites: {},
+        customTools: [],
+        disabledToolIds: [],
+        toolOrder: [],
+        categories: [category],
+        skillCategories: { alpha: ['c-fast'] },
+      },
+    });
+
+    await useSkillStore.getState().load();
+
+    expect(mocks.initialize).not.toHaveBeenCalled();
+    expect(useSkillStore.getState().categories).toEqual([category]);
+    expect(useSkillStore.getState().categoryCounts['c-fast']).toBe(1);
+  });
+
   it('combines name search with a separate favorites filter without favorite-time sorting', async () => {
     mocks.scan.mockResolvedValue(
       scanResponse([
@@ -115,6 +143,35 @@ describe('skillStore', () => {
       'alpha',
       'zeta',
     ]);
+  });
+
+  it('matches skills by description and assigned category name in addition to name', async () => {
+    const review = { ...skill('code-check'), description: 'Audit pull requests safely', categoryIds: ['c1'] };
+    const writer = { ...skill('doc-helper'), description: 'Generate API markdown', categoryIds: [] };
+    mocks.scan.mockResolvedValue(scanResponse([review, writer]));
+    mocks.initialize.mockResolvedValue({
+      skillsPath: '/home/.prompt-clip/skills',
+      settings: {
+        schemaVersion: 1,
+        defaultSyncMode: 'symlink',
+        toolOverrides: {},
+        favorites: {},
+        customTools: [],
+        disabledToolIds: [],
+        toolOrder: [],
+        categories: [{ id: 'c1', name: 'Security', createdAt: '2026-08-01T00:00:00Z' }],
+        skillCategories: { 'code-check': ['c1'] },
+      },
+      settingsWarnings: [],
+      tools: [codex],
+    });
+    await useSkillStore.getState().load();
+
+    useSkillStore.getState().setSearchQuery('pull request');
+    expect(useSkillStore.getState().filteredSkills.map((item) => item.id)).toEqual(['code-check']);
+
+    useSkillStore.getState().setSearchQuery('security');
+    expect(useSkillStore.getState().filteredSkills.map((item) => item.id)).toEqual(['code-check']);
   });
 
   it('updates every tool sharing the returned target group after toggle', async () => {
@@ -250,6 +307,68 @@ describe('skillStore', () => {
 
       expect(useSkillStore.getState().filter.agentToolId).toBeNull();
       expect(useSkillStore.getState().filteredSkills.map((item) => item.id)).toEqual(['enabled']);
+    });
+
+    it('includes shared agents-skills entries for compatible agents, deduplicated and sorted alphabetically', async () => {
+      const compatCodex: AgentTool = {
+        ...codex,
+        targetGroupId: 'group:codex',
+        readsSharedAgentsSkills: true,
+      };
+      const claude: AgentTool = {
+        ...codex,
+        id: 'claude-code',
+        name: 'Claude Code',
+        iconId: 'claude-code',
+        targetGroupId: 'group:claude',
+        readsSharedAgentsSkills: false,
+      };
+      const agentsTool: AgentTool = {
+        ...codex,
+        id: 'agents-skills',
+        name: 'Agents Skills',
+        iconId: 'agents-skills',
+        targetGroupId: 'group:agents',
+        readsSharedAgentsSkills: false,
+      };
+
+      const directOnly = skill('beta-direct');
+      directOnly.toolStates.codex.status = 'enabled';
+      directOnly.toolStates['agents-skills'].status = 'disabled';
+
+      const sharedOnly = skill('alpha-shared');
+      sharedOnly.toolStates.codex.status = 'disabled';
+      sharedOnly.toolStates['agents-skills'].status = 'enabled';
+
+      const enabledInBoth = skill('gamma-both');
+      enabledInBoth.toolStates.codex.status = 'enabled';
+      enabledInBoth.toolStates['agents-skills'].status = 'enabled';
+
+      const neither = skill('delta-none');
+
+      mocks.scan.mockResolvedValue({
+        ...scanResponse([enabledInBoth, directOnly, sharedOnly, neither]),
+        tools: [claude, compatCodex, agentsTool],
+      });
+      await useSkillStore.getState().load();
+
+      useSkillStore.getState().setAgentToolFilter('codex');
+      expect(useSkillStore.getState().filteredSkills.map((item) => item.id)).toEqual([
+        'alpha-shared',
+        'beta-direct',
+        'gamma-both',
+      ]);
+
+      // Claude Code 不读取 ~/.agents/skills，不应包含 sharedOnly
+      useSkillStore.getState().setAgentToolFilter('claude-code');
+      expect(useSkillStore.getState().filteredSkills).toEqual([]);
+
+      // Agents Skills 本身只显示 agents-skills 下启用的 Skill
+      useSkillStore.getState().setAgentToolFilter('agents-skills');
+      expect(useSkillStore.getState().filteredSkills.map((item) => item.id)).toEqual([
+        'alpha-shared',
+        'gamma-both',
+      ]);
     });
   });
 

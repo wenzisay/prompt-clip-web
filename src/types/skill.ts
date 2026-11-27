@@ -47,6 +47,8 @@ export interface AgentTool {
   source: ToolSource;
   /** 是否启用：被用户关闭的工具不参与同步、不出现在卡片工具栏与侧边栏。 */
   enabled: boolean;
+  /** 该工具是否同时读取通用 `~/.agents/skills`（agents-skills）目录中的 Skill。 */
+  readsSharedAgentsSkills?: boolean;
 }
 
 export interface TargetState {
@@ -101,6 +103,7 @@ export interface SkillManagerInitialization {
 
 export interface SkillScanResponse {
   skillsPath: string;
+  settings?: SkillManagerSettings;
   skills: SkillSummary[];
   invalidEntries: InvalidSkillEntry[];
   tools: AgentTool[];
