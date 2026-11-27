@@ -209,6 +209,21 @@ pub struct ExternalScanResult {
     pub invalid_entries: Vec<ExternalInvalidSkillEntry>,
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ExternalEntryTarget {
+    pub target_group_id: String,
+    pub directory_name: String,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ExternalLinkCleanupResult {
+    pub removed_count: usize,
+    pub scan: ExternalScanResult,
+    pub errors: Vec<SkillManagerError>,
+}
+
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct ArchivePreview {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { open, save } from '@tauri-apps/plugin-dialog';
+import { confirm, open, save } from '@tauri-apps/plugin-dialog';
 import { Sidebar } from '@/components/layout';
 import { useTranslation } from '@/i18n';
 import { SkillService } from '@/services/skillService';
@@ -8,6 +8,7 @@ import { useUIStore, type AppSection } from '@/stores/uiStore';
 import { toSkillManagerError } from '@/utils/skillError';
 import type {
   ArchivePreview,
+  ExternalEntryTarget,
   ExternalImportSelection,
   ImportDecision,
   SkillManagerError,
@@ -37,7 +38,9 @@ export function SkillManagerPage() {
     load,
     error,
     externalScan,
+    importProgress,
     rescanExternal,
+    cleanupBrokenExternalLinks,
     importExternalSelections,
     deleteSkill,
     addCustomTool,
@@ -50,6 +53,7 @@ export function SkillManagerPage() {
   const [isCreateOpen, setCreateOpen] = useState(false);
   const [isSubmitting, setSubmitting] = useState(false);
   const [isImporting, setImporting] = useState(false);
+  const [isCleaningBrokenLinks, setCleaningBrokenLinks] = useState(false);
   const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null);
   /** 详情页 ref：用于在切换 appSection 前请求「未保存修改确认」 */
   const detailRef = useRef<SkillDetailPageHandle>(null);
@@ -174,6 +178,54 @@ export function SkillManagerPage() {
       await SkillService.revealExternal(targetGroupId, directoryName);
     } catch (err) {
       notifyError(err);
+    }
+  };
+
+  const cleanupBrokenLinks = async (
+    entries: ExternalEntryTarget[],
+    displayPath?: string
+  ) => {
+    if (entries.length === 0) return;
+    const message =
+      entries.length === 1
+        ? t.skills.confirmCleanupBrokenLink(
+            entries[0].directoryName,
+            displayPath ?? entries[0].directoryName
+          )
+        : t.skills.confirmCleanupAllBrokenLinks(entries.length);
+    try {
+      const confirmed = await confirm(message, {
+        title: t.skills.confirmCleanupBrokenLinkTitle,
+        kind: 'warning',
+        okLabel:
+          entries.length === 1 ? t.skills.cleanupBrokenLink : t.skills.cleanupAllBrokenLinks,
+        cancelLabel: t.skills.cancel,
+      });
+      if (!confirmed) return;
+    } catch (err) {
+      notifyError(err);
+      return;
+    }
+
+    setCleaningBrokenLinks(true);
+    try {
+      const result = await cleanupBrokenExternalLinks(entries);
+      if (!result) return;
+      if (result.removedCount > 0) {
+        addToast({
+          type: 'success',
+          message: t.skills.cleanupBrokenLinksSuccess(result.removedCount),
+          duration: 3000,
+        });
+      }
+      if (result.errors.length > 0) {
+        notifyError(result.errors[0]);
+      }
+      if (result.scan.groups.length === 0 && result.scan.invalidEntries.length === 0) {
+        setImportOpen(false);
+      }
+    } finally {
+      setCleaningBrokenLinks(false);
     }
   };
 
@@ -395,10 +447,15 @@ export function SkillManagerPage() {
         scan={externalScan}
         hubSkills={skills}
         isImporting={isImporting}
+        importProgress={importProgress}
+        isCleaningBrokenLinks={isCleaningBrokenLinks}
         onClose={() => setImportOpen(false)}
         onConfirm={(selections) => void confirmImport(selections)}
         onRevealExternal={(targetGroupId, directoryName) =>
           void revealExternal(targetGroupId, directoryName)
+        }
+        onCleanupBrokenLinks={(entries, displayPath) =>
+          void cleanupBrokenLinks(entries, displayPath)
         }
       />
       <SkillCreateModal

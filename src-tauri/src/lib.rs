@@ -1034,6 +1034,7 @@ pub fn run() {
             skills::commands::skill_scan,
             skills::commands::skill_scan_external,
             skills::commands::skill_reveal_external,
+            skills::commands::skill_cleanup_broken_external_links,
             skills::commands::skill_reveal_hub,
             skills::commands::skill_reveal_skill,
             skills::commands::skill_set_tool_enabled,

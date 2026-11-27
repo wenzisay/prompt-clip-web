@@ -15,10 +15,10 @@ use super::files::{
 };
 use super::import::{import_external_skill, ImportDecision, ImportOutcome};
 use super::models::{
-    AgentTool, ArchivePreview, ExternalScanResult, SkillCategory, SkillDeleteMode, SkillFileEntry,
-    SkillManagerError, SkillManagerInitialization, SkillManagerSettings, SkillScanResponse,
-    SkillSettingsUpdateResult, SkillTextFile, SkillTextWriteResult, SkillToolState, SyncMode,
-    SyncOperationResult, ToolSyncMode,
+    AgentTool, ArchivePreview, ExternalEntryTarget, ExternalLinkCleanupResult, ExternalScanResult,
+    SkillCategory, SkillDeleteMode, SkillFileEntry, SkillManagerError, SkillManagerInitialization,
+    SkillManagerSettings, SkillScanResponse, SkillSettingsUpdateResult, SkillTextFile,
+    SkillTextWriteResult, SkillToolState, SyncMode, SyncOperationResult, ToolSyncMode,
 };
 use super::paths::SkillPaths;
 use super::registry::builtin_tool_definitions;
@@ -87,6 +87,17 @@ pub async fn skill_reveal_external(
         let path =
             resolve_external_entry_path(&initialization.tools, &target_group_id, &directory_name)?;
         reveal_in_file_manager(&path)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn skill_cleanup_broken_external_links(
+    entries: Vec<ExternalEntryTarget>,
+) -> Result<ExternalLinkCleanupResult, SkillManagerError> {
+    run_blocking(move || {
+        let home_dir = home_directory()?;
+        cleanup_broken_external_links_at(&home_dir, &executable_directories(), &entries)
     })
     .await
 }
@@ -1333,18 +1344,99 @@ fn resolve_external_entry_path(
     target_group_id: &str,
     directory_name: &str,
 ) -> Result<PathBuf, SkillManagerError> {
-    let mut components = Path::new(directory_name).components();
-    if !matches!(components.next(), Some(Component::Normal(_))) || components.next().is_some() {
-        return Err(SkillManagerError::new("skill_external_entry_name_invalid"));
-    }
+    let components: Vec<Component<'_>> = Path::new(directory_name).components().collect();
     let tool = tools
         .iter()
         .find(|tool| tool.installed && tool.target_group_id == target_group_id)
         .ok_or_else(|| SkillManagerError::new("skill_target_group_not_found"))?;
-    let path = tool.skills_path.join(directory_name);
+
+    let path = match components.as_slice() {
+        [Component::Normal(name)] => tool.skills_path.join(name),
+        // 允许一级 `@scope/<child>` 命名空间子条目，且要求 `@scope` 本身是真实文件夹（非软链接）
+        [Component::Normal(scope), Component::Normal(child)]
+            if scope.to_string_lossy().starts_with('@') =>
+        {
+            let scope_path = tool.skills_path.join(scope);
+            let scope_meta = fs::symlink_metadata(&scope_path)
+                .map_err(|_| SkillManagerError::new("skill_external_entry_not_found"))?;
+            if scope_meta.file_type().is_symlink() || !scope_meta.is_dir() {
+                return Err(SkillManagerError::new("skill_external_entry_name_invalid"));
+            }
+            scope_path.join(child)
+        }
+        _ => return Err(SkillManagerError::new("skill_external_entry_name_invalid")),
+    };
+
     fs::symlink_metadata(&path)
         .map_err(|_| SkillManagerError::new("skill_external_entry_not_found"))?;
     Ok(path)
+}
+
+fn cleanup_broken_external_links_at(
+    home_dir: &Path,
+    executable_directories: &[PathBuf],
+    entries: &[ExternalEntryTarget],
+) -> Result<ExternalLinkCleanupResult, SkillManagerError> {
+    let initialization = initialize_at(home_dir, executable_directories)?;
+    let mut visited_paths = BTreeSet::new();
+    let mut removed_count = 0usize;
+    let mut errors = Vec::new();
+
+    for entry in entries {
+        let path = match resolve_external_entry_path(
+            &initialization.tools,
+            &entry.target_group_id,
+            &entry.directory_name,
+        ) {
+            Ok(path) => path,
+            Err(error) => {
+                errors.push(error.with_param("directoryName", &entry.directory_name));
+                continue;
+            }
+        };
+        if !visited_paths.insert(path.clone()) {
+            continue;
+        }
+        match remove_broken_symlink(&path) {
+            Ok(()) => removed_count += 1,
+            Err(error) => errors.push(error.with_param("directoryName", &entry.directory_name)),
+        }
+    }
+
+    let scan = scan_external_skills(&initialization.tools)?;
+    Ok(ExternalLinkCleanupResult {
+        removed_count,
+        scan,
+        errors,
+    })
+}
+
+/// 严格校验并仅移除「已断开或未指向文件夹」的符号链接本身；绝不删除普通文件、普通文件夹或有效目录链接。
+fn remove_broken_symlink(path: &Path) -> Result<(), SkillManagerError> {
+    let metadata = fs::symlink_metadata(path)
+        .map_err(|_| SkillManagerError::new("skill_external_entry_not_found"))?;
+    if !metadata.file_type().is_symlink() {
+        return Err(SkillManagerError::new("skill_cleanup_not_broken_link")
+            .with_param("path", path.to_string_lossy()));
+    }
+    let points_to_valid_directory = fs::canonicalize(path)
+        .map(|resolved| resolved.is_dir())
+        .unwrap_or(false);
+    if points_to_valid_directory {
+        return Err(SkillManagerError::new("skill_cleanup_not_broken_link")
+            .with_param("path", path.to_string_lossy()));
+    }
+
+    #[cfg(windows)]
+    let remove_result = fs::remove_file(path).or_else(|_| fs::remove_dir(path));
+    #[cfg(not(windows))]
+    let remove_result = fs::remove_file(path);
+
+    remove_result.map_err(|error| {
+        SkillManagerError::new("skill_io_error")
+            .with_param("operation", "remove_broken_symlink")
+            .with_param("message", error.to_string())
+    })
 }
 
 fn reveal_in_file_manager(path: &Path) -> Result<(), SkillManagerError> {
@@ -1989,5 +2081,114 @@ mod tests {
         );
         let settings = repository.load_or_create().expect("settings reload").settings;
         assert!(!settings.skill_categories.contains_key("doomed-skill"));
+    }
+
+    #[test]
+    fn should_resolve_at_scoped_external_child_and_reject_nested_non_scope_paths() {
+        let home = tempdir().expect("home should be created");
+        let scoped = home
+            .path()
+            .join(".claude/skills/@org-ths-repilot/ifind-chain-analysis");
+        fs::create_dir_all(&scoped).expect("scoped entry should be created");
+        let regular_nested = home.path().join(".claude/skills/plain/nested");
+        fs::create_dir_all(&regular_nested).expect("nested entry should be created");
+        let initialization = initialize_at(home.path(), &[]).expect("manager should initialize");
+        let claude = initialization
+            .tools
+            .iter()
+            .find(|tool| tool.id == "claude-code")
+            .expect("Claude should be detected");
+
+        let resolved = resolve_external_entry_path(
+            &initialization.tools,
+            &claude.target_group_id,
+            "@org-ths-repilot/ifind-chain-analysis",
+        )
+        .expect("scoped child should resolve");
+        assert_eq!(resolved, scoped);
+
+        assert!(resolve_external_entry_path(
+            &initialization.tools,
+            &claude.target_group_id,
+            "plain/nested",
+        )
+        .is_err());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn should_cleanup_only_broken_external_symlinks_and_refuse_valid_entries() {
+        use super::{cleanup_broken_external_links_at, ExternalEntryTarget};
+        use std::os::unix::fs::symlink;
+
+        let home = tempdir().expect("home should be created");
+        let skills_dir = home.path().join(".agents/skills");
+        fs::create_dir_all(&skills_dir).expect("skills dir should be created");
+
+        // 1. 悬空符号链接（应被清理）
+        let broken_link = skills_dir.join("computer-use");
+        symlink(home.path().join("does-not-exist"), &broken_link)
+            .expect("broken link should be created");
+
+        // 2. @scope 下的悬空符号链接（应被清理）
+        let scope_dir = skills_dir.join("@org");
+        fs::create_dir_all(&scope_dir).expect("scope dir should be created");
+        let scoped_broken = scope_dir.join("dead-link");
+        symlink(home.path().join("also-missing"), &scoped_broken)
+            .expect("scoped broken link should be created");
+
+        // 3. 指向有效文件夹的符号链接（必须拒绝清理）
+        let valid_target = home.path().join("real-target");
+        fs::create_dir_all(&valid_target).expect("valid target should exist");
+        let valid_link = skills_dir.join("healthy-link");
+        symlink(&valid_target, &valid_link).expect("healthy link should be created");
+
+        // 4. 普通文件夹（必须拒绝清理）
+        let real_dir = skills_dir.join("real-folder");
+        fs::create_dir_all(&real_dir).expect("real folder should exist");
+
+        let initialization = initialize_at(home.path(), &[]).expect("manager should initialize");
+        let agents = initialization
+            .tools
+            .iter()
+            .find(|tool| tool.id == "agents-skills")
+            .expect("Agents Skills should be detected");
+        let group_id = agents.target_group_id.clone();
+
+        let result = cleanup_broken_external_links_at(
+            home.path(),
+            &[],
+            &[
+                ExternalEntryTarget {
+                    target_group_id: group_id.clone(),
+                    directory_name: "computer-use".to_string(),
+                },
+                ExternalEntryTarget {
+                    target_group_id: group_id.clone(),
+                    directory_name: "@org/dead-link".to_string(),
+                },
+                ExternalEntryTarget {
+                    target_group_id: group_id.clone(),
+                    directory_name: "healthy-link".to_string(),
+                },
+                ExternalEntryTarget {
+                    target_group_id: group_id,
+                    directory_name: "real-folder".to_string(),
+                },
+            ],
+        )
+        .expect("cleanup should succeed with partial errors");
+
+        assert_eq!(result.removed_count, 2);
+        assert!(fs::symlink_metadata(&broken_link).is_err());
+        assert!(fs::symlink_metadata(&scoped_broken).is_err());
+        // 合法链接与普通文件夹必须完好无损
+        assert!(fs::symlink_metadata(&valid_link).is_ok());
+        assert!(real_dir.is_dir());
+        assert_eq!(result.errors.len(), 2);
+        assert!(result
+            .errors
+            .iter()
+            .all(|error| error.code == "skill_cleanup_not_broken_link"));
     }
 }

@@ -1,6 +1,8 @@
 import { invoke } from '@tauri-apps/api/core';
 import type {
   ArchivePreview,
+  ExternalEntryTarget,
+  ExternalLinkCleanupResult,
   ExternalScanResult,
   ImportDecision,
   ImportOutcome,
@@ -64,6 +66,13 @@ export async function revealExternalSkill(
 ): Promise<void> {
   requireDesktop();
   await invoke('skill_reveal_external', { targetGroupId, directoryName });
+}
+
+export async function cleanupBrokenExternalLinks(
+  entries: ExternalEntryTarget[]
+): Promise<ExternalLinkCleanupResult> {
+  requireDesktop();
+  return invoke('skill_cleanup_broken_external_links', { entries });
 }
 
 export async function revealHubSkill(): Promise<void> {
@@ -303,6 +312,7 @@ export const SkillService = {
   scan: scanSkills,
   scanExternal: scanExternalSkills,
   revealExternal: revealExternalSkill,
+  cleanupBrokenExternalLinks,
   revealHub: revealHubSkill,
   revealSkill,
   setEnabled: setSkillEnabled,

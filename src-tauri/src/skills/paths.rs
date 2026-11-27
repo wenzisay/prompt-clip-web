@@ -81,27 +81,34 @@ impl SkillPaths {
     }
 }
 
+/// Permissive skill id validation used by scan/import/read/sync paths.
+/// Allows cross-platform-safe directory name characters (ASCII letters/digits
+/// plus `-`, `_`, `.`, `@`, `:`, max 128 bytes) while forbidding hidden/dot
+/// edges and path traversal characters.
 pub(crate) fn validate_skill_id(skill_id: &str) -> Result<(), SkillManagerError> {
-    validate_skill_id_with(skill_id, false)
-}
-
-/// Stricter variant used by the create-new-skill entrypoint. Keeps the colon
-/// forbidden so the name can always be used as a directory on every platform
-/// (colon is reserved by the Windows filesystem). Import/scan/read/sync paths
-/// use the permissive [`validate_skill_id`] instead.
-pub(crate) fn validate_creatable_skill_id(skill_id: &str) -> Result<(), SkillManagerError> {
-    validate_skill_id_with(skill_id, true)
-}
-
-fn validate_skill_id_with(skill_id: &str, forbid_colon: bool) -> Result<(), SkillManagerError> {
-    let valid_length = (1..=64).contains(&skill_id.len());
-    let is_separator = |character: u8| character == b'-' || (!forbid_colon && character == b':');
+    let valid_length = (1..=128).contains(&skill_id.len());
     let valid_characters = skill_id.bytes().all(|character| {
-        character.is_ascii_lowercase()
-            || character.is_ascii_digit()
-            || character == b'-'
-            || (!forbid_colon && character == b':')
+        character.is_ascii_alphanumeric()
+            || matches!(character, b'-' | b'_' | b'.' | b'@' | b':')
     });
+    let valid_edges = !skill_id.starts_with('.') && !skill_id.ends_with('.');
+
+    if valid_length && valid_characters && valid_edges {
+        return Ok(());
+    }
+
+    Err(SkillManagerError::new("invalid_skill_id").with_param("skillId", skill_id))
+}
+
+/// Stricter variant used by the create-new-skill entrypoint. Keeps lowercase
+/// letters, digits, and single hyphens only (and forbids colon for Windows
+/// compatibility). Import/scan/read/sync paths use [`validate_skill_id`].
+pub(crate) fn validate_creatable_skill_id(skill_id: &str) -> Result<(), SkillManagerError> {
+    let valid_length = (1..=64).contains(&skill_id.len());
+    let is_separator = |character: u8| character == b'-';
+    let valid_characters = skill_id
+        .bytes()
+        .all(|character| character.is_ascii_lowercase() || character.is_ascii_digit() || character == b'-');
     let bytes = skill_id.as_bytes();
     let valid_edges = !bytes.is_empty()
         && !is_separator(bytes[0])
@@ -172,16 +179,16 @@ mod tests {
 
         for invalid in [
             "",
-            "Uppercase",
-            "-leading",
-            "trailing-",
-            "two--hyphens",
+            ".",
+            "..",
+            ".hidden",
+            "trailing.",
             "../escape",
-            ":leading",
-            "trailing:",
-            "a::b",
-            "a:-b",
-            "a-:b",
+            "nested/path",
+            "has space",
+            "bad*char",
+            "bad?char",
+            &"a".repeat(129),
         ] {
             assert!(
                 paths.skill_root(invalid).is_err(),
@@ -191,8 +198,17 @@ mod tests {
     }
 
     #[test]
-    fn should_accept_colon_separated_ids_on_general_path() {
-        for valid in ["plugin:skill", "ns:a:b:c", "a:b-c", "plain-skill"] {
+    fn should_accept_relaxed_external_ids_on_general_path() {
+        for valid in [
+            "plugin:skill",
+            "ns:a:b:c",
+            "a:b-c",
+            "plain-skill",
+            "@org-ths-repilot",
+            "My_Skill.v2",
+            "two--hyphens",
+            "a_b_c",
+        ] {
             assert!(
                 validate_skill_id(valid).is_ok(),
                 "{valid} should be accepted by validate_skill_id"

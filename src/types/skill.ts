@@ -147,11 +147,28 @@ export interface ExternalScanResult {
   invalidEntries: ExternalInvalidSkillEntry[];
 }
 
+export interface ExternalEntryTarget {
+  targetGroupId: string;
+  directoryName: string;
+}
+
+export interface ExternalLinkCleanupResult {
+  removedCount: number;
+  scan: ExternalScanResult;
+  errors: SkillManagerError[];
+}
+
 export interface ExternalImportSelection {
   skillId: string;
   contentHash: string;
   targetGroupId: string;
   decision: ImportDecision;
+}
+
+export interface ExternalImportProgress {
+  current: number;
+  total: number;
+  currentSkillId: string;
 }
 
 export interface ArchivePreview {

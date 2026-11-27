@@ -401,13 +401,56 @@ export const messages = {
       skipImport: '跳过',
       confirmImport: '确认导入',
       importing: '正在导入…',
+      importingProgress: (current: number, total: number) => `正在导入 (${current}/${total})…`,
+      importingProgressDetail: (skill: string, current: number, total: number) =>
+        `正在导入 ${skill}（第 ${current}/${total} 个）`,
       close: '关闭',
       sourceCount: (count: number) => `${count} 个来源`,
       invalidExternalEntries: (count: number) => `${count} 个外部 Skill 无法扫描`,
+      invalidBrokenLinkCountBadge: (count: number) => `含 ${count} 个可清理的失效链接`,
+      invalidGroupTitle: (code: string) => {
+        switch (code) {
+          case 'skill_external_link_invalid':
+            return '失效符号链接';
+          case 'skill_markdown_invalid_type':
+            return '入口文件为符号链接';
+          case 'skill_content_symlink':
+            return '内部包含符号链接';
+          case 'invalid_skill_id':
+            return '目录名不符合规范';
+          case 'skill_name_mismatch':
+            return '名称与目录名不一致';
+          case 'skill_markdown_missing':
+            return '缺少 SKILL.md 入口文件';
+          default:
+            return '其他无法扫描项';
+        }
+      },
+      invalidGroupHint: (code: string) => {
+        switch (code) {
+          case 'skill_external_link_invalid':
+            return '这些软链接指向的目标已不存在或不是文件夹，可直接安全清理。';
+          case 'skill_markdown_invalid_type':
+            return '入口文件 SKILL.md 为符号链接（常见于外部插件套件生成的子 Skill），建议保持由原工具管理，暂不导入。';
+          case 'skill_content_symlink':
+            return '目录内包含符号链接（常见于自带 node_modules 等依赖的插件仓库），为避免破坏运行环境暂不导入，建议保持由原工具管理。';
+          default:
+            return null;
+        }
+      },
+      cleanupBrokenLink: '清理链接',
+      cleanupAllBrokenLinks: '一键清理全部',
+      cleaningBrokenLinks: '正在清理…',
+      confirmCleanupBrokenLinkTitle: '清理失效符号链接',
+      confirmCleanupBrokenLink: (name: string, path: string) =>
+        `确认清理失效符号链接“${name}”吗？\n\n路径：${path}\n\n仅移除已断开的符号链接本身，不会删除任何正常文件夹。`,
+      confirmCleanupAllBrokenLinks: (count: number) =>
+        `确认清理全部 ${count} 个失效符号链接吗？\n\n仅移除已断开的符号链接本身，不会删除任何正常文件夹。`,
+      cleanupBrokenLinksSuccess: (count: number) => `已清理 ${count} 个失效符号链接`,
       skillScanError: (code: string, params: Record<string, string>) => {
         switch (code) {
           case 'invalid_skill_id':
-            return `目录名「${params.skillId ?? ''}」不是合法的 Skill 名称（仅允许小写字母、数字、单个连字符或冒号，最长 64 个字符）。`;
+            return `目录名「${params.skillId ?? ''}」不是合法的 Skill 名称（仅允许字母、数字、-、_、.、@、:，不能以 . 开头或结尾，最长 128 个字符）。`;
           case 'skill_name_mismatch':
             return `元数据 name「${params.metadataName ?? ''}」与目录名「${params.directoryName ?? ''}」不一致。`;
           case 'skill_markdown_missing':
@@ -427,7 +470,7 @@ export const messages = {
           case 'skill_description_empty':
             return 'Skill 描述为空。';
           case 'skill_content_symlink':
-            return `Skill 内部包含符号链接（「${params.path ?? ''}」），不被允许。`;
+            return `Skill 内部包含符号链接（「${params.path ?? ''}」），通常为自带依赖的插件仓库，建议保持原工具管理。`;
           case 'skill_content_special_file':
             return `Skill 内部包含不支持的特殊文件（「${params.path ?? ''}」）。`;
           case 'skill_io_error':
@@ -1067,13 +1110,56 @@ export const messages = {
       skipImport: '略過',
       confirmImport: '確認匯入',
       importing: '正在匯入…',
+      importingProgress: (current: number, total: number) => `正在匯入 (${current}/${total})…`,
+      importingProgressDetail: (skill: string, current: number, total: number) =>
+        `正在匯入 ${skill}（第 ${current}/${total} 個）`,
       close: '關閉',
       sourceCount: (count: number) => `${count} 個來源`,
       invalidExternalEntries: (count: number) => `${count} 個外部 Skill 無法掃描`,
+      invalidBrokenLinkCountBadge: (count: number) => `含 ${count} 個可清理的失效連結`,
+      invalidGroupTitle: (code: string) => {
+        switch (code) {
+          case 'skill_external_link_invalid':
+            return '失效符號連結';
+          case 'skill_markdown_invalid_type':
+            return '入口檔案為符號連結';
+          case 'skill_content_symlink':
+            return '內部包含符號連結';
+          case 'invalid_skill_id':
+            return '目錄名不符合規範';
+          case 'skill_name_mismatch':
+            return '名稱與目錄名不一致';
+          case 'skill_markdown_missing':
+            return '缺少 SKILL.md 入口檔案';
+          default:
+            return '其他無法掃描項';
+        }
+      },
+      invalidGroupHint: (code: string) => {
+        switch (code) {
+          case 'skill_external_link_invalid':
+            return '這些軟連結指向的目標已不存在或不是資料夾，可直接安全清理。';
+          case 'skill_markdown_invalid_type':
+            return '入口檔案 SKILL.md 為符號連結（常見於外部外掛套件產生的子 Skill），建議保持由原工具管理，暫不匯入。';
+          case 'skill_content_symlink':
+            return '目錄內包含符號連結（常見於自帶 node_modules 等依賴的外掛倉庫），為避免破壞執行環境暫不匯入，建議保持由原工具管理。';
+          default:
+            return null;
+        }
+      },
+      cleanupBrokenLink: '清理連結',
+      cleanupAllBrokenLinks: '一鍵清理全部',
+      cleaningBrokenLinks: '正在清理…',
+      confirmCleanupBrokenLinkTitle: '清理失效符號連結',
+      confirmCleanupBrokenLink: (name: string, path: string) =>
+        `確認清理失效符號連結「${name}」嗎？\n\n路徑：${path}\n\n僅移除已中斷的符號連結本身，不會刪除任何正常資料夾。`,
+      confirmCleanupAllBrokenLinks: (count: number) =>
+        `確認清理全部 ${count} 個失效符號連結嗎？\n\n僅移除已中斷的符號連結本身，不會刪除任何正常資料夾。`,
+      cleanupBrokenLinksSuccess: (count: number) => `已清理 ${count} 個失效符號連結`,
       skillScanError: (code: string, params: Record<string, string>) => {
         switch (code) {
           case 'invalid_skill_id':
-            return `目錄名「${params.skillId ?? ''}」不是合法的 Skill 名稱（僅允許小寫字母、數字、單個連字號或冒號，最長 64 個字元）。`;
+            return `目錄名「${params.skillId ?? ''}」不是合法的 Skill 名稱（僅允許字母、數字、-、_、.、@、:，不能以 . 開頭或結尾，最長 128 個字元）。`;
           case 'skill_name_mismatch':
             return `元資料 name「${params.metadataName ?? ''}」與目錄名「${params.directoryName ?? ''}」不一致。`;
           case 'skill_markdown_missing':
@@ -1093,7 +1179,7 @@ export const messages = {
           case 'skill_description_empty':
             return 'Skill 描述為空。';
           case 'skill_content_symlink':
-            return `Skill 內部包含符號連結（「${params.path ?? ''}」），不被允許。`;
+            return `Skill 內部包含符號連結（「${params.path ?? ''}」），通常為自帶依賴的外掛倉庫，建議保持原工具管理。`;
           case 'skill_content_special_file':
             return `Skill 內部包含不支援的特殊檔案（「${params.path ?? ''}」）。`;
           case 'skill_io_error':
@@ -1747,14 +1833,59 @@ export const messages = {
       skipImport: 'Skip',
       confirmImport: 'Confirm import',
       importing: 'Importing…',
+      importingProgress: (current: number, total: number) => `Importing (${current}/${total})…`,
+      importingProgressDetail: (skill: string, current: number, total: number) =>
+        `Importing ${skill} (${current}/${total})`,
       close: 'Close',
       sourceCount: (count: number) => `${count} sources`,
       invalidExternalEntries: (count: number) =>
         `${count} external ${count === 1 ? 'Skill' : 'Skills'} could not be scanned`,
+      invalidBrokenLinkCountBadge: (count: number) =>
+        `${count} broken ${count === 1 ? 'link' : 'links'} can be cleaned up`,
+      invalidGroupTitle: (code: string) => {
+        switch (code) {
+          case 'skill_external_link_invalid':
+            return 'Broken symbolic links';
+          case 'skill_markdown_invalid_type':
+            return 'Symlinked entry files';
+          case 'skill_content_symlink':
+            return 'Contains internal symbolic links';
+          case 'invalid_skill_id':
+            return 'Invalid directory names';
+          case 'skill_name_mismatch':
+            return 'Name does not match directory';
+          case 'skill_markdown_missing':
+            return 'Missing SKILL.md entry file';
+          default:
+            return 'Other unscannable entries';
+        }
+      },
+      invalidGroupHint: (code: string) => {
+        switch (code) {
+          case 'skill_external_link_invalid':
+            return 'These symbolic links point to missing targets or non-directories and can be safely removed.';
+          case 'skill_markdown_invalid_type':
+            return 'SKILL.md is a symbolic link (common for sub-skills generated by plugin suites). Keep managed by the original tool instead of importing.';
+          case 'skill_content_symlink':
+            return 'Contains internal symbolic links (common for bundled plugin repos with node_modules). Skipped to avoid breaking its runtime; keep managed by the original tool.';
+          default:
+            return null;
+        }
+      },
+      cleanupBrokenLink: 'Clean up link',
+      cleanupAllBrokenLinks: 'Clean up all',
+      cleaningBrokenLinks: 'Cleaning up…',
+      confirmCleanupBrokenLinkTitle: 'Clean up broken symbolic link',
+      confirmCleanupBrokenLink: (name: string, path: string) =>
+        `Remove the broken symbolic link “${name}”?\n\nPath: ${path}\n\nOnly the dangling symbolic link itself will be removed. No regular folders will be deleted.`,
+      confirmCleanupAllBrokenLinks: (count: number) =>
+        `Remove all ${count} broken symbolic links?\n\nOnly the dangling symbolic links themselves will be removed. No regular folders will be deleted.`,
+      cleanupBrokenLinksSuccess: (count: number) =>
+        `Cleaned up ${count} broken symbolic ${count === 1 ? 'link' : 'links'}`,
       skillScanError: (code: string, params: Record<string, string>) => {
         switch (code) {
           case 'invalid_skill_id':
-            return `The directory name "${params.skillId ?? ''}" is not a valid skill id (lowercase letters, digits, single hyphens/colons, max 64 chars).`;
+            return `The directory name "${params.skillId ?? ''}" is not a valid skill id (letters, digits, -, _, ., @, : only; cannot start or end with .; max 128 chars).`;
           case 'skill_name_mismatch':
             return `The frontmatter name "${params.metadataName ?? ''}" does not match the directory name "${params.directoryName ?? ''}".`;
           case 'skill_markdown_missing':
@@ -1774,7 +1905,7 @@ export const messages = {
           case 'skill_description_empty':
             return 'The skill description is empty.';
           case 'skill_content_symlink':
-            return `The skill contains a symbolic link ("${params.path ?? ''}"), which is not allowed.`;
+            return `The skill contains an internal symbolic link ("${params.path ?? ''}"), typically a bundled plugin repo; keep it managed by its original tool.`;
           case 'skill_content_special_file':
             return `The skill contains an unsupported special file ("${params.path ?? ''}").`;
           case 'skill_io_error':
@@ -2432,14 +2563,58 @@ export const messages = {
       skipImport: 'スキップ',
       confirmImport: '読み込みを確定',
       importing: '読み込み中…',
+      importingProgress: (current: number, total: number) => `読み込み中 (${current}/${total})…`,
+      importingProgressDetail: (skill: string, current: number, total: number) =>
+        `${skill} を読み込み中（${current}/${total} 件目）`,
       close: '閉じる',
       sourceCount: (count: number) => `${count} 件のソース`,
       invalidExternalEntries: (count: number) =>
         `${count} 件の外部 Skill をスキャンできませんでした`,
+      invalidBrokenLinkCountBadge: (count: number) => `削除可能なリンク切れ ${count} 件`,
+      invalidGroupTitle: (code: string) => {
+        switch (code) {
+          case 'skill_external_link_invalid':
+            return '壊れたシンボリックリンク';
+          case 'skill_markdown_invalid_type':
+            return '入口ファイルがシンボリックリンク';
+          case 'skill_content_symlink':
+            return '内部にシンボリックリンクを含む';
+          case 'invalid_skill_id':
+            return '無効なディレクトリ名';
+          case 'skill_name_mismatch':
+            return '名前とディレクトリ名の不一致';
+          case 'skill_markdown_missing':
+            return 'SKILL.md が見つかりません';
+          default:
+            return 'その他のスキャン不可項目';
+        }
+      },
+      invalidGroupHint: (code: string) => {
+        switch (code) {
+          case 'skill_external_link_invalid':
+            return '参照先が存在しないかフォルダーではないリンクです。安全に削除できます。';
+          case 'skill_markdown_invalid_type':
+            return 'SKILL.md がシンボリックリンクです（外部プラグインスイートが生成したサブ Skill など）。元のツールで管理するため読み込み対象外です。';
+          case 'skill_content_symlink':
+            return '内部にシンボリックリンクを含みます（node_modules 等を同梱するプラグインリポジトリなど）。実行環境保護のため読み込み対象外です。';
+          default:
+            return null;
+        }
+      },
+      cleanupBrokenLink: 'リンクを削除',
+      cleanupAllBrokenLinks: 'すべて削除',
+      cleaningBrokenLinks: '削除中…',
+      confirmCleanupBrokenLinkTitle: '壊れたシンボリックリンクを削除',
+      confirmCleanupBrokenLink: (name: string, path: string) =>
+        `壊れたシンボリックリンク「${name}」を削除しますか？\n\nパス：${path}\n\n切れたシンボリックリンク本体のみを削除し、通常のフォルダーは削除しません。`,
+      confirmCleanupAllBrokenLinks: (count: number) =>
+        `${count} 件の壊れたシンボリックリンクをすべて削除しますか？\n\n切れたシンボリックリンク本体のみを削除し、通常のフォルダーは削除しません。`,
+      cleanupBrokenLinksSuccess: (count: number) =>
+        `${count} 件の壊れたシンボリックリンクを削除しました`,
       skillScanError: (code: string, params: Record<string, string>) => {
         switch (code) {
           case 'invalid_skill_id':
-            return `ディレクトリ名「${params.skillId ?? ''}」は有効な Skill 名ではありません（小文字・数字、単一のハイフンまたはコロン、最大 64 文字）。`;
+            return `ディレクトリ名「${params.skillId ?? ''}」は有効な Skill 名ではありません（英数字と - _ . @ : のみ、先頭・末尾の . は不可、最大 128 文字）。`;
           case 'skill_name_mismatch':
             return `フロントマターの name「${params.metadataName ?? ''}」がディレクトリ名「${params.directoryName ?? ''}」と一致しません。`;
           case 'skill_markdown_missing':
@@ -2459,7 +2634,7 @@ export const messages = {
           case 'skill_description_empty':
             return 'Skill の説明が空です。';
           case 'skill_content_symlink':
-            return `Skill 内にシンボリックリンク（「${params.path ?? ''}」）が含まれており、許可されていません。`;
+            return `Skill 内にシンボリックリンク（「${params.path ?? ''}」）が含まれています（依存関係付きプラグインリポジトリなど）。元のツールで管理してください。`;
           case 'skill_content_special_file':
             return `Skill 内に未対応の特殊ファイル（「${params.path ?? ''}」）が含まれています。`;
           case 'skill_io_error':
