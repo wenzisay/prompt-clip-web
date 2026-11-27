@@ -347,4 +347,143 @@ describe('SkillImportModal', () => {
       expect((button as HTMLButtonElement).disabled).toBe(true);
     }
   });
+
+  it('collapses the invalid banner by default when importable skills exist and auto-collapses large error groups', () => {
+    const manySymlinkEntries = Array.from({ length: 5 }, (_, index) => ({
+      directoryName: `gstack-sub-${index}`,
+      error: { code: 'skill_markdown_invalid_type', params: {} },
+      source: {
+        targetGroupId: 'claude-group',
+        toolIds: ['claude-code'],
+        path: `/home/.claude/skills/gstack-sub-${index}`,
+      },
+    }));
+
+    render(
+      <SkillImportModal
+        isOpen
+        scan={{
+          groups: scan.groups,
+          invalidEntries: [
+            {
+              directoryName: 'computer-use',
+              error: { code: 'skill_external_link_invalid', params: {} },
+              source: {
+                targetGroupId: 'agents-group',
+                toolIds: ['agents-skills'],
+                path: '/home/.agents/skills/computer-use',
+              },
+            },
+            ...manySymlinkEntries,
+            {
+              directoryName: 'gstack',
+              error: {
+                code: 'skill_content_symlink',
+                params: { path: 'node_modules/.bin/sdk' },
+              },
+              source: {
+                targetGroupId: 'claude-group',
+                toolIds: ['claude-code'],
+                path: '/home/.claude/skills/gstack',
+              },
+            },
+          ],
+        }}
+        hubSkills={[]}
+        onClose={vi.fn()}
+        onConfirm={vi.fn()}
+        onRevealExternal={vi.fn()}
+      />
+    );
+
+    // 存在可导入 Skill 时，异常区默认折叠，不挤压主内容
+    const bannerButton = screen.getByRole('button', {
+      name: /7 external Skills could not be scanned/,
+    });
+    expect(bannerButton.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByTestId('invalid-group-skill_external_link_invalid')).toBeNull();
+
+    // 展开异常区：<= 3 条的分组（失效链接、内部软链）默认展开；> 3 条（5 条入口软链）默认折叠
+    fireEvent.click(bannerButton);
+    expect(screen.getByText('computer-use')).toBeTruthy();
+    expect(screen.getByText('gstack')).toBeTruthy();
+    expect(screen.queryByText('gstack-sub-0')).toBeNull();
+
+    // 点击 5 条入口软链分组后展开明细
+    fireEvent.click(screen.getByRole('button', { name: /Symlinked entry files/ }));
+    expect(screen.getByText('gstack-sub-0')).toBeTruthy();
+  });
+
+  it('invokes cleanup callbacks for single and batch broken symbolic links', () => {
+    const onCleanupBrokenLinks = vi.fn();
+    render(
+      <SkillImportModal
+        isOpen
+        scan={{
+          groups: [],
+          invalidEntries: [
+            {
+              directoryName: 'computer-use',
+              error: { code: 'skill_external_link_invalid', params: {} },
+              source: {
+                targetGroupId: 'agents-group',
+                toolIds: ['agents-skills'],
+                path: '/home/.agents/skills/computer-use',
+              },
+            },
+            {
+              directoryName: 'dead-two',
+              error: { code: 'skill_external_link_invalid', params: {} },
+              source: {
+                targetGroupId: 'claude-group',
+                toolIds: ['claude-code'],
+                path: '/home/.claude/skills/dead-two',
+              },
+            },
+          ],
+        }}
+        hubSkills={[]}
+        onClose={vi.fn()}
+        onConfirm={vi.fn()}
+        onRevealExternal={vi.fn()}
+        onCleanupBrokenLinks={onCleanupBrokenLinks}
+      />
+    );
+
+    fireEvent.click(screen.getAllByRole('button', { name: /Clean up link/ })[0]);
+    expect(onCleanupBrokenLinks).toHaveBeenCalledWith(
+      [{ targetGroupId: 'agents-group', directoryName: 'computer-use' }],
+      '/home/.agents/skills/computer-use'
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Clean up all/ }));
+    expect(onCleanupBrokenLinks).toHaveBeenLastCalledWith(
+      [
+        { targetGroupId: 'agents-group', directoryName: 'computer-use' },
+        { targetGroupId: 'claude-group', directoryName: 'dead-two' },
+      ],
+      undefined
+    );
+  });
+
+  it('shows per-skill import progress count and progress bar while importing', () => {
+    render(
+      <SkillImportModal
+        isOpen
+        scan={mixedScan}
+        hubSkills={[]}
+        isImporting
+        importProgress={{ current: 1, total: 2, currentSkillId: 'doc-writer' }}
+        onClose={vi.fn()}
+        onConfirm={vi.fn()}
+        onRevealExternal={vi.fn()}
+      />
+    );
+
+    expect(screen.getByRole('button', { name: /Importing \(1\/2\)…/ })).toBeTruthy();
+    expect(screen.getByTestId('skill-import-progress-text').textContent).toBe(
+      'Importing doc-writer (1/2)'
+    );
+    expect(screen.getByTestId('skill-import-progress-bar').style.width).toBe('50%');
+  });
 });

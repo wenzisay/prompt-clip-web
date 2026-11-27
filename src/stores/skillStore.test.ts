@@ -10,6 +10,8 @@ import type {
 const mocks = vi.hoisted(() => ({
   scan: vi.fn(),
   scanExternal: vi.fn(),
+  cleanupBrokenExternalLinks: vi.fn(),
+  importExternal: vi.fn(),
   setEnabled: vi.fn(),
   forceEnable: vi.fn(),
   setFavorite: vi.fn(),
@@ -250,6 +252,65 @@ describe('skillStore', () => {
     expect(useSkillStore.getState().skills.map((item) => item.id)).toEqual(['review']);
     expect(useSkillStore.getState().error?.code).toBe('skill_delete_failed');
     expect(mocks.scan).toHaveBeenCalledTimes(2);
+  });
+
+  it('updates externalScan snapshot after cleaning up broken external links', async () => {
+    const refreshedScan = { groups: [], invalidEntries: [] };
+    mocks.cleanupBrokenExternalLinks.mockResolvedValue({
+      removedCount: 1,
+      scan: refreshedScan,
+      errors: [],
+    });
+
+    const result = await useSkillStore.getState().cleanupBrokenExternalLinks([
+      { targetGroupId: 'agents-group', directoryName: 'computer-use' },
+    ]);
+
+    expect(result?.removedCount).toBe(1);
+    expect(useSkillStore.getState().externalScan).toEqual(refreshedScan);
+  });
+
+  it('imports only useExternal selections and reports sequential import progress', async () => {
+    const observedProgress: Array<{ current: number; total: number; currentSkillId: string }> = [];
+    mocks.importExternal.mockImplementation(async (selection: { skillId: string }) => {
+      const progress = useSkillStore.getState().importProgress;
+      if (progress) observedProgress.push(progress);
+      return scanResponse([skill(selection.skillId)]);
+    });
+
+    await useSkillStore.getState().importExternalSelections([
+      {
+        skillId: 'existing-keep',
+        contentHash: 'h1',
+        targetGroupId: 'codex-group',
+        decision: 'keepHub',
+      },
+      {
+        skillId: 'skipped-new',
+        contentHash: 'h2',
+        targetGroupId: 'codex-group',
+        decision: 'skip',
+      },
+      {
+        skillId: 'import-one',
+        contentHash: 'h3',
+        targetGroupId: 'codex-group',
+        decision: 'useExternal',
+      },
+      {
+        skillId: 'import-two',
+        contentHash: 'h4',
+        targetGroupId: 'codex-group',
+        decision: 'useExternal',
+      },
+    ]);
+
+    expect(mocks.importExternal).toHaveBeenCalledTimes(2);
+    expect(observedProgress).toEqual([
+      { current: 1, total: 2, currentSkillId: 'import-one' },
+      { current: 2, total: 2, currentSkillId: 'import-two' },
+    ]);
+    expect(useSkillStore.getState().importProgress).toBeNull();
   });
 
   describe('agent tool filter', () => {

@@ -5,6 +5,9 @@ import { DEFAULT_CATEGORY_ID } from '@/constants/defaults';
 import { isSkillAvailableForTool, isSkillStatusActive } from '@/utils/skillSharedAccess';
 import type {
   AgentTool,
+  ExternalEntryTarget,
+  ExternalImportProgress,
+  ExternalLinkCleanupResult,
   ExternalScanResult,
   ExternalImportSelection,
   InvalidSkillEntry,
@@ -42,10 +45,14 @@ interface SkillState {
   filter: SkillFilter;
   isLoading: boolean;
   isScanningExternal: boolean;
+  importProgress: ExternalImportProgress | null;
   pendingTargetGroups: string[];
   error: SkillManagerError | null;
   load: () => Promise<void>;
   rescanExternal: () => Promise<void>;
+  cleanupBrokenExternalLinks: (
+    entries: ExternalEntryTarget[]
+  ) => Promise<ExternalLinkCleanupResult | null>;
   importExternalSelections: (selections: ExternalImportSelection[]) => Promise<void>;
   setSearchQuery: (searchQuery: string) => void;
   setFavoritesOnly: (favoritesOnly: boolean) => void;
@@ -93,6 +100,7 @@ const INITIAL_STATE = {
   filter: INITIAL_FILTER,
   isLoading: false,
   isScanningExternal: false,
+  importProgress: null as ExternalImportProgress | null,
   pendingTargetGroups: [] as string[],
   error: null as SkillManagerError | null,
 };
@@ -141,37 +149,70 @@ export const useSkillStore = create<SkillState>()((set, get) => ({
     }
   },
 
+  cleanupBrokenExternalLinks: async (entries) => {
+    set({ error: null });
+    try {
+      const result = await SkillService.cleanupBrokenExternalLinks(entries);
+      set({ externalScan: result.scan });
+      return result;
+    } catch (error) {
+      set({ error: normalizeError(error) });
+      return null;
+    }
+  },
+
   importExternalSelections: async (selections) => {
+    // 保留 Hub 或跳过不会改动本地 Hub，过滤掉无实际写入的选项，避免触发大量无效扫描 IPC。
+    const actionableSelections = selections.filter(
+      (selection) => selection.decision === 'useExternal'
+    );
+    if (actionableSelections.length === 0) {
+      set({ externalScan: null, importProgress: null });
+      return;
+    }
+
     const importErrors: SkillManagerError[] = [];
     let response: SkillScanResponse | null = null;
-    for (const selection of selections) {
-      try {
-        // 每次导入命令在 Rust 侧同步完成「写入 + 重新扫描 hub」并返回最新快照，
-        // 避免跨 IPC 重新读取在 Windows 上读到陈旧的目录枚举（首次导入尤甚）。
-        response = await SkillService.importExternal(selection);
-      } catch (error) {
-        importErrors.push(
-          normalizeError(error, { skillId: selection.skillId })
-        );
+    try {
+      for (let index = 0; index < actionableSelections.length; index += 1) {
+        const selection = actionableSelections[index];
+        set({
+          importProgress: {
+            current: index + 1,
+            total: actionableSelections.length,
+            currentSkillId: selection.skillId,
+          },
+        });
+        try {
+          // 每次导入命令在 Rust 侧同步完成「写入 + 重新扫描 hub」并返回最新快照，
+          // 避免跨 IPC 重新读取在 Windows 上读到陈旧的目录枚举（首次导入尤甚）。
+          response = await SkillService.importExternal(selection);
+        } catch (error) {
+          importErrors.push(
+            normalizeError(error, { skillId: selection.skillId })
+          );
+        }
       }
-    }
-    if (response) {
-      set({
-        skillsPath: response.skillsPath,
-        skills: response.skills,
-        tools: response.tools,
-        invalidEntries: response.invalidEntries,
-        scanErrors: [...response.errors, ...importErrors],
-        externalScan: null,
-      });
-      get().applyFilter();
-    } else {
-      // 全部导入失败：仍刷新一次以保持状态一致，并合并错误
-      await get().load();
-      set((state) => ({
-        scanErrors: [...state.scanErrors, ...importErrors],
-        externalScan: null,
-      }));
+      if (response) {
+        set({
+          skillsPath: response.skillsPath,
+          skills: response.skills,
+          tools: response.tools,
+          invalidEntries: response.invalidEntries,
+          scanErrors: [...response.errors, ...importErrors],
+          externalScan: null,
+        });
+        get().applyFilter();
+      } else {
+        // 全部导入失败：仍刷新一次以保持状态一致，并合并错误
+        await get().load();
+        set((state) => ({
+          scanErrors: [...state.scanErrors, ...importErrors],
+          externalScan: null,
+        }));
+      }
+    } finally {
+      set({ importProgress: null });
     }
   },
 

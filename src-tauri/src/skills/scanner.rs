@@ -141,10 +141,54 @@ fn scan_external_path(
         if !file_type.is_symlink() && !file_type.is_dir() {
             continue;
         }
+        // 支持 npm scope 风格的 `@scope/<skill>` 二级命名空间目录：
+        // 若 `@...` 是真实目录且自身不含 SKILL.md / skill.md，则向下扫描一级子目录。
+        if directory_name.starts_with('@')
+            && file_type.is_dir()
+            && !has_direct_skill_markdown(&entry.path())
+        {
+            scan_scoped_external_directory(&entry.path(), &directory_name, tools, groups, invalid_entries)?;
+            continue;
+        }
         match scan_external_directory(&entry.path(), &directory_name, tools) {
             Ok((name, version)) => merge_external_version(groups, name, version),
             Err(error) => invalid_entries.push(ExternalInvalidSkillEntry {
                 directory_name,
+                error,
+                source: external_skill_source(&entry.path(), tools),
+            }),
+        }
+    }
+    Ok(())
+}
+
+fn has_direct_skill_markdown(directory: &Path) -> bool {
+    fs::symlink_metadata(directory.join(SKILL_MARKDOWN)).is_ok()
+        || fs::symlink_metadata(directory.join("skill.md")).is_ok()
+}
+
+fn scan_scoped_external_directory(
+    scope_path: &Path,
+    scope_name: &str,
+    tools: &[&AgentTool],
+    groups: &mut std::collections::BTreeMap<String, ExternalSkillGroup>,
+    invalid_entries: &mut Vec<ExternalInvalidSkillEntry>,
+) -> Result<(), SkillManagerError> {
+    for entry in read_sorted_entries(scope_path)? {
+        let child_name = entry.file_name().to_string_lossy().to_string();
+        if child_name.starts_with('.') {
+            continue;
+        }
+        let file_type = entry
+            .file_type()
+            .map_err(|error| io_error("read_external_file_type", error))?;
+        if !file_type.is_symlink() && !file_type.is_dir() {
+            continue;
+        }
+        match scan_external_directory(&entry.path(), &child_name, tools) {
+            Ok((name, version)) => merge_external_version(groups, name, version),
+            Err(error) => invalid_entries.push(ExternalInvalidSkillEntry {
+                directory_name: format!("{scope_name}/{child_name}"),
                 error,
                 source: external_skill_source(&entry.path(), tools),
             }),
@@ -717,6 +761,51 @@ mod tests {
         assert_eq!(
             result.invalid_entries[0].error.code,
             "skill_content_symlink"
+        );
+    }
+
+    #[test]
+    fn should_scan_skills_inside_at_scoped_namespace_directories() {
+        let temp = tempdir().expect("temp directory should be created");
+        let skills = temp.path().join("skills");
+        let scope_dir = skills.join("@org-ths-repilot");
+        write_skill(
+            &scope_dir,
+            "ifind-chain-analysis",
+            "ifind-chain-analysis",
+            "Scoped skill",
+        );
+        // 顶层本身就是带 @ 且含 SKILL.md 的目录也能直接扫出（YAML 中 @ 开头需加引号）
+        let direct_dir = skills.join("@direct-skill");
+        fs::create_dir_all(&direct_dir).expect("direct skill dir should be created");
+        fs::write(
+            direct_dir.join("SKILL.md"),
+            "---\nname: \"@direct-skill\"\ndescription: Direct @-prefixed skill\n---\n",
+        )
+        .expect("SKILL.md should be written");
+
+        let result = scan_external_skills(&[agent_tool("claude-code", &skills, "claude")])
+            .expect("external skills should scan");
+
+        assert!(
+            result.invalid_entries.is_empty(),
+            "unexpected invalid entries: {:?}",
+            result.invalid_entries
+        );
+        let names = result
+            .groups
+            .iter()
+            .map(|group| group.name.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(names, vec!["@direct-skill", "ifind-chain-analysis"]);
+        let scoped = result
+            .groups
+            .iter()
+            .find(|group| group.name == "ifind-chain-analysis")
+            .expect("scoped skill should exist");
+        assert_eq!(
+            scoped.versions[0].sources[0].path,
+            scope_dir.join("ifind-chain-analysis")
         );
     }
 }

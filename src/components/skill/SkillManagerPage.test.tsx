@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   updateSettings: vi.fn(),
   load: vi.fn(),
   rescanExternal: vi.fn(),
+  cleanupBrokenExternalLinks: vi.fn(),
   importExternalSelections: vi.fn(),
   requestNavigateAway: vi.fn((proceed: () => void) => proceed()),
   externalScan: null as ExternalScanResult | null,
@@ -47,7 +48,9 @@ const buildStoreState = () => ({
   load: mocks.load,
   error: null,
   externalScan: mocks.externalScan,
+  importProgress: null,
   rescanExternal: mocks.rescanExternal,
+  cleanupBrokenExternalLinks: mocks.cleanupBrokenExternalLinks,
   importExternalSelections: mocks.importExternalSelections,
   deleteSkill: mocks.deleteSkill,
 });
