@@ -8,4 +8,5 @@ export * from './errorMessage';
 export * from './id';
 export * from './markdown';
 export * from './path';
+export * from './skillError';
 export * from './storage';

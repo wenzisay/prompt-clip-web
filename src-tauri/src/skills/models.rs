@@ -219,6 +219,7 @@ pub struct ArchivePreview {
 #[serde(rename_all = "camelCase")]
 pub struct SkillScanResponse {
     pub skills_path: PathBuf,
+    pub settings: SkillManagerSettings,
     pub skills: Vec<SkillSummary>,
     pub invalid_entries: Vec<InvalidSkillEntry>,
     pub tools: Vec<AgentTool>,

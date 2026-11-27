@@ -23,6 +23,17 @@ pub fn inspect_target(
     target: &Path,
     skill_id: &str,
 ) -> Result<TargetState, SkillManagerError> {
+    inspect_target_with_source_hash(source, target, skill_id, None)
+}
+
+/// 检查目标目录的真实同步状态；调用方若已计算过源目录哈希，可通过 `known_source_hash`
+/// 复用结果，避免对同一 Skill 源目录反复全量读取并计算 SHA-256。
+pub fn inspect_target_with_source_hash(
+    source: &Path,
+    target: &Path,
+    skill_id: &str,
+    known_source_hash: Option<&str>,
+) -> Result<TargetState, SkillManagerError> {
     validate_skill_id(skill_id)?;
     let metadata = match fs::symlink_metadata(target) {
         Ok(metadata) => metadata,
@@ -42,7 +53,7 @@ pub fn inspect_target(
             Some("skill_target_not_directory"),
         ));
     }
-    inspect_copy(source, target, skill_id)
+    inspect_copy(source, target, skill_id, known_source_hash)
 }
 
 pub fn set_skill_enabled(
@@ -284,6 +295,7 @@ fn inspect_copy(
     source: &Path,
     target: &Path,
     skill_id: &str,
+    known_source_hash: Option<&str>,
 ) -> Result<TargetState, SkillManagerError> {
     let marker_path = target.join(MANAGEMENT_MARKER);
     let marker_contents = match fs::read_to_string(marker_path) {
@@ -313,9 +325,24 @@ fn inspect_copy(
             Some("skill_target_marker_mismatch"),
         ));
     }
-    let source_hash = compute_skill_hash(source)?;
+    let computed_source_hash;
+    let source_hash = match known_source_hash {
+        Some(hash) => hash,
+        None => {
+            computed_source_hash = compute_skill_hash(source)?;
+            computed_source_hash.as_str()
+        }
+    };
+    // 源目录哈希已不同于同步标记时可直接判 stale，省去对整个副本目录的哈希计算。
+    if marker.source_hash != source_hash {
+        return Ok(target_state(
+            SkillToolStatus::Stale,
+            Some(ActualSyncMode::Copy),
+            None,
+        ));
+    }
     let target_hash = compute_skill_hash(target)?;
-    let status = if source_hash == target_hash && marker.source_hash == source_hash {
+    let status = if source_hash == target_hash {
         SkillToolStatus::Enabled
     } else {
         SkillToolStatus::Stale

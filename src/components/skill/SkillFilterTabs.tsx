@@ -6,7 +6,14 @@ import { findCategory } from '@/services/categoryService';
 
 export function SkillFilterTabs() {
   const { t } = useTranslation();
-  const { filter, tools, categories, setFavoritesOnly } = useSkillStore();
+  const {
+    filter,
+    tools,
+    categories,
+    setFavoritesOnly,
+    setAgentToolFilter,
+    setCategoryFilter,
+  } = useSkillStore();
   const selectedAgent = filter.agentToolId
     ? tools.find((tool) => tool.id === filter.agentToolId)
     : undefined;
@@ -33,22 +40,44 @@ export function SkillFilterTabs() {
 
       {selectedAgent && (
         <div
-          className="h-9 max-w-[220px] rounded-full bg-accent px-4 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(0,88,188,0.12)] inline-flex items-center gap-1.5"
+          className="h-9 max-w-[240px] rounded-full bg-accent pl-4 pr-2 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(0,88,188,0.12)] inline-flex items-center gap-1.5"
           title={selectedAgent.name}
         >
           <span className="flex h-4 w-4 shrink-0 items-center justify-center">
             <AgentToolIcon iconId={selectedAgent.iconId} />
           </span>
           <span className="truncate">{selectedAgent.name}</span>
+          <button
+            type="button"
+            onClick={() => setAgentToolFilter(null)}
+            aria-label={t.skills.clearFilter}
+            title={t.skills.clearFilter}
+            className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-white/85 transition-colors hover:bg-white/20 hover:text-white"
+          >
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
+              close
+            </span>
+          </button>
         </div>
       )}
 
       {selectedCategory && (
         <div
-          className="h-9 max-w-[220px] rounded-full bg-accent px-4 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(0,88,188,0.12)] inline-flex items-center gap-1.5"
+          className="h-9 max-w-[240px] rounded-full bg-accent pl-4 pr-2 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(0,88,188,0.12)] inline-flex items-center gap-1.5"
           title={selectedCategory.name}
         >
           <span className="truncate">{selectedCategory.name}</span>
+          <button
+            type="button"
+            onClick={() => setCategoryFilter(null)}
+            aria-label={t.skills.clearFilter}
+            title={t.skills.clearFilter}
+            className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-white/85 transition-colors hover:bg-white/20 hover:text-white"
+          >
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
+              close
+            </span>
+          </button>
         </div>
       )}
     </div>

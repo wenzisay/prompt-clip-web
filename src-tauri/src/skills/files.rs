@@ -9,8 +9,9 @@ const MAX_TEXT_FILE_SIZE: u64 = 2 * 1024 * 1024;
 // 拖拽上传走 IPC 传输字节，单独设置上限避免超大文件阻塞主进程。
 const MAX_BINARY_FILE_SIZE: u64 = 64 * 1024 * 1024;
 const TEXT_EXTENSIONS: &[&str] = &[
-    "css", "csv", "html", "js", "json", "jsx", "md", "markdown", "py", "rs", "sh", "toml", "ts",
-    "tsx", "txt", "xml", "yaml", "yml",
+    "bash", "conf", "css", "csv", "env", "go", "html", "ini", "java", "js", "json", "jsx", "kt",
+    "markdown", "md", "py", "rs", "sh", "sql", "toml", "ts", "tsx", "txt", "xml", "yaml", "yml",
+    "zsh",
 ];
 
 pub fn list_skill_files(
@@ -714,6 +715,32 @@ mod tests {
             oversized.expect_err("oversized upload should fail").code,
             "skill_file_too_large"
         );
+    }
+
+    #[test]
+    fn should_read_and_write_expanded_script_and_config_extensions() {
+        let (_home, paths) = create_fixture();
+        for name in ["script.bash", "hook.zsh", "main.go", "App.java", "query.sql", "app.env", "app.ini", "site.conf", "Main.kt"] {
+            let relative = Path::new(name);
+            let created = create_text_file(&paths, "demo-skill", relative)
+                .unwrap_or_else(|error| panic!("{name} should be created: {error}"));
+            let written = write_text_file(
+                &paths,
+                "demo-skill",
+                relative,
+                "hello",
+                Some(created.modified_at_ms),
+            )
+            .unwrap_or_else(|error| panic!("{name} should be writable: {error}"));
+            assert_eq!(written.content, "hello");
+        }
+        let entries = list_skill_files(&paths, "demo-skill").expect("tree should load");
+        let go_entry = entries
+            .iter()
+            .find(|entry| entry.relative_path == "main.go")
+            .expect("main.go should exist");
+        assert!(go_entry.is_text);
+        assert!(!go_entry.is_markdown);
     }
 
     #[test]

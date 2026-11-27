@@ -343,6 +343,7 @@ export const messages = {
       searchPlaceholder: '按名称搜索 Skills',
       all: '全部',
       favorites: '收藏',
+      clearFilter: '清除筛选',
       agents: 'Agents',
       noAgents: '未检测到已安装的 Agent',
       moreTools: '更多',
@@ -354,10 +355,17 @@ export const messages = {
       loading: '正在加载 Skills…',
       noSkills: '还没有 Skills',
       noSkillsHint: '扫描、新建或上传 Skills，开始统一管理 Agent Skills。',
+      noMatchingSkills: '没有匹配的 Skills',
+      noMatchingSkillsHint: '尝试调整搜索关键词或切换其他筛选条件。',
       favorite: '收藏 Skill',
       unfavorite: '取消收藏 Skill',
       enableFor: (tool: string) => `为 ${tool} 启用`,
       disableFor: (tool: string) => `为 ${tool} 停用`,
+      resyncFor: (tool: string) => `重新同步到 ${tool}`,
+      repairBrokenFor: (tool: string) => `修复 ${tool} 中损坏的链接`,
+      repairBroken: '修复链接',
+      confirmRepairBroken: (skill: string, tool: string, path: string) =>
+        `确认修复 ${tool} 中损坏的 Skill“${skill}”链接吗？\n\n目标：${path}\n\nPromptClip 将移除已失效的链接并重新建立同步目标。`,
       forceOverwriteFor: (tool: string) => `强制覆盖 ${tool} 中的 Skill`,
       forceOverwrite: '强制覆盖',
       confirmForceOverwrite: (skill: string, tool: string, path: string) =>
@@ -429,6 +437,7 @@ export const messages = {
       archiveConflict: 'PromptClip 中已有同名 Skill，请选择保留的版本。',
       confirmArchiveImport: '确认导入',
       backToSkills: '返回 Skills',
+      revealSkillFolder: '在文件管理器中打开 Skill 目录',
       newFolder: '新建文件夹',
       newFile: '新建文本文件',
       uploadFile: '上传文件',
@@ -451,6 +460,73 @@ export const messages = {
       unsavedChanges: '有未保存的修改，确定放弃吗？',
       syncPartialFailure: '文件已保存，但部分复制目标同步失败。',
       operationFailed: '操作失败，请重试。',
+      scanNoExternalFound: '扫描完成，未发现需要导入的外部 Skill。',
+      skillOperationError: (code: string, params: Record<string, string>) => {
+        switch (code) {
+          case 'skill_already_exists':
+            return '已存在同名 Skill，请更换名称。';
+          case 'skill_symlink_permission_denied':
+            return '创建软链接权限不足：在 Windows 上请开启“开发者模式”，或在同步设置中改用“文件复制”。';
+          case 'skill_file_conflict':
+            return '文件已被外部程序修改，保存已取消以避免覆盖；请重新加载后再编辑。';
+          case 'skill_file_too_large':
+            return '文件超过大小限制，无法读取或上传。';
+          case 'skill_file_not_text':
+            return '该文件类型不支持在应用内作为文本编辑。';
+          case 'skill_file_not_utf8':
+            return '该文件不是有效的 UTF-8 文本，无法在应用内编辑。';
+          case 'skill_entry_exists':
+            return '目标位置已存在同名文件或文件夹。';
+          case 'skill_entry_protected':
+            return '核心入口文件 SKILL.md 受保护，不能重命名或删除。';
+          case 'skill_archive_multiple_roots':
+            return '压缩包内包含多个顶层目录，每次仅支持导入单个 Skill。';
+          case 'skill_archive_too_large':
+            return '压缩包超过 50 MiB 上限，无法导入。';
+          case 'skill_archive_expanded_too_large':
+            return '压缩包解压后超过 200 MiB 上限，无法导入。';
+          case 'skill_archive_too_many_entries':
+            return '压缩包内文件数量超过 5,000 个上限，无法导入。';
+          case 'skill_archive_unsafe_path':
+          case 'skill_archive_special_entry':
+            return '压缩包包含不安全的路径或特殊链接条目，已拒绝导入。';
+          case 'skill_archive_extension_invalid':
+            return '仅支持导入 .zip 或 .skill 格式的压缩包。';
+          case 'skill_archive_invalid':
+            return '压缩包无效或已损坏，无法解析。';
+          case 'skill_target_conflict':
+            return '目标工具目录中存在非 PromptClip 管理的同名内容，请点击工具图标确认后再处理。';
+          case 'skill_target_group_mode_conflict':
+            return '共享同一目录的多个工具配置了不同的同步方式，请先在设置中统一。';
+          case 'skill_custom_tool_name_required':
+            return '请输入自定义工具名称。';
+          case 'skill_custom_tool_path_required':
+            return '请输入自定义工具的 Skills 目录路径。';
+          case 'skill_custom_tool_path_not_absolute':
+          case 'skill_custom_tool_path_invalid':
+            return '自定义工具的 Skills 目录必须是合法的绝对路径。';
+          case 'skill_custom_tool_duplicate':
+            return '已存在同名或同路径的自定义工具。';
+          case 'skill_category_name_required':
+            return '分类名称不能为空。';
+          case 'skill_category_name_too_long':
+            return '分类名称过长。';
+          case 'skill_category_name_duplicate':
+            return '分类名称已存在。';
+          case 'skill_category_name_reserved':
+            return '该名称为保留名称，请换一个。';
+          case 'skill_source_changed':
+            return '外部 Skill 内容已发生变化，请重新扫描后再导入。';
+          case 'skill_io_error':
+            return params.message
+              ? `文件读写失败：${params.message}`
+              : '文件读写失败，请检查目录权限后重试。';
+          default:
+            return params.message
+              ? `操作失败：${params.message}`
+              : '操作失败，请重试。';
+        }
+      },
       invalidSkillName: 'Skill 名称格式不正确。',
       exportSuccess: 'Skill 已导出。',
       protected: '受保护',
@@ -470,6 +546,7 @@ export const messages = {
       saveSettings: '保存设置',
       migrationHint: '保存后，已启用的 Skills 将迁移到新的同步方式；失败项可再次重试。',
       agentNotInstalled: '未安装',
+      uninstalledAgents: (count: number) => `未检测到安装的 Agent（${count}）`,
       enableAgent: (tool: string) => `启用 ${tool}`,
       disableAgent: (tool: string) => `停用 ${tool}`,
       agentDisabledHint: '已停用的 Agent 不会出现在 Skill 卡片和导航栏，也不会参与同步。',
@@ -513,6 +590,8 @@ export const messages = {
       selectAll: '全选',
       deselectAll: '全不选',
       noSkillsInCategory: '该分类下暂无 Skill',
+      noCategoriesYet: '暂无自建分类，在下方输入名称即可快速新建',
+      quickCreateCategoryPlaceholder: '输入新分类名',
       categoryNameRequired: '分类名称不能为空',
       categoryNameTooLong: '分类名称过长',
       categoryNameDuplicate: '分类名称已存在',
@@ -918,6 +997,7 @@ export const messages = {
       searchPlaceholder: '依名稱搜尋 Skills',
       all: '全部',
       favorites: '收藏',
+      clearFilter: '清除篩選',
       agents: 'Agents',
       noAgents: '未偵測到已安裝的 Agent',
       moreTools: '更多',
@@ -929,10 +1009,17 @@ export const messages = {
       loading: '正在載入 Skills…',
       noSkills: '尚無 Skills',
       noSkillsHint: '掃描、新增或上傳 Skills，開始統一管理 Agent Skills。',
+      noMatchingSkills: '沒有符合的 Skills',
+      noMatchingSkillsHint: '嘗試調整搜尋關鍵字或切換其他篩選條件。',
       favorite: '收藏 Skill',
       unfavorite: '取消收藏 Skill',
       enableFor: (tool: string) => `為 ${tool} 啟用`,
       disableFor: (tool: string) => `為 ${tool} 停用`,
+      resyncFor: (tool: string) => `重新同步到 ${tool}`,
+      repairBrokenFor: (tool: string) => `修復 ${tool} 中損壞的連結`,
+      repairBroken: '修復連結',
+      confirmRepairBroken: (skill: string, tool: string, path: string) =>
+        `確認修復 ${tool} 中損壞的 Skill「${skill}」連結嗎？\n\n目標：${path}\n\nPromptClip 將移除已失效的連結並重新建立同步目標。`,
       forceOverwriteFor: (tool: string) => `強制覆蓋 ${tool} 中的 Skill`,
       forceOverwrite: '強制覆蓋',
       confirmForceOverwrite: (skill: string, tool: string, path: string) =>
@@ -1004,6 +1091,7 @@ export const messages = {
       archiveConflict: 'PromptClip 中已有同名 Skill，請選擇保留的版本。',
       confirmArchiveImport: '確認匯入',
       backToSkills: '返回 Skills',
+      revealSkillFolder: '在檔案管理器中開啟 Skill 目錄',
       newFolder: '新增資料夾',
       newFile: '新增文字檔',
       uploadFile: '上傳檔案',
@@ -1026,6 +1114,73 @@ export const messages = {
       unsavedChanges: '有未儲存的修改，確定放棄嗎？',
       syncPartialFailure: '檔案已儲存，但部分複製目標同步失敗。',
       operationFailed: '操作失敗，請重試。',
+      scanNoExternalFound: '掃描完成，未發現需要匯入的外部 Skill。',
+      skillOperationError: (code: string, params: Record<string, string>) => {
+        switch (code) {
+          case 'skill_already_exists':
+            return '已存在同名 Skill，請更換名稱。';
+          case 'skill_symlink_permission_denied':
+            return '建立符號連結權限不足：在 Windows 上請開啟「開發人員模式」，或在同步設定中改用「檔案複製」。';
+          case 'skill_file_conflict':
+            return '檔案已被外部程式修改，已取消儲存以避免覆蓋；請重新載入後再編輯。';
+          case 'skill_file_too_large':
+            return '檔案超過大小上限，無法讀取或上傳。';
+          case 'skill_file_not_text':
+            return '此檔案類型不支援在應用程式內以文字編輯。';
+          case 'skill_file_not_utf8':
+            return '此檔案不是有效的 UTF-8 文字，無法在應用程式內編輯。';
+          case 'skill_entry_exists':
+            return '目標位置已存在同名檔案或資料夾。';
+          case 'skill_entry_protected':
+            return '核心入口檔案 SKILL.md 受保護，不能重新命名或刪除。';
+          case 'skill_archive_multiple_roots':
+            return '壓縮檔內包含多個頂層目錄，每次僅支援匯入單一 Skill。';
+          case 'skill_archive_too_large':
+            return '壓縮檔超過 50 MiB 上限，無法匯入。';
+          case 'skill_archive_expanded_too_large':
+            return '壓縮檔解壓後超過 200 MiB 上限，無法匯入。';
+          case 'skill_archive_too_many_entries':
+            return '壓縮檔內檔案數量超過 5,000 個上限，無法匯入。';
+          case 'skill_archive_unsafe_path':
+          case 'skill_archive_special_entry':
+            return '壓縮檔包含不安全的路徑或特殊連結項目，已拒絕匯入。';
+          case 'skill_archive_extension_invalid':
+            return '僅支援匯入 .zip 或 .skill 格式的壓縮檔。';
+          case 'skill_archive_invalid':
+            return '壓縮檔無效或已損壞，無法解析。';
+          case 'skill_target_conflict':
+            return '目標工具目錄中存在非 PromptClip 管理的同名內容，請點擊工具圖示確認後再處理。';
+          case 'skill_target_group_mode_conflict':
+            return '共用同一目錄的多個工具設定了不同的同步方式，請先在設定中統一。';
+          case 'skill_custom_tool_name_required':
+            return '請輸入自訂工具名稱。';
+          case 'skill_custom_tool_path_required':
+            return '請輸入自訂工具的 Skills 目錄路徑。';
+          case 'skill_custom_tool_path_not_absolute':
+          case 'skill_custom_tool_path_invalid':
+            return '自訂工具的 Skills 目錄必須是合法的絕對路徑。';
+          case 'skill_custom_tool_duplicate':
+            return '已存在同名或同路徑的自訂工具。';
+          case 'skill_category_name_required':
+            return '分類名稱不能為空。';
+          case 'skill_category_name_too_long':
+            return '分類名稱過長。';
+          case 'skill_category_name_duplicate':
+            return '分類名稱已存在。';
+          case 'skill_category_name_reserved':
+            return '此名稱為保留名稱，請改用其他名稱。';
+          case 'skill_source_changed':
+            return '外部 Skill 內容已發生變化，請重新掃描後再匯入。';
+          case 'skill_io_error':
+            return params.message
+              ? `檔案讀寫失敗：${params.message}`
+              : '檔案讀寫失敗，請檢查目錄權限後重試。';
+          default:
+            return params.message
+              ? `操作失敗：${params.message}`
+              : '操作失敗，請重試。';
+        }
+      },
       invalidSkillName: 'Skill 名稱格式不正確。',
       exportSuccess: 'Skill 已匯出。',
       protected: '受保護',
@@ -1045,6 +1200,7 @@ export const messages = {
       saveSettings: '儲存設定',
       migrationHint: '儲存後，已啟用的 Skills 將遷移到新的同步方式；失敗項可再次重試。',
       agentNotInstalled: '未安裝',
+      uninstalledAgents: (count: number) => `未偵測到安裝的 Agent（${count}）`,
       enableAgent: (tool: string) => `啟用 ${tool}`,
       disableAgent: (tool: string) => `停用 ${tool}`,
       agentDisabledHint: '已停用的 Agent 不會出現在 Skill 卡片和導航列，也不會參與同步。',
@@ -1088,6 +1244,8 @@ export const messages = {
       selectAll: '全選',
       deselectAll: '全不選',
       noSkillsInCategory: '此分類下暫無 Skill',
+      noCategoriesYet: '尚無自訂分類，在下方輸入名稱即可快速建立',
+      quickCreateCategoryPlaceholder: '輸入新分類名',
       categoryNameRequired: '分類名稱不能為空',
       categoryNameTooLong: '分類名稱過長',
       categoryNameDuplicate: '分類名稱已存在',
@@ -1507,6 +1665,7 @@ export const messages = {
       searchPlaceholder: 'Search Skills by name',
       all: 'All',
       favorites: 'Favorites',
+      clearFilter: 'Clear filter',
       agents: 'Agents',
       noAgents: 'No installed agents detected',
       moreTools: 'More tools',
@@ -1518,10 +1677,17 @@ export const messages = {
       loading: 'Loading Skills…',
       noSkills: 'No Skills yet',
       noSkillsHint: 'Scan, create, or upload Skills to start managing Agent Skills.',
+      noMatchingSkills: 'No matching Skills',
+      noMatchingSkillsHint: 'Try adjusting your search query or clearing the active filter.',
       favorite: 'Favorite Skill',
       unfavorite: 'Remove Skill from favorites',
       enableFor: (tool: string) => `Enable for ${tool}`,
       disableFor: (tool: string) => `Disable for ${tool}`,
+      resyncFor: (tool: string) => `Resync for ${tool}`,
+      repairBrokenFor: (tool: string) => `Repair broken link for ${tool}`,
+      repairBroken: 'Repair link',
+      confirmRepairBroken: (skill: string, tool: string, path: string) =>
+        `Repair the broken link for “${skill}” in ${tool}?\n\nTarget: ${path}\n\nPromptClip will replace the broken link and recreate the managed target.`,
       forceOverwriteFor: (tool: string) => `Force overwrite for ${tool}`,
       forceOverwrite: 'Force overwrite',
       confirmForceOverwrite: (skill: string, tool: string, path: string) =>
@@ -1594,6 +1760,7 @@ export const messages = {
       archiveConflict: 'A Skill with this name already exists. Choose which version to keep.',
       confirmArchiveImport: 'Import',
       backToSkills: 'Back to Skills',
+      revealSkillFolder: 'Show Skill folder in file manager',
       newFolder: 'New folder',
       newFile: 'New text file',
       uploadFile: 'Upload file',
@@ -1617,6 +1784,73 @@ export const messages = {
       unsavedChanges: 'Discard unsaved changes?',
       syncPartialFailure: 'Saved, but some copy targets could not be refreshed.',
       operationFailed: 'The operation failed. Please try again.',
+      scanNoExternalFound: 'Scan complete. No external Skills found to import.',
+      skillOperationError: (code: string, params: Record<string, string>) => {
+        switch (code) {
+          case 'skill_already_exists':
+            return 'A Skill with this name already exists. Please choose another name.';
+          case 'skill_symlink_permission_denied':
+            return 'Permission denied while creating a symbolic link. On Windows, enable Developer Mode or switch to File Copy in sync settings.';
+          case 'skill_file_conflict':
+            return 'The file was modified outside PromptClip. Reload it before saving to avoid overwriting changes.';
+          case 'skill_file_too_large':
+            return 'The file exceeds the maximum allowed size.';
+          case 'skill_file_not_text':
+            return 'This file type cannot be edited as text in PromptClip.';
+          case 'skill_file_not_utf8':
+            return 'This file is not valid UTF-8 text and cannot be edited here.';
+          case 'skill_entry_exists':
+            return 'A file or folder with the same name already exists here.';
+          case 'skill_entry_protected':
+            return 'SKILL.md is protected and cannot be renamed or deleted.';
+          case 'skill_archive_multiple_roots':
+            return 'The archive contains multiple top-level folders. Only one Skill per archive is supported.';
+          case 'skill_archive_too_large':
+            return 'The archive exceeds the 50 MiB limit.';
+          case 'skill_archive_expanded_too_large':
+            return 'The extracted archive exceeds the 200 MiB limit.';
+          case 'skill_archive_too_many_entries':
+            return 'The archive exceeds the 5,000-entry limit.';
+          case 'skill_archive_unsafe_path':
+          case 'skill_archive_special_entry':
+            return 'The archive contains unsafe paths or unsupported link entries.';
+          case 'skill_archive_extension_invalid':
+            return 'Only .zip and .skill archive files are supported.';
+          case 'skill_archive_invalid':
+            return 'The archive is invalid or corrupted.';
+          case 'skill_target_conflict':
+            return 'An unmanaged item with the same name exists in the Agent directory. Click the tool icon to resolve the conflict.';
+          case 'skill_target_group_mode_conflict':
+            return 'Tools sharing the same skills directory have conflicting sync modes. Align them in settings first.';
+          case 'skill_custom_tool_name_required':
+            return 'Please enter a name for the custom tool.';
+          case 'skill_custom_tool_path_required':
+            return 'Please enter the skills directory path for the custom tool.';
+          case 'skill_custom_tool_path_not_absolute':
+          case 'skill_custom_tool_path_invalid':
+            return 'The custom tool skills directory must be a valid absolute path.';
+          case 'skill_custom_tool_duplicate':
+            return 'A custom tool with the same name or path already exists.';
+          case 'skill_category_name_required':
+            return 'Category name is required.';
+          case 'skill_category_name_too_long':
+            return 'Category name is too long.';
+          case 'skill_category_name_duplicate':
+            return 'Category name already exists.';
+          case 'skill_category_name_reserved':
+            return 'This name is reserved. Please choose another.';
+          case 'skill_source_changed':
+            return 'The external Skill changed on disk. Rescan before importing.';
+          case 'skill_io_error':
+            return params.message
+              ? `File system error: ${params.message}`
+              : 'A file system error occurred. Please check permissions and retry.';
+          default:
+            return params.message
+              ? `Operation failed: ${params.message}`
+              : 'The operation failed. Please try again.';
+        }
+      },
       invalidSkillName: 'The Skill name is invalid.',
       exportSuccess: 'Skill exported.',
       protected: 'Protected',
@@ -1636,6 +1870,7 @@ export const messages = {
       saveSettings: 'Save settings',
       migrationHint: 'Enabled Skills will migrate to the new mode after saving. Failed items can be retried.',
       agentNotInstalled: 'Not installed',
+      uninstalledAgents: (count: number) => `Not installed (${count})`,
       enableAgent: (tool: string) => `Enable ${tool}`,
       disableAgent: (tool: string) => `Disable ${tool}`,
       agentDisabledHint: 'Disabled agents are hidden from skill cards and the sidebar, and do not participate in syncing.',
@@ -1682,6 +1917,8 @@ export const messages = {
       selectAll: 'Select all',
       deselectAll: 'Deselect all',
       noSkillsInCategory: 'No Skills in this category yet',
+      noCategoriesYet: 'No categories yet',
+      quickCreateCategoryPlaceholder: 'New category name',
       categoryNameRequired: 'Category name is required',
       categoryNameTooLong: 'Category name is too long',
       categoryNameDuplicate: 'Category name already exists',
@@ -2101,6 +2338,7 @@ export const messages = {
       searchPlaceholder: '名前で Skills を検索',
       all: 'すべて',
       favorites: 'お気に入り',
+      clearFilter: 'フィルターをクリア',
       agents: 'Agents',
       noAgents: 'インストールされた Agent が見つかりません',
       moreTools: 'その他',
@@ -2112,10 +2350,17 @@ export const messages = {
       loading: 'Skills を読み込み中…',
       noSkills: 'Skills はまだありません',
       noSkillsHint: 'Skills をスキャン・作成・アップロードして Agent Skills を管理しましょう。',
+      noMatchingSkills: '一致する Skills がありません',
+      noMatchingSkillsHint: '検索キーワードを変更するか、別のフィルターに切り替えてみてください。',
       favorite: 'Skill をお気に入りに追加',
       unfavorite: 'Skill のお気に入りを解除',
       enableFor: (tool: string) => `${tool} で有効化`,
       disableFor: (tool: string) => `${tool} で無効化`,
+      resyncFor: (tool: string) => `${tool} に再同期`,
+      repairBrokenFor: (tool: string) => `${tool} のリンク切れを修復`,
+      repairBroken: 'リンクを修復',
+      confirmRepairBroken: (skill: string, tool: string, path: string) =>
+        `${tool} の Skill「${skill}」の壊れたリンクを修復しますか？\n\n対象：${path}\n\nPromptClip が無効なリンクを置き換えて同期先を再作成します。`,
       forceOverwriteFor: (tool: string) => `${tool} の Skill を強制上書き`,
       forceOverwrite: '強制上書き',
       confirmForceOverwrite: (skill: string, tool: string, path: string) =>
@@ -2188,6 +2433,7 @@ export const messages = {
       archiveConflict: '同名の Skill があります。保持するバージョンを選択してください。',
       confirmArchiveImport: '読み込む',
       backToSkills: 'Skills に戻る',
+      revealSkillFolder: 'ファイルマネージャーで Skill フォルダーを表示',
       newFolder: '新規フォルダー',
       newFile: '新規テキストファイル',
       uploadFile: 'ファイルをアップロード',
@@ -2211,6 +2457,73 @@ export const messages = {
       unsavedChanges: '未保存の変更を破棄しますか？',
       syncPartialFailure: '保存しましたが、一部のコピー先を同期できませんでした。',
       operationFailed: '操作に失敗しました。もう一度お試しください。',
+      scanNoExternalFound: 'スキャンが完了しました。取り込み対象の外部 Skill は見つかりませんでした。',
+      skillOperationError: (code: string, params: Record<string, string>) => {
+        switch (code) {
+          case 'skill_already_exists':
+            return '同名の Skill がすでに存在します。別の名前を入力してください。';
+          case 'skill_symlink_permission_denied':
+            return 'シンボリックリンクの作成権限がありません。Windows では開発者モードを有効にするか、同期設定で「ファイルコピー」を選択してください。';
+          case 'skill_file_conflict':
+            return 'ファイルが外部で変更されています。上書きを防ぐため、再読み込みしてから編集してください。';
+          case 'skill_file_too_large':
+            return 'ファイルサイズが上限を超えています。';
+          case 'skill_file_not_text':
+            return 'このファイル形式はアプリ内でのテキスト編集に対応していません。';
+          case 'skill_file_not_utf8':
+            return '有効な UTF-8 テキストではないため、アプリ内で編集できません。';
+          case 'skill_entry_exists':
+            return '同名のファイルまたはフォルダーがすでに存在します。';
+          case 'skill_entry_protected':
+            return 'SKILL.md は保護されているため、名前変更や削除はできません。';
+          case 'skill_archive_multiple_roots':
+            return 'アーカイブに複数のトップレベルフォルダーが含まれています。1 回につき 1 つの Skill のみ取り込めます。';
+          case 'skill_archive_too_large':
+            return 'アーカイブサイズが 50 MiB の上限を超えています。';
+          case 'skill_archive_expanded_too_large':
+            return '展開後のサイズが 200 MiB の上限を超えています。';
+          case 'skill_archive_too_many_entries':
+            return 'アーカイブ内のファイル数が 5,000 件の上限を超えています。';
+          case 'skill_archive_unsafe_path':
+          case 'skill_archive_special_entry':
+            return '安全でないパスまたは未対応のリンクが含まれているため取り込めません。';
+          case 'skill_archive_extension_invalid':
+            return '.zip または .skill 形式のアーカイブのみ対応しています。';
+          case 'skill_archive_invalid':
+            return 'アーカイブが無効または破損しています。';
+          case 'skill_target_conflict':
+            return '対象ツールディレクトリに管理外の同名項目があります。ツールアイコンをクリックして競合を解決してください。';
+          case 'skill_target_group_mode_conflict':
+            return '同じディレクトリを共有するツール間で同期方式が競合しています。設定で統一してください。';
+          case 'skill_custom_tool_name_required':
+            return 'カスタムツール名を入力してください。';
+          case 'skill_custom_tool_path_required':
+            return 'カスタムツールの Skills ディレクトリパスを入力してください。';
+          case 'skill_custom_tool_path_not_absolute':
+          case 'skill_custom_tool_path_invalid':
+            return 'カスタムツールの Skills ディレクトリには有効な絶対パスを指定してください。';
+          case 'skill_custom_tool_duplicate':
+            return '同じ名前またはパスのカスタムツールがすでに存在します。';
+          case 'skill_category_name_required':
+            return 'カテゴリー名は必須です。';
+          case 'skill_category_name_too_long':
+            return 'カテゴリー名が長すぎます。';
+          case 'skill_category_name_duplicate':
+            return 'カテゴリー名がすでに存在します。';
+          case 'skill_category_name_reserved':
+            return 'この名前は予約されているため、別の名前を使用してください。';
+          case 'skill_source_changed':
+            return '外部 Skill の内容が変更されました。再スキャンしてから取り込んでください。';
+          case 'skill_io_error':
+            return params.message
+              ? `ファイルシステムエラー：${params.message}`
+              : 'ファイルの読み書きに失敗しました。権限を確認して再試行してください。';
+          default:
+            return params.message
+              ? `操作に失敗しました：${params.message}`
+              : '操作に失敗しました。もう一度お試しください。';
+        }
+      },
       invalidSkillName: 'Skill 名の形式が正しくありません。',
       exportSuccess: 'Skill を書き出しました。',
       protected: '保護対象',
@@ -2230,6 +2543,7 @@ export const messages = {
       saveSettings: '設定を保存',
       migrationHint: '保存後、有効な Skills は新しい方式へ移行します。失敗項目は再試行できます。',
       agentNotInstalled: '未インストール',
+      uninstalledAgents: (count: number) => `未インストールの Agent（${count}）`,
       enableAgent: (tool: string) => `${tool} を有効化`,
       disableAgent: (tool: string) => `${tool} を無効化`,
       agentDisabledHint: '無効化した Agent は Skill カードとサイドバーに表示されず、同期にも参加しません。',
@@ -2274,6 +2588,8 @@ export const messages = {
       selectAll: 'すべて選択',
       deselectAll: '選択を解除',
       noSkillsInCategory: 'このカテゴリーに Skill はまだありません',
+      noCategoriesYet: 'カテゴリーはまだありません',
+      quickCreateCategoryPlaceholder: '新しいカテゴリー名',
       categoryNameRequired: 'カテゴリー名は必須です',
       categoryNameTooLong: 'カテゴリー名が長すぎます',
       categoryNameDuplicate: 'カテゴリー名がすでに存在します',

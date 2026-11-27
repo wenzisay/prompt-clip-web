@@ -12,7 +12,7 @@ import { usePromptStore } from '@/stores/promptStore';
 import { useSkillStore } from '@/stores/skillStore';
 import { useTagStore } from '@/stores/tagStore';
 import { useUIStore, type AppSection } from '@/stores/uiStore';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 export interface SidebarProps {
   onSkillSettings?: () => void;
@@ -29,12 +29,28 @@ export function Sidebar({ onSkillSettings, onSelectSection }: SidebarProps) {
   const { clearPrompts } = usePromptStore();
   const { clearTags } = useTagStore();
   const { appSection, openModal, setAppSection } = useUIStore();
-  const { tools: agentTools, filter: skillFilter, setAgentToolFilter } = useSkillStore();
+  const {
+    skills,
+    tools: agentTools,
+    filter: skillFilter,
+    setAgentToolFilter,
+  } = useSkillStore();
   const isDesktop = isTauriRuntime();
   const isPromptSection = appSection === 'prompts';
   const installedAgentTools = agentTools.filter(
     (tool) => tool.installed && tool.enabled
   );
+  const agentSkillCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const skill of skills) {
+      for (const [toolId, state] of Object.entries(skill.toolStates)) {
+        if (state.status !== 'disabled' && state.status !== 'broken') {
+          counts[toolId] = (counts[toolId] ?? 0) + 1;
+        }
+      }
+    }
+    return counts;
+  }, [skills]);
   // 切换 section：外部传入处理器时用之（用于未保存修改确认），否则直接切换
   const selectSection = onSelectSection ?? setAppSection;
 
@@ -138,6 +154,13 @@ export function Sidebar({ onSkillSettings, onSelectSection }: SidebarProps) {
                         </span>
                         <span className="min-w-0 flex-1 truncate text-sm font-medium">
                           {tool.name}
+                        </span>
+                        <span
+                          aria-hidden="true"
+                          data-testid={`agent-count-${tool.id}`}
+                          className={`shrink-0 text-xs ${isActive ? 'text-accent' : 'text-muted'}`}
+                        >
+                          {agentSkillCounts[tool.id] ?? 0}
                         </span>
                       </button>
                     </li>

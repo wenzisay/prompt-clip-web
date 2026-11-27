@@ -2,6 +2,8 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useSta
 import { open, save } from '@tauri-apps/plugin-dialog';
 import { useTranslation } from '@/i18n';
 import { SkillService } from '@/services/skillService';
+import { useUIStore } from '@/stores/uiStore';
+import { toSkillManagerError } from '@/utils/skillError';
 import type { SkillFileEntry, SkillTextFile } from '@/types/skill';
 import { ContextMenu } from '@/components/common/ContextMenu';
 import type { MenuItem } from '@/components/common/ContextMenu';
@@ -14,6 +16,7 @@ export interface SkillDetailPageProps {
   skillId: string;
   onBack: () => void;
   onExport: (skillId: string) => void;
+  onSaved?: () => void;
 }
 
 /** 父组件可通过 ref 请求离开详情页；若有未保存修改会先弹确认框 */
@@ -45,15 +48,27 @@ interface ConfirmState {
 }
 
 export const SkillDetailPage = forwardRef<SkillDetailPageHandle, SkillDetailPageProps>(
-  function SkillDetailPage({ skillId, onBack, onExport }, ref) {
+  function SkillDetailPage({ skillId, onBack, onExport, onSaved }, ref) {
   const { t } = useTranslation();
+  const addToast = useUIStore((state) => state.addToast);
   const [entries, setEntries] = useState<SkillFileEntry[]>([]);
   const [selected, setSelected] = useState<SkillFileEntry | null>(null);
   const [file, setFile] = useState<SkillTextFile | null>(null);
   const [isDirty, setDirty] = useState(false);
   const [isSaving, setSaving] = useState(false);
-  const [error, setError] = useState(false);
   const [banner, setBanner] = useState<string | null>(null);
+
+  const notifyError = useCallback(
+    (err: unknown) => {
+      const normalized = toSkillManagerError(err);
+      addToast({
+        type: 'error',
+        message: t.skills.skillOperationError(normalized.code, normalized.params),
+        duration: 4500,
+      });
+    },
+    [addToast, t.skills],
+  );
   const [collapsedPaths, setCollapsedPaths] = useState<Set<string>>(new Set());
   const [dragOverPath, setDragOverPath] = useState<string | null>(null);
   const [draggingPath, setDraggingPath] = useState<string | null>(null);
@@ -110,16 +125,15 @@ export const SkillDetailPage = forwardRef<SkillDetailPageHandle, SkillDetailPage
           : null;
         if (selectionRequest.current === request) {
           setFile(nextFile);
-          setError(false);
         }
-      } catch {
+      } catch (err) {
         if (selectionRequest.current === request) {
-          setError(true);
+          notifyError(err);
           setFile(null);
         }
       }
     },
-    [skillId],
+    [notifyError, skillId],
   );
 
   // 切换到某个文件：如脏则先弹确认框
@@ -150,11 +164,10 @@ export const SkillDetailPage = forwardRef<SkillDetailPageHandle, SkillDetailPage
         const nextFile = await SkillService.readTextFile(skillId, entry.relativePath);
         if (selectionRequest.current === request) {
           setFile(nextFile);
-          setError(false);
         }
       })
-      .catch(() => setError(true));
-  }, [loadTree, skillId]);
+      .catch((err) => notifyError(err));
+  }, [loadTree, notifyError, skillId]);
 
   useEffect(() => {
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -184,7 +197,6 @@ export const SkillDetailPage = forwardRef<SkillDetailPageHandle, SkillDetailPage
   const saveFile = async (content: string, expectedModifiedAtMs: number) => {
     if (!selected) return;
     setSaving(true);
-    setError(false);
     try {
       const result = await SkillService.writeTextFile(
         skillId,
@@ -194,10 +206,11 @@ export const SkillDetailPage = forwardRef<SkillDetailPageHandle, SkillDetailPage
       );
       setFile(result.file);
       setDirty(false);
+      onSaved?.();
       if (result.syncErrors.length > 0) setBanner(t.skills.syncPartialFailure);
       await loadTree();
-    } catch {
-      setError(true);
+    } catch (err) {
+      notifyError(err);
     } finally {
       setSaving(false);
     }
@@ -205,7 +218,6 @@ export const SkillDetailPage = forwardRef<SkillDetailPageHandle, SkillDetailPage
 
   const runMutation = async (operation: () => Promise<unknown>, successPath?: string) => {
     setMutating(true);
-    setError(false);
     setBanner(null);
     try {
       const result = await operation();
@@ -216,8 +228,8 @@ export const SkillDetailPage = forwardRef<SkillDetailPageHandle, SkillDetailPage
           : [];
       if (syncErrors.length > 0) setBanner(t.skills.syncPartialFailure);
       await refresh(successPath);
-    } catch {
-      setError(true);
+    } catch (err) {
+      notifyError(err);
     } finally {
       setMutating(false);
     }
@@ -288,7 +300,6 @@ export const SkillDetailPage = forwardRef<SkillDetailPageHandle, SkillDetailPage
       return;
     }
     setMutating(true);
-    setError(false);
     setBanner(null);
     let conflictCount = 0;
     let lastSuccessPath: string | undefined;
@@ -307,8 +318,8 @@ export const SkillDetailPage = forwardRef<SkillDetailPageHandle, SkillDetailPage
       }
       await refresh(lastSuccessPath);
       if (conflictCount > 0) setBanner(t.skills.dropConflictSkipped(conflictCount));
-    } catch {
-      setError(true);
+    } catch (err) {
+      notifyError(err);
     } finally {
       setMutating(false);
     }
@@ -326,7 +337,6 @@ export const SkillDetailPage = forwardRef<SkillDetailPageHandle, SkillDetailPage
       return;
     }
     setMutating(true);
-    setError(false);
     setBanner(null);
     try {
       await SkillService.renameEntry(skillId, source.relativePath, destination);
@@ -342,7 +352,7 @@ export const SkillDetailPage = forwardRef<SkillDetailPageHandle, SkillDetailPage
       if (isSkillEntryExistsError(err)) {
         setBanner(t.skills.dropConflictMove(source.name));
       } else {
-        setError(true);
+        notifyError(err);
       }
     } finally {
       setMutating(false);
@@ -377,6 +387,14 @@ export const SkillDetailPage = forwardRef<SkillDetailPageHandle, SkillDetailPage
     const destination = await save({ defaultPath: entry.name });
     if (!destination) return;
     await runMutation(() => SkillService.downloadFile(skillId, entry.relativePath, destination));
+  };
+
+  const revealSkillFolder = async () => {
+    try {
+      await SkillService.revealSkill(skillId);
+    } catch (err) {
+      notifyError(err);
+    }
   };
 
   // ---- 右键菜单 ----
@@ -487,28 +505,55 @@ export const SkillDetailPage = forwardRef<SkillDetailPageHandle, SkillDetailPage
         <h1 className="min-w-0 flex-1 truncate text-lg font-semibold">{skillId}</h1>
         <DetailAction icon="download" label={t.skills.export} onClick={() => onExport(skillId)} />
       </header>
-      {(error || banner) && (
-        <div className="border-b border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
-          {error ? t.skills.operationFailed : banner}
+      {banner && (
+        <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800">
+          {banner}
         </div>
       )}
       <div className="flex min-h-0 flex-1">
-        <aside className="w-72 shrink-0 overflow-y-auto border-r border-border bg-surface">
-          <SkillFileTree
-            entries={entries}
-            skillName={skillId}
-            selectedPath={selected?.relativePath ?? null}
-            collapsedPaths={collapsedPaths}
-            onToggle={toggle}
-            onSelect={(entry) => selectEntry(entry)}
-            onContextMenu={openMenu}
-            dragOverPath={dragOverPath}
-            onDragOverPathChange={setDragOverPath}
-            draggingPath={draggingPath}
-            onDraggingPathChange={setDraggingPath}
-            onDropFiles={(entry, event) => void handleDropFiles(entry, event)}
-            onDropEntry={(source, target) => void handleDropEntry(source, target)}
-          />
+        <aside className="flex w-72 shrink-0 flex-col border-r border-border bg-surface">
+          <div className="flex h-10 shrink-0 items-center justify-end gap-0.5 border-b border-border px-2">
+            <DetailAction
+              icon="note_add"
+              label={t.skills.newFile}
+              onClick={() => startCreate('file', selected)}
+              disabled={isMutating}
+            />
+            <DetailAction
+              icon="create_new_folder"
+              label={t.skills.newFolder}
+              onClick={() => startCreate('folder', selected)}
+              disabled={isMutating}
+            />
+            <DetailAction
+              icon="upload_file"
+              label={t.skills.uploadFile}
+              onClick={() => void startUpload(selected)}
+              disabled={isMutating}
+            />
+            <DetailAction
+              icon="folder_open"
+              label={t.skills.revealSkillFolder}
+              onClick={() => void revealSkillFolder()}
+            />
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <SkillFileTree
+              entries={entries}
+              skillName={skillId}
+              selectedPath={selected?.relativePath ?? null}
+              collapsedPaths={collapsedPaths}
+              onToggle={toggle}
+              onSelect={(entry) => selectEntry(entry)}
+              onContextMenu={openMenu}
+              dragOverPath={dragOverPath}
+              onDragOverPathChange={setDragOverPath}
+              draggingPath={draggingPath}
+              onDraggingPathChange={setDraggingPath}
+              onDropFiles={(entry, event) => void handleDropFiles(entry, event)}
+              onDropEntry={(source, target) => void handleDropEntry(source, target)}
+            />
+          </div>
         </aside>
         <main className="min-w-0 flex-1">
           <SkillFileEditor

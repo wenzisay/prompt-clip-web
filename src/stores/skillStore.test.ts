@@ -98,6 +98,34 @@ describe('skillStore', () => {
     ]);
   });
 
+  it('uses settings bundled in scan response without making a redundant initialize IPC', async () => {
+    const category: SkillCategory = {
+      id: 'c-fast',
+      name: 'Fast',
+      createdAt: '2026-08-01T00:00:00Z',
+    };
+    mocks.scan.mockResolvedValue({
+      ...scanResponse([{ ...skill('alpha'), categoryIds: ['c-fast'] }]),
+      settings: {
+        schemaVersion: 1,
+        defaultSyncMode: 'copy',
+        toolOverrides: {},
+        favorites: {},
+        customTools: [],
+        disabledToolIds: [],
+        toolOrder: [],
+        categories: [category],
+        skillCategories: { alpha: ['c-fast'] },
+      },
+    });
+
+    await useSkillStore.getState().load();
+
+    expect(mocks.initialize).not.toHaveBeenCalled();
+    expect(useSkillStore.getState().categories).toEqual([category]);
+    expect(useSkillStore.getState().categoryCounts['c-fast']).toBe(1);
+  });
+
   it('combines name search with a separate favorites filter without favorite-time sorting', async () => {
     mocks.scan.mockResolvedValue(
       scanResponse([
@@ -115,6 +143,35 @@ describe('skillStore', () => {
       'alpha',
       'zeta',
     ]);
+  });
+
+  it('matches skills by description and assigned category name in addition to name', async () => {
+    const review = { ...skill('code-check'), description: 'Audit pull requests safely', categoryIds: ['c1'] };
+    const writer = { ...skill('doc-helper'), description: 'Generate API markdown', categoryIds: [] };
+    mocks.scan.mockResolvedValue(scanResponse([review, writer]));
+    mocks.initialize.mockResolvedValue({
+      skillsPath: '/home/.prompt-clip/skills',
+      settings: {
+        schemaVersion: 1,
+        defaultSyncMode: 'symlink',
+        toolOverrides: {},
+        favorites: {},
+        customTools: [],
+        disabledToolIds: [],
+        toolOrder: [],
+        categories: [{ id: 'c1', name: 'Security', createdAt: '2026-08-01T00:00:00Z' }],
+        skillCategories: { 'code-check': ['c1'] },
+      },
+      settingsWarnings: [],
+      tools: [codex],
+    });
+    await useSkillStore.getState().load();
+
+    useSkillStore.getState().setSearchQuery('pull request');
+    expect(useSkillStore.getState().filteredSkills.map((item) => item.id)).toEqual(['code-check']);
+
+    useSkillStore.getState().setSearchQuery('security');
+    expect(useSkillStore.getState().filteredSkills.map((item) => item.id)).toEqual(['code-check']);
   });
 
   it('updates every tool sharing the returned target group after toggle', async () => {

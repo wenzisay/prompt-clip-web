@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { AgentTool, SkillManagerSettings } from '@/types/skill';
-import { SkillSettingsModal } from './SkillSettingsModal';
+import { computeReorderedToolIds, SkillSettingsModal } from './SkillSettingsModal';
 
 const settings: SkillManagerSettings = {
   schemaVersion: 1,
@@ -32,6 +32,7 @@ const tool: AgentTool = {
 
 function renderModal(
   overrides: {
+    onClose?: () => void;
     onSave?: () => void;
     skillsPath?: string;
     onRevealStorage?: () => void;
@@ -45,7 +46,7 @@ function renderModal(
       settings={settings}
       tools={overrides.tools ?? [tool]}
       skillsPath={overrides.skillsPath ?? '/home/.prompt-clip/skills'}
-      onClose={() => undefined}
+      onClose={overrides.onClose ?? (() => undefined)}
       onSave={overrides.onSave ?? (() => undefined)}
       onRevealStorage={overrides.onRevealStorage ?? (() => undefined)}
       onToggleToolEnabled={overrides.onToggleToolEnabled}
@@ -124,5 +125,57 @@ describe('SkillSettingsModal', () => {
 
     expect(screen.queryByRole('button', { name: 'Open in file manager' })).toBeNull();
     expect(screen.getByText('Storage is available only in the desktop version.')).toBeTruthy();
+  });
+
+  it('collapses uninstalled builtin tools by default and keeps custom tools visible', () => {
+    const uninstalled: AgentTool = {
+      ...tool,
+      id: 'windsurf',
+      name: 'Windsurf',
+      installed: false,
+      skillsPath: '/home/.windsurf/skills',
+      targetGroupId: 'windsurf',
+    };
+    const customTool: AgentTool = {
+      ...tool,
+      id: 'custom-myagent',
+      name: 'MyAgent',
+      installed: false,
+      source: 'custom',
+      skillsPath: '/custom/skills',
+      targetGroupId: 'custom',
+    };
+    renderModal({ tools: [tool, uninstalled, customTool] });
+
+    expect(screen.getByText('Codex')).toBeTruthy();
+    expect(screen.getByText('MyAgent')).toBeTruthy();
+    expect(screen.queryByText('Windsurf')).toBeNull();
+
+    const toggleButton = screen.getByRole('button', { name: /Not installed \(1\)/ });
+    fireEvent.click(toggleButton);
+
+    expect(screen.getByText('Windsurf')).toBeTruthy();
+  });
+
+  it('preserves collapsed tool IDs when computing reordered tool order', () => {
+    const cursor: AgentTool = { ...tool, id: 'cursor', name: 'Cursor' };
+    const windsurf: AgentTool = { ...tool, id: 'windsurf', name: 'Windsurf', installed: false };
+    const reordered = computeReorderedToolIds([tool, windsurf, cursor], 'cursor', 'codex');
+
+    expect(reordered).toEqual(['cursor', 'codex', 'windsurf']);
+  });
+
+  it('asks for confirmation before closing when sync settings have unsaved changes', () => {
+    const onClose = vi.fn();
+    renderModal({ onClose });
+
+    fireEvent.click(screen.getByRole('button', { name: 'File copy' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Confirm' })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    expect(onClose).toHaveBeenCalledOnce();
   });
 });

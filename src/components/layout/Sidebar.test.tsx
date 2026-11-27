@@ -141,4 +141,43 @@ describe('Sidebar Skills agents list', () => {
     expect(screen.getByText('No installed agents detected')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Windsurf' })).toBeNull();
   });
+
+  it('shows the enabled skill count for each installed agent', () => {
+    useSkillStore.setState({
+      tools: [codex, cursor],
+      skills: [
+        {
+          id: 's1',
+          name: 's1',
+          description: 'd1',
+          relativePath: 's1',
+          contentHash: 'h1',
+          favoritedAt: null,
+          categoryIds: [],
+          toolStates: {
+            codex: { toolId: 'codex', targetGroupId: 'shared', status: 'enabled', actualMode: 'symlink', message: null },
+            cursor: { toolId: 'cursor', targetGroupId: 'cursor', status: 'disabled', actualMode: null, message: null },
+          },
+        },
+        {
+          id: 's2',
+          name: 's2',
+          description: 'd2',
+          relativePath: 's2',
+          contentHash: 'h2',
+          favoritedAt: null,
+          categoryIds: [],
+          toolStates: {
+            codex: { toolId: 'codex', targetGroupId: 'shared', status: 'stale', actualMode: 'copy', message: null },
+            cursor: { toolId: 'cursor', targetGroupId: 'cursor', status: 'broken', actualMode: 'symlink', message: null },
+          },
+        },
+      ],
+    });
+
+    render(<Sidebar />);
+
+    expect(screen.getByTestId('agent-count-codex').textContent).toBe('2');
+    expect(screen.getByTestId('agent-count-cursor').textContent).toBe('0');
+  });
 });

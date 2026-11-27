@@ -19,8 +19,25 @@ import { AgentToolIcon } from '@/components/common';
 import { Modal } from '@/components/common/Modal';
 import { useTranslation } from '@/i18n';
 import type { AgentTool, SkillManagerSettings, SyncMode, ToolSyncMode } from '@/types/skill';
+import { SkillConfirmModal } from './SkillConfirmModal';
 
 type SkillSettingsTab = 'sync' | 'storage';
+
+/**
+ * 基于完整工具列表计算拖拽后的新顺序，确保折叠区域内的工具 ID 不会丢失。
+ */
+export function computeReorderedToolIds(
+  tools: AgentTool[],
+  activeId: string,
+  overId: string
+): string[] | null {
+  if (activeId === overId) return null;
+  const currentIds = tools.map((tool) => tool.id);
+  const oldIndex = currentIds.indexOf(activeId);
+  const newIndex = currentIds.indexOf(overId);
+  if (oldIndex < 0 || newIndex < 0) return null;
+  return arrayMove(currentIds, oldIndex, newIndex);
+}
 
 export interface SkillSettingsModalProps {
   isOpen: boolean;
@@ -62,6 +79,8 @@ export function SkillSettingsModal({
   // 自定义工具表单的本地输入态
   const [newName, setNewName] = useState('');
   const [newPath, setNewPath] = useState('');
+  const [showUninstalled, setShowUninstalled] = useState(false);
+  const [isDiscardConfirmOpen, setDiscardConfirmOpen] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -70,7 +89,27 @@ export function SkillSettingsModal({
     setOverrides(settings.toolOverrides);
     setNewName('');
     setNewPath('');
+    setShowUninstalled(false);
+    setDiscardConfirmOpen(false);
   }, [isOpen, settings]);
+
+  const primaryTools = tools.filter((tool) => tool.installed || tool.source === 'custom');
+  const uninstalledTools = tools.filter((tool) => !tool.installed && tool.source === 'builtin');
+
+  const isSyncDirty =
+    defaultMode !== settings.defaultSyncMode ||
+    tools.some(
+      (tool) =>
+        (overrides[tool.id] ?? 'inherit') !== (settings.toolOverrides[tool.id] ?? 'inherit')
+    );
+
+  const requestClose = () => {
+    if (isSyncDirty && !isSaving) {
+      setDiscardConfirmOpen(true);
+      return;
+    }
+    onClose();
+  };
 
   const handleAddCustomTool = async () => {
     if (!onAddCustomTool) return;
@@ -98,18 +137,38 @@ export function SkillSettingsModal({
   const handleDragEnd = (event: DragEndEvent) => {
     if (!onReorderTools) return;
     const { active, over } = event;
-    if (!over || active.id === over.id) return;
-    const currentIds = tools.map((tool) => tool.id);
-    const oldIndex = currentIds.indexOf(String(active.id));
-    const newIndex = currentIds.indexOf(String(over.id));
-    if (oldIndex < 0 || newIndex < 0) return;
-    onReorderTools(arrayMove(currentIds, oldIndex, newIndex));
+    if (!over) return;
+    const nextOrder = computeReorderedToolIds(tools, String(active.id), String(over.id));
+    if (nextOrder) onReorderTools(nextOrder);
   };
 
+  const renderToolRow = (tool: AgentTool) => (
+    <SortableAgentToolRow
+      key={tool.id}
+      tool={tool}
+      override={overrides[tool.id] ?? 'inherit'}
+      onChangeOverride={(mode) =>
+        setOverrides((current) => ({ ...current, [tool.id]: mode }))
+      }
+      onToggleEnabled={
+        onToggleToolEnabled
+          ? (enabled) => onToggleToolEnabled(tool.id, enabled)
+          : undefined
+      }
+      onRemove={
+        tool.source === 'custom' && onRemoveCustomTool
+          ? () => onRemoveCustomTool(tool.id)
+          : undefined
+      }
+      draggable={Boolean(onReorderTools)}
+    />
+  );
+
   return (
+    <>
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={requestClose}
       title={t.skills.settingsTitle}
       maxWidth="3xl"
       closeLabel={t.skills.close}
@@ -182,27 +241,30 @@ export function SkillSettingsModal({
                       strategy={verticalListSortingStrategy}
                     >
                       <div className="space-y-3">
-                        {tools.map((tool) => (
-                          <SortableAgentToolRow
-                            key={tool.id}
-                            tool={tool}
-                            override={overrides[tool.id] ?? 'inherit'}
-                            onChangeOverride={(mode) =>
-                              setOverrides((current) => ({ ...current, [tool.id]: mode }))
-                            }
-                            onToggleEnabled={
-                              onToggleToolEnabled
-                                ? (enabled) => onToggleToolEnabled(tool.id, enabled)
-                                : undefined
-                            }
-                            onRemove={
-                              tool.source === 'custom' && onRemoveCustomTool
-                                ? () => onRemoveCustomTool(tool.id)
-                                : undefined
-                            }
-                            draggable={Boolean(onReorderTools)}
-                          />
-                        ))}
+                        {primaryTools.map(renderToolRow)}
+                        {uninstalledTools.length > 0 && (
+                          <div className="pt-1">
+                            <button
+                              type="button"
+                              aria-expanded={showUninstalled}
+                              onClick={() => setShowUninstalled((open) => !open)}
+                              className="flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-xs font-medium text-muted transition-colors hover:bg-surface-dim hover:text-fg"
+                            >
+                              <span
+                                className="material-symbols-outlined text-[18px]"
+                                aria-hidden="true"
+                              >
+                                {showUninstalled ? 'expand_more' : 'chevron_right'}
+                              </span>
+                              <span>{t.skills.uninstalledAgents(uninstalledTools.length)}</span>
+                            </button>
+                            {showUninstalled && (
+                              <div className="mt-2 space-y-3">
+                                {uninstalledTools.map(renderToolRow)}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </SortableContext>
                   </DndContext>
@@ -262,14 +324,26 @@ export function SkillSettingsModal({
           </section>
         </div>
 
-        <div className="flex items-center justify-end border-t border-border px-6 py-4">
-          <button type="button" onClick={onClose} className="rounded-lg px-4 py-2 text-sm text-muted hover:bg-surface-dim">{t.skills.cancel}</button>
+        <div className="flex items-center justify-end gap-2 border-t border-border px-6 py-4">
+          <button type="button" onClick={requestClose} className="rounded-lg px-4 py-2 text-sm text-muted hover:bg-surface-dim">{t.skills.cancel}</button>
           {activeTab === 'sync' && (
             <button type="button" disabled={isSaving} onClick={() => onSave(defaultMode, overrides)} className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-50">{t.skills.saveSettings}</button>
           )}
         </div>
       </div>
     </Modal>
+    <SkillConfirmModal
+      isOpen={isDiscardConfirmOpen}
+      onClose={() => setDiscardConfirmOpen(false)}
+      onConfirm={() => {
+        setDiscardConfirmOpen(false);
+        onClose();
+      }}
+      title={t.skills.unsavedChanges}
+      message={t.skills.unsavedChanges}
+      confirmLabel={t.skills.confirm}
+    />
+    </>
   );
 }
 

@@ -111,7 +111,7 @@ describe('SkillCard', () => {
     expect(screen.queryByText('Disabled')).toBeNull();
   });
 
-  it('shows a status badge only when the Agent tool is in conflict', () => {
+  it('shows status badges for conflict, stale, and broken states only', () => {
     const { rerender } = render(<SkillCard skill={skill} tools={tools} />);
     const disabledTool = screen.getByRole('button', {
       name: /Enable for Codex · Disabled/,
@@ -146,6 +146,72 @@ describe('SkillCard', () => {
     const warningBadge = within(conflictedTool).getByText('warning');
     expect(warningBadge).toBeTruthy();
     expect(warningBadge.parentElement?.className).toContain('inline-flex');
+
+    const stale = {
+      ...skill,
+      toolStates: {
+        codex: { ...skill.toolStates.codex, status: 'stale' as const },
+      },
+    };
+    rerender(<SkillCard skill={stale} tools={tools} />);
+
+    const staleTool = screen.getByRole('button', {
+      name: /Resync for Codex · Needs sync/,
+    });
+    expect(within(staleTool).getByText('refresh')).toBeTruthy();
+
+    const broken = {
+      ...skill,
+      toolStates: {
+        codex: { ...skill.toolStates.codex, status: 'broken' as const },
+      },
+    };
+    rerender(<SkillCard skill={broken} tools={tools} />);
+
+    const brokenTool = screen.getByRole('button', {
+      name: /Repair broken link for Codex · Broken link/,
+    });
+    expect(within(brokenTool).getByText('error')).toBeTruthy();
+  });
+
+  it('resyncs a stale copy instead of disabling it when clicked', () => {
+    const stale = {
+      ...skill,
+      toolStates: {
+        codex: { ...skill.toolStates.codex, status: 'stale' as const },
+      },
+    };
+    render(<SkillCard skill={stale} tools={tools} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Resync for Codex · Needs sync/ }));
+
+    expect(setToolEnabled).toHaveBeenCalledWith('review-code', 'codex-group', true);
+  });
+
+  it('repairs a broken link only after confirmation', async () => {
+    const broken = {
+      ...skill,
+      toolStates: {
+        codex: { ...skill.toolStates.codex, status: 'broken' as const },
+      },
+    };
+    dialogMocks.confirm.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    render(<SkillCard skill={broken} tools={tools} />);
+
+    const brokenButton = screen.getByRole('button', {
+      name: /Repair broken link for Codex · Broken link/,
+    });
+    expect((brokenButton as HTMLButtonElement).disabled).toBe(false);
+
+    fireEvent.click(brokenButton);
+    await waitFor(() => expect(dialogMocks.confirm).toHaveBeenCalledTimes(1));
+    expect(setToolEnabled).not.toHaveBeenCalled();
+
+    fireEvent.click(brokenButton);
+    await waitFor(() => {
+      expect(dialogMocks.confirm).toHaveBeenCalledTimes(2);
+      expect(setToolEnabled).toHaveBeenCalledWith('review-code', 'codex-group', true, true);
+    });
   });
 
   it('moves favorite, export, and delete actions into the more menu', () => {
@@ -376,10 +442,11 @@ describe('SkillCard', () => {
       });
     });
 
-    it('renders category pills and filters on click', () => {
+    it('renders category pills and filters on click without opening the card', () => {
       const setCategoryFilter = vi.fn();
+      const onOpen = vi.fn();
       useSkillStore.setState({ setCategoryFilter });
-      render(<SkillCard skill={categorizedSkill} tools={tools} />);
+      render(<SkillCard skill={categorizedSkill} tools={tools} onOpen={onOpen} />);
 
       const workCategory = screen.getByText('#Work');
       const categoryList = workCategory.parentElement;
@@ -390,6 +457,7 @@ describe('SkillCard', () => {
 
       fireEvent.click(workCategory);
       expect(setCategoryFilter).toHaveBeenCalledWith('c1');
+      expect(onOpen).not.toHaveBeenCalled();
     });
 
     it('truncates pills when more than four categories', () => {

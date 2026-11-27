@@ -160,4 +160,20 @@ describe('SkillFileEditor', () => {
     expect(screen.getByText(/cannot be previewed/)).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Download' })).toBeTruthy();
   });
+
+  it('saves on Cmd/Ctrl+S only when dirty and shows an unsaved dot', async () => {
+    const onSave = vi.fn();
+    render(<SkillFileEditor entry={markdownEntry} file={textFile} onSave={onSave} onDownload={() => undefined} />);
+
+    expect(screen.queryByTestId('unsaved-indicator')).toBeNull();
+    fireEvent.keyDown(window, { key: 's', metaKey: true });
+    expect(onSave).not.toHaveBeenCalled();
+
+    const editor = await screen.findByTestId('markdown-live-editor');
+    fireEvent.change(editor, { target: { value: '# Shortcut Saved' } });
+    expect(screen.getByTestId('unsaved-indicator')).toBeTruthy();
+
+    fireEvent.keyDown(window, { key: 's', ctrlKey: true });
+    expect(onSave).toHaveBeenCalledWith('# Shortcut Saved', 1);
+  });
 });

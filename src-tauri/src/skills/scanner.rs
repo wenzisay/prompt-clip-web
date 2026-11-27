@@ -21,7 +21,7 @@ pub(crate) struct SkillFrontmatter {
 
 pub fn scan_hub(hub_path: &Path) -> Result<HubScanResult, SkillManagerError> {
     let mut entries = read_sorted_entries(hub_path)?;
-    let mut skills = Vec::new();
+    let mut candidates: Vec<(PathBuf, String)> = Vec::new();
     let mut invalid_entries = Vec::new();
 
     for entry in entries.drain(..) {
@@ -39,8 +39,51 @@ pub fn scan_hub(hub_path: &Path) -> Result<HubScanResult, SkillManagerError> {
         if !file_type.is_dir() {
             continue;
         }
+        candidates.push((entry.path(), directory_name));
+    }
 
-        match scan_skill_directory(&entry.path(), &directory_name) {
+    let results: Vec<(String, Result<SkillSummary, SkillManagerError>)> = if candidates.len() <= 1 {
+        candidates
+            .into_iter()
+            .map(|(path, directory_name)| {
+                let scanned = scan_skill_directory(&path, &directory_name);
+                (directory_name, scanned)
+            })
+            .collect()
+    } else {
+        let worker_count = std::thread::available_parallelism()
+            .map(usize::from)
+            .unwrap_or(1)
+            .min(candidates.len())
+            .max(1);
+        let chunk_size = candidates.len().div_ceil(worker_count);
+        std::thread::scope(|scope| {
+            let handles = candidates
+                .chunks(chunk_size)
+                .map(|chunk| {
+                    scope.spawn(move || {
+                        chunk
+                            .iter()
+                            .map(|(path, directory_name)| {
+                                (
+                                    directory_name.clone(),
+                                    scan_skill_directory(path, directory_name),
+                                )
+                            })
+                            .collect::<Vec<_>>()
+                    })
+                })
+                .collect::<Vec<_>>();
+            handles
+                .into_iter()
+                .flat_map(|handle| handle.join().unwrap_or_default())
+                .collect()
+        })
+    };
+
+    let mut skills = Vec::with_capacity(results.len());
+    for (directory_name, scanned) in results {
+        match scanned {
             Ok(skill) => skills.push(skill),
             Err(error) => invalid_entries.push(InvalidSkillEntry {
                 directory_name,
@@ -315,7 +358,10 @@ fn hash_directory(
             hasher.update(b"file\0");
             hasher.update(relative_bytes.as_bytes());
             hasher.update(b"\0");
-            hasher.update(fs::read(&path).map_err(|error| io_error("read_skill_file", error))?);
+            let mut file =
+                fs::File::open(&path).map_err(|error| io_error("read_skill_file", error))?;
+            std::io::copy(&mut file, hasher)
+                .map_err(|error| io_error("read_skill_file", error))?;
             hasher.update(b"\0");
         } else {
             return Err(SkillManagerError::new("skill_content_special_file")

@@ -4,6 +4,7 @@ import {
   forceEnableSkill,
   readSkillTextFile,
   revealExternalSkill,
+  revealSkill,
   scanSkills,
   setSkillEnabled,
   writeSkillTextFile,
@@ -102,6 +103,17 @@ describe('skillService', () => {
     expect(mocks.invoke).toHaveBeenCalledWith('skill_reveal_external', {
       targetGroupId: 'claude-group',
       directoryName: 'node_modules',
+    });
+  });
+
+  it('reveals a managed hub Skill folder by skillId', async () => {
+    installTauriRuntime();
+    mocks.invoke.mockResolvedValue(undefined);
+
+    await revealSkill('review-code');
+
+    expect(mocks.invoke).toHaveBeenCalledWith('skill_reveal_skill', {
+      skillId: 'review-code',
     });
   });
 

@@ -105,4 +105,25 @@ describe('SkillFilterTabs', () => {
     expect(useSkillStore.getState().filter.category).toBeNull();
     expect(screen.queryByText('Work')).toBeNull();
   });
+
+  it('clears the active agent or category filter via the chip close button', () => {
+    useSkillStore.setState({
+      tools: [codex],
+      categories: [{ id: 'c1', name: 'Work', createdAt: '' }],
+      filter: { searchQuery: '', favoritesOnly: false, agentToolId: 'codex', category: null },
+    });
+
+    const { rerender } = render(<SkillFilterTabs />);
+    fireEvent.click(screen.getByRole('button', { name: 'Clear filter' }));
+
+    expect(useSkillStore.getState().filter.agentToolId).toBeNull();
+
+    useSkillStore.setState({
+      filter: { searchQuery: '', favoritesOnly: false, agentToolId: null, category: 'c1' },
+    });
+    rerender(<SkillFilterTabs />);
+    fireEvent.click(screen.getByRole('button', { name: 'Clear filter' }));
+
+    expect(useSkillStore.getState().filter.category).toBeNull();
+  });
 });

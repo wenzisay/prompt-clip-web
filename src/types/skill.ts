@@ -101,6 +101,7 @@ export interface SkillManagerInitialization {
 
 export interface SkillScanResponse {
   skillsPath: string;
+  settings?: SkillManagerSettings;
   skills: SkillSummary[];
   invalidEntries: InvalidSkillEntry[];
   tools: AgentTool[];

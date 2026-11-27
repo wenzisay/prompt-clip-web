@@ -54,22 +54,30 @@ export function SkillCard({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isMenuOpen]);
 
-  const confirmForceOverwrite = async (
+  const confirmForceTakeover = async (
     tool: AgentTool,
-    state: SkillToolState
+    state: SkillToolState,
+    kind: 'conflict' | 'broken'
   ): Promise<void> => {
     const separator = tool.skillsPath.includes('\\') ? '\\' : '/';
     const targetPath = `${tool.skillsPath.replace(/[\\/]+$/, '')}${separator}${skill.id}`;
+    const message =
+      kind === 'broken'
+        ? t.skills.confirmRepairBroken(skill.name, tool.name, targetPath)
+        : t.skills.confirmForceOverwrite(skill.name, tool.name, targetPath);
+    const title =
+      kind === 'broken'
+        ? t.skills.repairBrokenFor(tool.name)
+        : t.skills.forceOverwriteFor(tool.name);
+    const okLabel =
+      kind === 'broken' ? t.skills.repairBroken : t.skills.forceOverwrite;
     try {
-      const confirmed = await confirm(
-        t.skills.confirmForceOverwrite(skill.name, tool.name, targetPath),
-        {
-          title: t.skills.forceOverwriteFor(tool.name),
-          kind: 'warning',
-          okLabel: t.skills.forceOverwrite,
-          cancelLabel: t.skills.cancel,
-        }
-      );
+      const confirmed = await confirm(message, {
+        title,
+        kind: 'warning',
+        okLabel,
+        cancelLabel: t.skills.cancel,
+      });
       if (!confirmed) return;
       await setToolEnabled(skill.id, state.targetGroupId, true, true);
     } catch (error) {
@@ -203,21 +211,31 @@ export function SkillCard({
         renderTool={(tool, mode) => {
           const state = skill.toolStates[tool.id] ?? missingToolState(tool);
           const isConflict = state.status === 'conflict';
-          const canToggle = !['pending', 'broken'].includes(state.status);
-          const shouldDisable = state.status === 'enabled' || state.status === 'stale';
+          const isStale = state.status === 'stale';
+          const isBroken = state.status === 'broken';
+          const canToggle = state.status !== 'pending';
+          const shouldDisable = state.status === 'enabled';
           const label = isConflict
             ? t.skills.forceOverwriteFor(tool.name)
-            : state.status === 'pending'
-              ? t.skills.pendingFor(tool.name)
-              : shouldDisable
-                ? t.skills.disableFor(tool.name)
-                : t.skills.enableFor(tool.name);
+            : isBroken
+              ? t.skills.repairBrokenFor(tool.name)
+              : isStale
+                ? t.skills.resyncFor(tool.name)
+                : state.status === 'pending'
+                  ? t.skills.pendingFor(tool.name)
+                  : shouldDisable
+                    ? t.skills.disableFor(tool.name)
+                    : t.skills.enableFor(tool.name);
           const statusLabel = getStatusLabel(state.status, t.skills);
           const handleClick = (event: React.MouseEvent) => {
             event.stopPropagation();
             if (!canToggle) return;
             if (isConflict) {
-              void confirmForceOverwrite(tool, state);
+              void confirmForceTakeover(tool, state, 'conflict');
+              return;
+            }
+            if (isBroken) {
+              void confirmForceTakeover(tool, state, 'broken');
               return;
             }
             void setToolEnabled(skill.id, state.targetGroupId, !shouldDisable);
@@ -285,6 +303,24 @@ export function SkillCard({
                         aria-hidden="true"
                       >
                         warning
+                      </span>
+                    )}
+                    {isStale && (
+                      <span
+                        className={`material-symbols-outlined absolute -bottom-1 -right-1 rounded-full
+                          bg-surface text-[14px] text-amber-600`}
+                        aria-hidden="true"
+                      >
+                        refresh
+                      </span>
+                    )}
+                    {isBroken && (
+                      <span
+                        className={`material-symbols-outlined absolute -bottom-1 -right-1 rounded-full
+                          bg-surface text-[14px] text-red-600`}
+                        aria-hidden="true"
+                      >
+                        error
                       </span>
                     )}
                   </span>
