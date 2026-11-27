@@ -47,6 +47,7 @@ pub fn detect_tools(
                 definition.copy_only,
                 settings,
             )
+            .with_reads_shared_agents_skills(definition.reads_shared_agents_skills)
         })
         .collect();
 
@@ -151,6 +152,7 @@ fn build_agent_tool(
         icon_id: id.to_string(),
         source: ToolSource::Builtin,
         enabled,
+        reads_shared_agents_skills: false,
     }
 }
 
@@ -161,6 +163,10 @@ impl AgentTool {
     }
     fn with_icon_id(mut self, icon_id: String) -> Self {
         self.icon_id = icon_id;
+        self
+    }
+    fn with_reads_shared_agents_skills(mut self, reads: bool) -> Self {
+        self.reads_shared_agents_skills = reads;
         self
     }
 }
@@ -416,5 +422,31 @@ mod tests {
         let tools = detect_tools(home.path(), &[], &settings);
         let ids: Vec<&str> = tools.iter().map(|t| t.id.as_str()).collect();
         assert_eq!(ids.first(), Some(&"custom-mytool"));
+    }
+
+    #[test]
+    fn should_propagate_shared_agents_skills_flag_and_default_custom_tools_to_false() {
+        let home = tempdir().expect("home should be created");
+        let custom_skills = home.path().join(".mytool").join("skills");
+        fs::create_dir_all(&custom_skills).expect("custom skills dir should be created");
+        let mut settings = SkillManagerSettings::default();
+        settings.custom_tools.push(CustomToolDefinition {
+            id: "custom-mytool".to_string(),
+            name: "MyTool".to_string(),
+            skills_path: custom_skills,
+        });
+
+        let tools = detect_tools(home.path(), &[], &settings);
+        let find = |id: &str| {
+            tools
+                .iter()
+                .find(|tool| tool.id == id)
+                .unwrap_or_else(|| panic!("tool {id} should exist"))
+        };
+
+        assert!(find("codex").reads_shared_agents_skills);
+        assert!(!find("claude-code").reads_shared_agents_skills);
+        assert!(!find("agents-skills").reads_shared_agents_skills);
+        assert!(!find("custom-mytool").reads_shared_agents_skills);
     }
 }

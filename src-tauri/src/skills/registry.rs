@@ -10,6 +10,7 @@ const INITIAL_TOOL_DEFINITIONS: &[ToolDefinition] = &[
         alternative_config_dirs: &[],
         cli_command: Some("claude"),
         copy_only: false,
+        reads_shared_agents_skills: false,
     },
     ToolDefinition {
         id: "codex",
@@ -18,6 +19,7 @@ const INITIAL_TOOL_DEFINITIONS: &[ToolDefinition] = &[
         alternative_config_dirs: &[],
         cli_command: Some("codex"),
         copy_only: false,
+        reads_shared_agents_skills: true,
     },
     ToolDefinition {
         id: "opencode",
@@ -26,6 +28,7 @@ const INITIAL_TOOL_DEFINITIONS: &[ToolDefinition] = &[
         alternative_config_dirs: &[".opencode"],
         cli_command: Some("opencode"),
         copy_only: false,
+        reads_shared_agents_skills: true,
     },
     ToolDefinition {
         id: "cursor",
@@ -34,6 +37,7 @@ const INITIAL_TOOL_DEFINITIONS: &[ToolDefinition] = &[
         alternative_config_dirs: &[],
         cli_command: Some("cursor"),
         copy_only: false,
+        reads_shared_agents_skills: true,
     },
     ToolDefinition {
         id: "agents-skills",
@@ -42,6 +46,7 @@ const INITIAL_TOOL_DEFINITIONS: &[ToolDefinition] = &[
         alternative_config_dirs: &[],
         cli_command: None,
         copy_only: false,
+        reads_shared_agents_skills: false,
     },
     ToolDefinition {
         id: "codebuddy",
@@ -50,6 +55,7 @@ const INITIAL_TOOL_DEFINITIONS: &[ToolDefinition] = &[
         alternative_config_dirs: &[],
         cli_command: Some("codebuddy"),
         copy_only: false,
+        reads_shared_agents_skills: false,
     },
     ToolDefinition {
         id: "gemini",
@@ -60,6 +66,7 @@ const INITIAL_TOOL_DEFINITIONS: &[ToolDefinition] = &[
         alternative_config_dirs: &[],
         cli_command: Some("gemini"),
         copy_only: false,
+        reads_shared_agents_skills: true,
     },
     ToolDefinition {
         id: "windsurf",
@@ -68,6 +75,7 @@ const INITIAL_TOOL_DEFINITIONS: &[ToolDefinition] = &[
         alternative_config_dirs: &[],
         cli_command: Some("windsurf"),
         copy_only: false,
+        reads_shared_agents_skills: true,
     },
     ToolDefinition {
         id: "trae",
@@ -76,6 +84,7 @@ const INITIAL_TOOL_DEFINITIONS: &[ToolDefinition] = &[
         alternative_config_dirs: &[],
         cli_command: Some("trae"),
         copy_only: false,
+        reads_shared_agents_skills: false,
     },
     ToolDefinition {
         id: "droid",
@@ -84,6 +93,7 @@ const INITIAL_TOOL_DEFINITIONS: &[ToolDefinition] = &[
         alternative_config_dirs: &[".droid"],
         cli_command: Some("droid"),
         copy_only: false,
+        reads_shared_agents_skills: true,
     },
     ToolDefinition {
         id: "augment",
@@ -92,6 +102,7 @@ const INITIAL_TOOL_DEFINITIONS: &[ToolDefinition] = &[
         alternative_config_dirs: &[],
         cli_command: Some("augment"),
         copy_only: false,
+        reads_shared_agents_skills: true,
     },
     ToolDefinition {
         id: "openclaw",
@@ -100,6 +111,7 @@ const INITIAL_TOOL_DEFINITIONS: &[ToolDefinition] = &[
         alternative_config_dirs: &[],
         cli_command: Some("openclaw"),
         copy_only: false,
+        reads_shared_agents_skills: false,
     },
     ToolDefinition {
         id: "cline",
@@ -108,6 +120,7 @@ const INITIAL_TOOL_DEFINITIONS: &[ToolDefinition] = &[
         alternative_config_dirs: &[],
         cli_command: Some("cline"),
         copy_only: false,
+        reads_shared_agents_skills: true,
     },
     ToolDefinition {
         id: "commandcode",
@@ -116,6 +129,7 @@ const INITIAL_TOOL_DEFINITIONS: &[ToolDefinition] = &[
         alternative_config_dirs: &[],
         cli_command: Some("commandcode"),
         copy_only: false,
+        reads_shared_agents_skills: false,
     },
     ToolDefinition {
         id: "continue",
@@ -124,6 +138,7 @@ const INITIAL_TOOL_DEFINITIONS: &[ToolDefinition] = &[
         alternative_config_dirs: &[],
         cli_command: Some("continue"),
         copy_only: false,
+        reads_shared_agents_skills: false,
     },
     ToolDefinition {
         id: "crush",
@@ -132,6 +147,7 @@ const INITIAL_TOOL_DEFINITIONS: &[ToolDefinition] = &[
         alternative_config_dirs: &[".crush"],
         cli_command: Some("crush"),
         copy_only: false,
+        reads_shared_agents_skills: false,
     },
     ToolDefinition {
         id: "goose",
@@ -140,6 +156,7 @@ const INITIAL_TOOL_DEFINITIONS: &[ToolDefinition] = &[
         alternative_config_dirs: &[".goose"],
         cli_command: Some("goose"),
         copy_only: false,
+        reads_shared_agents_skills: true,
     },
     ToolDefinition {
         id: "junie",
@@ -148,6 +165,7 @@ const INITIAL_TOOL_DEFINITIONS: &[ToolDefinition] = &[
         alternative_config_dirs: &[],
         cli_command: Some("junie"),
         copy_only: false,
+        reads_shared_agents_skills: false,
     },
     ToolDefinition {
         id: "kilo-code",
@@ -156,6 +174,7 @@ const INITIAL_TOOL_DEFINITIONS: &[ToolDefinition] = &[
         alternative_config_dirs: &[],
         cli_command: Some("kilo"),
         copy_only: false,
+        reads_shared_agents_skills: true,
     },
     ToolDefinition {
         id: "kiro",
@@ -164,6 +183,7 @@ const INITIAL_TOOL_DEFINITIONS: &[ToolDefinition] = &[
         alternative_config_dirs: &[],
         cli_command: Some("kiro"),
         copy_only: false,
+        reads_shared_agents_skills: false,
     },
     ToolDefinition {
         id: "qoder",
@@ -172,6 +192,7 @@ const INITIAL_TOOL_DEFINITIONS: &[ToolDefinition] = &[
         alternative_config_dirs: &[],
         cli_command: Some("qoder"),
         copy_only: false,
+        reads_shared_agents_skills: false,
     },
     ToolDefinition {
         id: "qwen-code",
@@ -180,6 +201,7 @@ const INITIAL_TOOL_DEFINITIONS: &[ToolDefinition] = &[
         alternative_config_dirs: &[],
         cli_command: Some("qwen"),
         copy_only: false,
+        reads_shared_agents_skills: false,
     },
     ToolDefinition {
         id: "roo-code",
@@ -188,6 +210,7 @@ const INITIAL_TOOL_DEFINITIONS: &[ToolDefinition] = &[
         alternative_config_dirs: &[],
         cli_command: Some("roo"),
         copy_only: false,
+        reads_shared_agents_skills: true,
     },
     ToolDefinition {
         id: "zencoder",
@@ -196,6 +219,7 @@ const INITIAL_TOOL_DEFINITIONS: &[ToolDefinition] = &[
         alternative_config_dirs: &[],
         cli_command: Some("zencoder"),
         copy_only: false,
+        reads_shared_agents_skills: false,
     },
     ToolDefinition {
         id: "pi",
@@ -204,6 +228,7 @@ const INITIAL_TOOL_DEFINITIONS: &[ToolDefinition] = &[
         alternative_config_dirs: &[],
         cli_command: Some("pi"),
         copy_only: false,
+        reads_shared_agents_skills: true,
     },
     ToolDefinition {
         id: "trae-cn",
@@ -212,6 +237,7 @@ const INITIAL_TOOL_DEFINITIONS: &[ToolDefinition] = &[
         alternative_config_dirs: &[],
         cli_command: Some("trae"),
         copy_only: false,
+        reads_shared_agents_skills: false,
     },
     ToolDefinition {
         id: "hermes",
@@ -220,6 +246,7 @@ const INITIAL_TOOL_DEFINITIONS: &[ToolDefinition] = &[
         alternative_config_dirs: &[],
         cli_command: Some("hermes"),
         copy_only: false,
+        reads_shared_agents_skills: false,
     },
     ToolDefinition {
         id: "workbuddy",
@@ -228,6 +255,7 @@ const INITIAL_TOOL_DEFINITIONS: &[ToolDefinition] = &[
         alternative_config_dirs: &[],
         cli_command: Some("workbuddy"),
         copy_only: false,
+        reads_shared_agents_skills: false,
     },
 ];
 
@@ -361,6 +389,47 @@ mod tests {
         assert_eq!(
             target_group_id(Path::new("/Users/test/.agents/skills")),
             target_group_id(Path::new("/Users/test/.agents/./skills"))
+        );
+    }
+
+    #[test]
+    fn should_mark_shared_agents_skills_compatibility_on_builtin_tools() {
+        let definitions = builtin_tool_definitions();
+        let reads_shared = |id: &str| {
+            definitions
+                .iter()
+                .find(|definition| definition.id == id)
+                .unwrap_or_else(|| panic!("tool {id} should exist"))
+                .reads_shared_agents_skills
+        };
+
+        for compatible in [
+            "codex",
+            "opencode",
+            "cursor",
+            "gemini",
+            "windsurf",
+            "droid",
+            "augment",
+            "cline",
+            "goose",
+            "kilo-code",
+            "roo-code",
+            "pi",
+        ] {
+            assert!(
+                reads_shared(compatible),
+                "{compatible} should read shared ~/.agents/skills"
+            );
+        }
+
+        assert!(
+            !reads_shared("claude-code"),
+            "claude-code should not inherit ~/.agents/skills"
+        );
+        assert!(
+            !reads_shared("agents-skills"),
+            "agents-skills itself should not be flagged as inheriting"
         );
     }
 }

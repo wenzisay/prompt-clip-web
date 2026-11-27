@@ -12,6 +12,8 @@ pub struct ToolDefinition {
     pub alternative_config_dirs: &'static [&'static str],
     pub cli_command: Option<&'static str>,
     pub copy_only: bool,
+    /// 该工具是否同时读取通用 `~/.agents/skills` 目录中的 Skill。
+    pub reads_shared_agents_skills: bool,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
@@ -123,6 +125,9 @@ pub struct AgentTool {
     pub source: ToolSource,
     /// 是否启用：被用户关闭的工具不参与同步、不出现在卡片工具栏与侧边栏。
     pub enabled: bool,
+    /// 该工具是否同时读取通用 `~/.agents/skills` 目录中的 Skill。
+    #[serde(default)]
+    pub reads_shared_agents_skills: bool,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]

@@ -370,6 +370,18 @@ export const messages = {
       forceOverwrite: '强制覆盖',
       confirmForceOverwrite: (skill: string, tool: string, path: string) =>
         `确认强制覆盖 ${tool} 中的 Skill“${skill}”吗？\n\n目标：${path}\n\n现有的同名文件、目录或链接将被 PromptClip 替换，操作成功后无法撤销。`,
+      fromAgentsSkills: '来自 Agents Skills',
+      alsoInAgentsSkills: '也在 Agents Skills 中启用',
+      fromAgentsSkillsTooltip: (tool: string) =>
+        `该 Skill 通过通用 Agents Skills（~/.agents/skills）对 ${tool} 生效`,
+      alsoInAgentsSkillsTooltip: (tool: string) =>
+        `该 Skill 同时存在于 ${tool} 专属目录与通用 Agents Skills（~/.agents/skills）中`,
+      duplicateSharedEnableTitle: (tool: string) => `确认重复为 ${tool} 启用`,
+      enableAnyway: '仍然启用',
+      confirmDuplicateSharedEnable: (skill: string, tool: string) =>
+        `Skill“${skill}”已通过 Agents Skills（~/.agents/skills）对 ${tool} 生效。\n\n继续启用会在 ${tool} 的专属目录中再同步一份，避免重复加载建议直接复用 Agents Skills。仍要继续吗？`,
+      agentCountTooltipWithShared: (tool: string, total: number, shared: number) =>
+        `${tool}（共 ${total} 个，其中 ${shared} 个来自 Agents Skills）`,
       pendingFor: (tool: string) => `${tool} 正在同步`,
       statusEnabled: '已启用',
       statusDisabled: '未启用',
@@ -1024,6 +1036,18 @@ export const messages = {
       forceOverwrite: '強制覆蓋',
       confirmForceOverwrite: (skill: string, tool: string, path: string) =>
         `確認強制覆蓋 ${tool} 中的 Skill「${skill}」嗎？\n\n目標：${path}\n\n現有的同名檔案、目錄或連結將由 PromptClip 取代，操作成功後無法復原。`,
+      fromAgentsSkills: '來自 Agents Skills',
+      alsoInAgentsSkills: '也在 Agents Skills 中啟用',
+      fromAgentsSkillsTooltip: (tool: string) =>
+        `該 Skill 透過通用 Agents Skills（~/.agents/skills）對 ${tool} 生效`,
+      alsoInAgentsSkillsTooltip: (tool: string) =>
+        `該 Skill 同時存在於 ${tool} 專屬目錄與通用 Agents Skills（~/.agents/skills）中`,
+      duplicateSharedEnableTitle: (tool: string) => `確認重複為 ${tool} 啟用`,
+      enableAnyway: '仍然啟用',
+      confirmDuplicateSharedEnable: (skill: string, tool: string) =>
+        `Skill「${skill}」已透過 Agents Skills（~/.agents/skills）對 ${tool} 生效。\n\n繼續啟用會在 ${tool} 的專屬目錄中再同步一份，為避免重複載入建議直接沿用 Agents Skills。仍要繼續嗎？`,
+      agentCountTooltipWithShared: (tool: string, total: number, shared: number) =>
+        `${tool}（共 ${total} 個，其中 ${shared} 個來自 Agents Skills）`,
       pendingFor: (tool: string) => `${tool} 正在同步`,
       statusEnabled: '已啟用',
       statusDisabled: '未啟用',
@@ -1692,6 +1716,18 @@ export const messages = {
       forceOverwrite: 'Force overwrite',
       confirmForceOverwrite: (skill: string, tool: string, path: string) =>
         `Force overwrite “${skill}” for ${tool}?\n\nTarget: ${path}\n\nPromptClip will replace the existing same-name file, directory, or link. This cannot be undone after it succeeds.`,
+      fromAgentsSkills: 'From Agents Skills',
+      alsoInAgentsSkills: 'Also in Agents Skills',
+      fromAgentsSkillsTooltip: (tool: string) =>
+        `Active for ${tool} via shared Agents Skills (~/.agents/skills)`,
+      alsoInAgentsSkillsTooltip: (tool: string) =>
+        `Enabled in both ${tool}'s dedicated directory and shared Agents Skills (~/.agents/skills)`,
+      duplicateSharedEnableTitle: (tool: string) => `Enable for ${tool} anyway?`,
+      enableAnyway: 'Enable anyway',
+      confirmDuplicateSharedEnable: (skill: string, tool: string) =>
+        `“${skill}” is already active for ${tool} via Agents Skills (~/.agents/skills).\n\nEnabling it here will sync an extra copy to ${tool}'s dedicated directory. To avoid duplicates, you can keep using Agents Skills. Continue anyway?`,
+      agentCountTooltipWithShared: (tool: string, total: number, shared: number) =>
+        `${tool} (${total} total, ${shared} via Agents Skills)`,
       pendingFor: (tool: string) => `Syncing ${tool}`,
       statusEnabled: 'Enabled',
       statusDisabled: 'Disabled',
@@ -2365,6 +2401,18 @@ export const messages = {
       forceOverwrite: '強制上書き',
       confirmForceOverwrite: (skill: string, tool: string, path: string) =>
         `${tool} の Skill「${skill}」を強制上書きしますか？\n\n対象：${path}\n\n同名の既存ファイル、フォルダー、またはリンクは PromptClip に置き換えられ、成功後は元に戻せません。`,
+      fromAgentsSkills: 'Agents Skills から',
+      alsoInAgentsSkills: 'Agents Skills でも有効',
+      fromAgentsSkillsTooltip: (tool: string) =>
+        `共有の Agents Skills（~/.agents/skills）経由で ${tool} に適用中`,
+      alsoInAgentsSkillsTooltip: (tool: string) =>
+        `${tool} 専用ディレクトリと共有 Agents Skills（~/.agents/skills）の両方で有効です`,
+      duplicateSharedEnableTitle: (tool: string) => `${tool} でも重複して有効化しますか？`,
+      enableAnyway: 'このまま有効化',
+      confirmDuplicateSharedEnable: (skill: string, tool: string) =>
+        `Skill「${skill}」は Agents Skills（~/.agents/skills）経由で ${tool} にすでに適用されています。\n\nここで有効化すると ${tool} 専用ディレクトリにも重複して同期されます。重複を避けるため Agents Skills のまま利用することをおすすめします。続行しますか？`,
+      agentCountTooltipWithShared: (tool: string, total: number, shared: number) =>
+        `${tool}（合計 ${total} 件、うち ${shared} 件は Agents Skills から）`,
       pendingFor: (tool: string) => `${tool} を同期中`,
       statusEnabled: '有効',
       statusDisabled: '無効',

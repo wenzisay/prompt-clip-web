@@ -6,6 +6,12 @@ import { useTranslation } from '@/i18n';
 import { useSkillStore } from '@/stores/skillStore';
 import { TagService } from '@/services/tagService';
 import { findCategory } from '@/services/categoryService';
+import {
+  getSkillAvailabilityForTool,
+  SHARED_AGENTS_SKILLS_TOOL_ID,
+  shouldWarnDuplicateSharedEnable,
+} from '@/utils/skillSharedAccess';
+import { toSkillManagerError } from '@/utils/skillError';
 import { TagPill } from '@/components/tag/TagPill';
 import { SkillAgentToolBar } from './SkillAgentToolBar';
 import { SkillCategoryAssignPanel } from './SkillCategoryAssignPanel';
@@ -31,7 +37,26 @@ export function SkillCard({
   const setToolEnabled = useSkillStore((state) => state.setToolEnabled);
   const categories = useSkillStore((state) => state.categories);
   const setCategoryFilter = useSkillStore((state) => state.setCategoryFilter);
+  const activeAgentToolId = useSkillStore((state) => state.filter?.agentToolId ?? null);
   const installedTools = tools.filter((tool) => tool.installed && tool.enabled);
+  const activeAgentTool = activeAgentToolId
+    ? tools.find((tool) => tool.id === activeAgentToolId)
+    : undefined;
+  const activeAgentAvailability = activeAgentTool
+    ? getSkillAvailabilityForTool(skill, activeAgentTool, tools)
+    : 'none';
+  const sharedSourceBadge =
+    activeAgentTool && activeAgentAvailability === 'shared'
+      ? {
+          label: t.skills.fromAgentsSkills,
+          tooltip: t.skills.fromAgentsSkillsTooltip(activeAgentTool.name),
+        }
+      : activeAgentTool && activeAgentAvailability === 'both'
+        ? {
+            label: t.skills.alsoInAgentsSkills,
+            tooltip: t.skills.alsoInAgentsSkillsTooltip(activeAgentTool.name),
+          }
+        : null;
   const [isMenuOpen, setMenuOpen] = useState(false);
   const [isToolMenuOpen, setToolMenuOpen] = useState(false);
   const [isCategoryPanelOpen, setCategoryPanelOpen] = useState(false);
@@ -88,6 +113,27 @@ export function SkillCard({
     }
   };
 
+  const confirmDuplicateSharedEnable = async (
+    tool: AgentTool,
+    state: SkillToolState
+  ): Promise<void> => {
+    try {
+      const confirmed = await confirm(
+        t.skills.confirmDuplicateSharedEnable(skill.name, tool.name),
+        {
+          title: t.skills.duplicateSharedEnableTitle(tool.name),
+          kind: 'warning',
+          okLabel: t.skills.enableAnyway,
+          cancelLabel: t.skills.cancel,
+        }
+      );
+      if (!confirmed) return;
+      await setToolEnabled(skill.id, state.targetGroupId, true);
+    } catch (error) {
+      setError(toSkillManagerError(error));
+    }
+  };
+
   return (
     <article
       className={`group relative flex min-h-[254px] cursor-pointer flex-col rounded-card border border-transparent bg-surface p-4 shadow-card transition-all hover:border-border hover:shadow-card-hover ${
@@ -104,6 +150,20 @@ export function SkillCard({
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
           <h3 className="truncate font-semibold text-fg">{skill.name}</h3>
+          {sharedSourceBadge && (
+            <div className="mt-1.5 flex items-center">
+              <span
+                data-testid="skill-shared-source-badge"
+                title={sharedSourceBadge.tooltip}
+                className="inline-flex max-w-full items-center gap-1 rounded-full border border-border bg-surface-dim px-2 py-0.5 text-[11px] font-medium text-muted"
+              >
+                <span className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center">
+                  <AgentToolIcon iconId={SHARED_AGENTS_SKILLS_TOOL_ID} />
+                </span>
+                <span className="truncate">{sharedSourceBadge.label}</span>
+              </span>
+            </div>
+          )}
           <p className="mt-2 text-sm leading-6 text-muted">
             {skill.description}
           </p>
@@ -236,6 +296,10 @@ export function SkillCard({
             }
             if (isBroken) {
               void confirmForceTakeover(tool, state, 'broken');
+              return;
+            }
+            if (!shouldDisable && shouldWarnDuplicateSharedEnable(skill, tool, state, tools)) {
+              void confirmDuplicateSharedEnable(tool, state);
               return;
             }
             void setToolEnabled(skill.id, state.targetGroupId, !shouldDisable);

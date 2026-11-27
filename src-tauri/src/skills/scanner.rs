@@ -436,6 +436,7 @@ mod tests {
             icon_id: id.to_string(),
             source: ToolSource::Builtin,
             enabled: true,
+            reads_shared_agents_skills: false,
         }
     }
 

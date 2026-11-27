@@ -308,6 +308,68 @@ describe('skillStore', () => {
       expect(useSkillStore.getState().filter.agentToolId).toBeNull();
       expect(useSkillStore.getState().filteredSkills.map((item) => item.id)).toEqual(['enabled']);
     });
+
+    it('includes shared agents-skills entries for compatible agents, deduplicated and sorted alphabetically', async () => {
+      const compatCodex: AgentTool = {
+        ...codex,
+        targetGroupId: 'group:codex',
+        readsSharedAgentsSkills: true,
+      };
+      const claude: AgentTool = {
+        ...codex,
+        id: 'claude-code',
+        name: 'Claude Code',
+        iconId: 'claude-code',
+        targetGroupId: 'group:claude',
+        readsSharedAgentsSkills: false,
+      };
+      const agentsTool: AgentTool = {
+        ...codex,
+        id: 'agents-skills',
+        name: 'Agents Skills',
+        iconId: 'agents-skills',
+        targetGroupId: 'group:agents',
+        readsSharedAgentsSkills: false,
+      };
+
+      const directOnly = skill('beta-direct');
+      directOnly.toolStates.codex.status = 'enabled';
+      directOnly.toolStates['agents-skills'].status = 'disabled';
+
+      const sharedOnly = skill('alpha-shared');
+      sharedOnly.toolStates.codex.status = 'disabled';
+      sharedOnly.toolStates['agents-skills'].status = 'enabled';
+
+      const enabledInBoth = skill('gamma-both');
+      enabledInBoth.toolStates.codex.status = 'enabled';
+      enabledInBoth.toolStates['agents-skills'].status = 'enabled';
+
+      const neither = skill('delta-none');
+
+      mocks.scan.mockResolvedValue({
+        ...scanResponse([enabledInBoth, directOnly, sharedOnly, neither]),
+        tools: [claude, compatCodex, agentsTool],
+      });
+      await useSkillStore.getState().load();
+
+      useSkillStore.getState().setAgentToolFilter('codex');
+      expect(useSkillStore.getState().filteredSkills.map((item) => item.id)).toEqual([
+        'alpha-shared',
+        'beta-direct',
+        'gamma-both',
+      ]);
+
+      // Claude Code 不读取 ~/.agents/skills，不应包含 sharedOnly
+      useSkillStore.getState().setAgentToolFilter('claude-code');
+      expect(useSkillStore.getState().filteredSkills).toEqual([]);
+
+      // Agents Skills 本身只显示 agents-skills 下启用的 Skill
+      useSkillStore.getState().setAgentToolFilter('agents-skills');
+      expect(useSkillStore.getState().filteredSkills.map((item) => item.id)).toEqual([
+        'alpha-shared',
+        'gamma-both',
+      ]);
+    });
   });
 
   describe('categories', () => {

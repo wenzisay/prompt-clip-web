@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { SkillService } from '@/services/skillService';
 import { buildCategoryCounts } from '@/services/categoryService';
 import { DEFAULT_CATEGORY_ID } from '@/constants/defaults';
+import { isSkillAvailableForTool, isSkillStatusActive } from '@/utils/skillSharedAccess';
 import type {
   AgentTool,
   ExternalScanResult,
@@ -429,18 +430,23 @@ export const useSkillStore = create<SkillState>()((set, get) => ({
   reset: () => set({ ...INITIAL_STATE, filter: { ...INITIAL_FILTER } }),
 
   applyFilter: () => {
-    const { skills, categories, filter } = get();
+    const { skills, tools, categories, filter } = get();
     const query = filter.searchQuery.trim().toLocaleLowerCase();
     const agentToolId = filter.agentToolId;
+    const activeAgentTool = agentToolId
+      ? tools.find((tool) => tool.id === agentToolId)
+      : undefined;
     const categoryId = filter.category;
     const categoryNameById = new Map(categories.map((category) => [category.id, category.name]));
     const filteredSkills = skills
       .filter((skill) => !filter.favoritesOnly || skill.favoritedAt !== null)
       .filter((skill) => {
         if (!agentToolId) return true;
-        const status = skill.toolStates[agentToolId]?.status;
+        if (activeAgentTool) {
+          return isSkillAvailableForTool(skill, activeAgentTool, tools);
+        }
         // 仅保留对该 Agent 已启用 / 同步中的 Skill（排除 disabled/broken/无记录）
-        return !!status && status !== 'disabled' && status !== 'broken';
+        return isSkillStatusActive(skill.toolStates[agentToolId]?.status);
       })
       .filter((skill) => {
         if (!categoryId) return true;

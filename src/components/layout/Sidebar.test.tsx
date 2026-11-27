@@ -180,4 +180,73 @@ describe('Sidebar Skills agents list', () => {
     expect(screen.getByTestId('agent-count-codex').textContent).toBe('2');
     expect(screen.getByTestId('agent-count-cursor').textContent).toBe('0');
   });
+
+  it('aggregates shared agents-skills counts for compatible agents and exposes breakdown in tooltip', () => {
+    const compatCodex: AgentTool = {
+      ...codex,
+      targetGroupId: 'group:codex',
+      readsSharedAgentsSkills: true,
+    };
+    const claude: AgentTool = {
+      ...codex,
+      id: 'claude-code',
+      name: 'Claude Code',
+      iconId: 'claude-code',
+      targetGroupId: 'group:claude',
+      readsSharedAgentsSkills: false,
+    };
+    const agents: AgentTool = {
+      ...codex,
+      id: 'agents-skills',
+      name: 'Agents Skills',
+      iconId: 'agents-skills',
+      targetGroupId: 'group:agents',
+      readsSharedAgentsSkills: false,
+    };
+
+    useSkillStore.setState({
+      tools: [claude, compatCodex, agents],
+      skills: [
+        {
+          id: 'shared-only',
+          name: 'shared-only',
+          description: 'd1',
+          relativePath: 'shared-only',
+          contentHash: 'h1',
+          favoritedAt: null,
+          categoryIds: [],
+          toolStates: {
+            codex: { toolId: 'codex', targetGroupId: 'group:codex', status: 'disabled', actualMode: null, message: null },
+            'claude-code': { toolId: 'claude-code', targetGroupId: 'group:claude', status: 'disabled', actualMode: null, message: null },
+            'agents-skills': { toolId: 'agents-skills', targetGroupId: 'group:agents', status: 'enabled', actualMode: 'symlink', message: null },
+          },
+        },
+        {
+          id: 'both-enabled',
+          name: 'both-enabled',
+          description: 'd2',
+          relativePath: 'both-enabled',
+          contentHash: 'h2',
+          favoritedAt: null,
+          categoryIds: [],
+          toolStates: {
+            codex: { toolId: 'codex', targetGroupId: 'group:codex', status: 'enabled', actualMode: 'symlink', message: null },
+            'claude-code': { toolId: 'claude-code', targetGroupId: 'group:claude', status: 'disabled', actualMode: null, message: null },
+            'agents-skills': { toolId: 'agents-skills', targetGroupId: 'group:agents', status: 'enabled', actualMode: 'symlink', message: null },
+          },
+        },
+      ],
+    });
+
+    render(<Sidebar />);
+
+    // Codex：both-enabled（直连）+ shared-only（来自 Agents Skills）去重后共 2 个
+    expect(screen.getByTestId('agent-count-codex').textContent).toBe('2');
+    expect(screen.getByRole('button', { name: 'Codex' }).getAttribute('title')).toContain('1 via Agents Skills');
+    // Claude Code 不读取 ~/.agents/skills，计数为 0
+    expect(screen.getByTestId('agent-count-claude-code').textContent).toBe('0');
+    expect(screen.getByRole('button', { name: 'Claude Code' }).getAttribute('title')).toBe('Claude Code');
+    // Agents Skills 自身计数为 2
+    expect(screen.getByTestId('agent-count-agents-skills').textContent).toBe('2');
+  });
 });
